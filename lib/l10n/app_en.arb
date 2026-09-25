@@ -1,0 +1,327 @@
+{
+  "@@locale": "en",
+  "appTitle": "Kopilka",
+  "@appTitle": {
+    "description": "Application name shown in the window title and task switcher"
+  },
+  "navAccounts": "Accounts",
+  "@navAccounts": {
+    "description": "Navigation label and screen title for the accounts section"
+  },
+  "navTransactions": "Transactions",
+  "@navTransactions": {
+    "description": "Navigation label and screen title for the transactions section"
+  },
+  "navCategories": "Categories",
+  "@navCategories": {
+    "description": "Navigation label and screen title for the categories section"
+  },
+  "navReports": "Reports",
+  "@navReports": {
+    "description": "Navigation label and screen title for the reports section"
+  },
+  "navSettings": "Settings",
+  "@navSettings": {
+    "description": "Navigation label and screen title for the settings section"
+  },
+  "reportsPlaceholder": "Reports and budgets will appear here. Stage M2.",
+  "@reportsPlaceholder": {
+    "description": "Placeholder text of the reports screen"
+  },
+
+  "backupSectionTitle": "Backup and export",
+  "@backupSectionTitle": {
+    "description": "Section header of the settings screen with backup actions"
+  },
+  "exportJsonAction": "Export backup (JSON)",
+  "@exportJsonAction": {
+    "description": "Action creating a full JSON backup and sharing the file"
+  },
+  "importJsonAction": "Import backup (JSON)",
+  "@importJsonAction": {
+    "description": "Action restoring the database from a JSON backup"
+  },
+  "exportCsvAction": "Export transactions (CSV)",
+  "@exportCsvAction": {
+    "description": "Action exporting live transactions to CSV"
+  },
+  "autoBackupTitle": "Auto-backup on launch",
+  "@autoBackupTitle": {
+    "description": "Setting title for the launch auto-backup directory"
+  },
+  "autoBackupPickFolder": "Choose folder",
+  "@autoBackupPickFolder": {
+    "description": "Button choosing the auto-backup directory"
+  },
+  "autoBackupDisabled": "Folder is not selected",
+  "@autoBackupDisabled": {
+    "description": "Auto-backup state when no directory is chosen"
+  },
+  "autoBackupRunNow": "Run now",
+  "@autoBackupRunNow": {
+    "description": "Button running the auto-backup immediately"
+  },
+  "importReplaceWarning": "All current data will be replaced with the backup content. Continue?",
+  "@importReplaceWarning": {
+    "description": "Body of the confirmation before importing a backup"
+  },
+  "importConfirmTitle": "Import backup?",
+  "@importConfirmTitle": {
+    "description": "Title of the confirmation before importing a backup"
+  },
+  "importDone": "Backup imported.",
+  "@importDone": {
+    "description": "Message after a successful import"
+  },
+  "backupExported": "File saved.",
+  "@backupExported": {
+    "description": "Message after a file was exported"
+  },
+  "backupCancelled": "Cancelled.",
+  "@backupCancelled": {
+    "description": "Message when the user cancels a picker dialog"
+  },
+  "errorBackupInvalidFormat": "This file is not a Kopilka backup.",
+  "@errorBackupInvalidFormat": {
+    "description": "Backup file is not valid JSON of the expected shape"
+  },
+  "errorBackupTooNew": "This backup was made by a newer version of the app.",
+  "@errorBackupTooNew": {
+    "description": "Backup schema_version is newer than supported"
+  },
+  "errorBackupTooOld": "This backup version is too old and cannot be read.",
+  "@errorBackupTooOld": {
+    "description": "Backup schema_version is older than any supported migration"
+  },
+  "errorBackupInvalidData": "Backup content is damaged or incomplete.",
+  "@errorBackupInvalidData": {
+    "description": "Backup rows do not match the expected schema"
+  },
+  "autoBackupDone": "Auto-backup saved: {fileName}",
+  "@autoBackupDone": {
+    "description": "Message after a successful auto-backup",
+    "placeholders": {
+      "fileName": { "type": "String" }
+    }
+  },
+  "autoBackupRemovedOld": " ({count} old removed)",
+  "@autoBackupRemovedOld": {
+    "description": "Appendix showing how many stale auto-backups were removed",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "autoBackupFailed": "Auto-backup failed: {reason}",
+  "@autoBackupFailed": {
+    "description": "Message when the auto-backup could not write the file",
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "updateSectionTitle": "Updates",
+  "@updateSectionTitle": {
+    "description": "Section header for update checks (M1, session 4)"
+  },
+  "updateAutoCheck": "Check for updates automatically",
+  "@updateAutoCheck": {
+    "description": "Switch tile for automatic update checks"
+  },
+  "updateAutoCheckHint": "Once every 7 days, no other network activity",
+  "@updateAutoCheckHint": {
+    "description": "Subtitle for the automatic check switch"
+  },
+  "updateCheckNow": "Check now",
+  "@updateCheckNow": {
+    "description": "Manual update check button"
+  },
+  "updateChecking": "Checking…",
+  "@updateChecking": {
+    "description": "Progress label during update check"
+  },
+  "updateUpToDate": "You have the latest version",
+  "@updateUpToDate": {
+    "description": "Snack when no update is available"
+  },
+  "updateUnavailable": "Could not check for updates",
+  "@updateUnavailable": {
+    "description": "Snack when the check failed (offline or API error)"
+  },
+  "updateFoundTitle": "Update available: {version}",
+  "@updateFoundTitle": {
+    "description": "Title of the update dialog",
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "updateFoundOpenRelease": "Open release page",
+  "@updateFoundOpenRelease": {
+    "description": "Button that opens the release page in a browser"
+  },
+  "updateFoundNoChangelog": "No changelog provided.",
+  "@updateFoundNoChangelog": {
+    "description": "Body of the update dialog when the release has no notes"
+  },
+  "updateOfferTitle": "Check for updates automatically?",
+  "@updateOfferTitle": {
+    "description": "First-launch offer to enable update checks"
+  },
+  "updateOfferBody": "The app will contact GitHub once a week to look for new versions. Nothing else is sent or downloaded — you install updates yourself.",
+  "@updateOfferBody": {
+    "description": "Body of the first-launch offer dialog"
+  },
+  "updateOfferEnable": "Enable",
+  "@updateOfferEnable": {
+    "description": "Button that enables automatic checks"
+  },
+  "updateOfferLater": "Not now",
+  "@updateOfferLater": {
+    "description": "Button that declines the offer"
+  },
+  "updateOpenFailed": "Could not open the release page",
+  "@updateOpenFailed": {
+    "description": "Snack when the browser could not be opened"
+  },
+
+  "saveAction": "Save",
+  "@saveAction": { "description": "Button that confirms a form" },
+  "cancelAction": "Cancel",
+  "@cancelAction": { "description": "Button that closes a form without changes" },
+  "deleteAction": "Delete",
+  "@deleteAction": { "description": "Button that deletes the record" },
+  "editAction": "Edit",
+  "@editAction": { "description": "Button that opens the record for editing" },
+  "nameLabel": "Name",
+  "@nameLabel": { "description": "Field label for a record name" },
+  "amountLabel": "Amount",
+  "@amountLabel": { "description": "Field label for a money amount" },
+  "dateLabel": "Date",
+  "@dateLabel": { "description": "Field label for a transaction date" },
+  "noteLabel": "Note",
+  "@noteLabel": { "description": "Field label for an optional transaction note" },
+  "categoryLabel": "Category",
+  "@categoryLabel": { "description": "Field label for a transaction category" },
+  "kindLabel": "Kind",
+  "@kindLabel": { "description": "Field label for income/expense kind" },
+  "currencyLabel": "Currency",
+  "@currencyLabel": { "description": "Field label for a currency picker" },
+
+  "errorInvalidInput": "Please check the entered values.",
+  "@errorInvalidInput": { "description": "Data layer rejected the input as invalid" },
+  "errorNotFound": "This record has already been deleted or does not exist.",
+  "@errorNotFound": { "description": "The record to update or delete is gone" },
+  "errorUnknown": "The action failed. Please try again.",
+  "@errorUnknown": { "description": "Unexpected failure of a data operation" },
+  "errorCurrencyUsedByAccounts": "This currency is used by existing accounts. Delete or move them first.",
+  "@errorCurrencyUsedByAccounts": { "description": "Currency soft delete refused because live accounts reference it" },
+  "errorAccountHasTransactions": "This account has transactions. Delete them first.",
+  "@errorAccountHasTransactions": { "description": "Account delete or currency change refused because live transactions reference it" },
+  "errorCategoryIsSystem": "Built-in categories cannot be deleted.",
+  "@errorCategoryIsSystem": { "description": "System preset category cannot be deleted" },
+  "errorCategoryHasChildren": "This category has subcategories. Delete or move them first.",
+  "@errorCategoryHasChildren": { "description": "Category delete refused because live subcategories exist" },
+  "errorCategoryHasTransactions": "This category is used by transactions. Delete them first.",
+  "@errorCategoryHasTransactions": { "description": "Category delete refused because live transactions reference it" },
+  "errorCategoryCycle": "This move would create a cycle in the category tree.",
+  "@errorCategoryCycle": { "description": "Category reparenting refused because it would create a cycle" },
+  "errorParentInvalid": "The parent category is unavailable or has a different kind.",
+  "@errorParentInvalid": { "description": "Selected parent category is missing or of another kind" },
+  "errorTransferSameAccount": "The source and target accounts must be different.",
+  "@errorTransferSameAccount": { "description": "Transfer form rejected because both sides are the same account" },
+  "amountInvalid": "Enter an amount greater than zero.",
+  "@amountInvalid": { "description": "Amount field validation message" },
+  "selectCurrencyValidator": "Select a currency.",
+  "@selectCurrencyValidator": {
+    "description": "Validation message of the account form when no currency is chosen"
+  },
+
+  "accountsEmpty": "No accounts yet. Add your first account.",
+  "@accountsEmpty": { "description": "Empty state of the accounts list" },
+  "accountAdd": "Add account",
+  "@accountAdd": { "description": "Button and dialog title for creating an account" },
+  "accountEdit": "Edit account",
+  "@accountEdit": { "description": "Dialog title for editing an account" },
+  "accountKindCash": "Cash",
+  "@accountKindCash": { "description": "Account kind: cash" },
+  "accountKindBank": "Bank account",
+  "@accountKindBank": { "description": "Account kind: bank account" },
+  "accountKindCard": "Card",
+  "@accountKindCard": { "description": "Account kind: card" },
+  "accountKindOther": "Other",
+  "@accountKindOther": { "description": "Account kind: other" },
+  "accountInitialBalance": "Initial balance",
+  "@accountInitialBalance": { "description": "Field label for the account opening balance" },
+  "accountDeleteTitle": "Delete account?",
+  "@accountDeleteTitle": { "description": "Confirmation title for account deletion" },
+  "accountDeleteBody": "The account “{name}” will be hidden from the lists.",
+  "@accountDeleteBody": {
+    "description": "Confirmation body for account deletion",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+
+  "categoriesTitle": "Categories",
+  "@categoriesTitle": { "description": "Title of the categories management screen" },
+  "categoriesEmpty": "No categories yet.",
+  "@categoriesEmpty": { "description": "Empty state of the categories list" },
+  "categoryAdd": "Add category",
+  "@categoryAdd": { "description": "Button and dialog title for creating a category" },
+  "categoryEdit": "Edit category",
+  "@categoryEdit": { "description": "Dialog title for editing a category" },
+  "kindIncome": "Income",
+  "@kindIncome": { "description": "Category or transaction kind: income" },
+  "kindExpense": "Expense",
+  "@kindExpense": { "description": "Category or transaction kind: expense" },
+  "categoryParent": "Parent category",
+  "@categoryParent": { "description": "Field label for the parent category picker" },
+  "categoryParentNone": "No parent (top level)",
+  "@categoryParentNone": { "description": "Option meaning the category has no parent" },
+  "systemBadge": "built-in",
+  "@systemBadge": { "description": "Badge marking a system preset category" },
+  "categoryDeleteTitle": "Delete category?",
+  "@categoryDeleteTitle": { "description": "Confirmation title for category deletion" },
+  "categoryDeleteBody": "The category “{name}” will be hidden from the lists.",
+  "@categoryDeleteBody": {
+    "description": "Confirmation body for category deletion",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+
+  "transactionsEmpty": "No transactions yet. Add the first one.",
+  "@transactionsEmpty": { "description": "Empty state of the transactions list without filters" },
+  "transactionsEmptyFiltered": "Nothing matches the selected filters.",
+  "@transactionsEmptyFiltered": { "description": "Empty state of the filtered transactions list" },
+  "searchHint": "Search in notes",
+  "@searchHint": { "description": "Hint of the transaction search field" },
+  "filterAll": "All",
+  "@filterAll": { "description": "Filter chip meaning no type filter" },
+  "filterIncomes": "Incomes",
+  "@filterIncomes": { "description": "Filter chip for income transactions" },
+  "filterExpenses": "Expenses",
+  "@filterExpenses": { "description": "Filter chip for expense transactions" },
+  "filterTransfers": "Transfers",
+  "@filterTransfers": { "description": "Filter chip for transfer transactions" },
+  "filterAllAccounts": "All accounts",
+  "@filterAllAccounts": { "description": "Account filter option meaning no account filter" },
+  "expenseAction": "Expense",
+  "@expenseAction": { "description": "Quick action creating an expense" },
+  "incomeAction": "Income",
+  "@incomeAction": { "description": "Quick action creating an income" },
+  "transferAction": "Transfer",
+  "@transferAction": { "description": "Quick action creating a transfer" },
+  "newExpenseTitle": "New expense",
+  "@newExpenseTitle": { "description": "Dialog title for creating an expense" },
+  "newIncomeTitle": "New income",
+  "@newIncomeTitle": { "description": "Dialog title for creating an income" },
+  "newTransferTitle": "New transfer",
+  "@newTransferTitle": { "description": "Dialog title for creating a transfer" },
+  "accountFrom": "From account",
+  "@accountFrom": { "description": "Field label for the transfer source account" },
+  "accountTo": "To account",
+  "@accountTo": { "description": "Field label for the transfer target account" },
+  "transactionDeleteTitle": "Delete transaction?",
+  "@transactionDeleteTitle": { "description": "Confirmation title for transaction deletion" },
+  "transactionDeleteBody": "The transaction will be hidden from the lists.",
+  "@transactionDeleteBody": { "description": "Confirmation body for transaction deletion" }
+}

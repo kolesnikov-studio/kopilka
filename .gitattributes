@@ -1,0 +1,22 @@
+# Normalize line endings in the repository; working copy may be native
+* text=auto
+
+# Windows scripts
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Shell scripts
+*.sh text eol=lf
+
+# NSIS scripts: makensis с CRLF не находит относительные пути File
+*.nsi text eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.otf binary

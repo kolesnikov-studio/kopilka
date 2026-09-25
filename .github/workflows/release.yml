@@ -1,0 +1,162 @@
+name: Release
+
+# Сборка артефактов релиза на тег v* (ARCHITECTURE.md §7):
+# Android universal APK, Windows NSIS + portable zip, Linux AppImage,
+# черновик GitHub Release. Публикация — руками после проверки черновика.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+
+jobs:
+  android:
+    name: Android universal APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Build universal APK
+        run: flutter build apk --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kopilka-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  windows:
+    name: Windows NSIS + portable
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Make NSIS installer
+        shell: pwsh
+        run: |
+          $tagName = $env:GITHUB_REF_NAME
+          $version = $tagName.TrimStart('v')
+          # choco добавляет NSIS в PATH только для новых сессий; в текущей
+          # джобы его нет — зовём по месту установки с fallback в PATH
+          # (воспроизведено: makensis not recognized, прогон 2026-09-25)
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { $makensis = (Get-Command makensis).Source }
+          # OutFile — абсолютным: makensis трактует его от рабочей папки,
+          # а File в скрипте — от каталога скрипта; не смешиваем
+          $outFile = Join-Path (Get-Location) "Kopilka-setup-$tagName.exe"
+          & $makensis /DPRODUCT_VERSION=$version "/DOUTFILE=$outFile" packaging/windows/kopilka.nsi
+
+      - name: Make portable zip
+        shell: pwsh
+        run: |
+          $tagName = $env:GITHUB_REF_NAME
+          Compress-Archive -Path 'build/windows/x64/runner/Release/*' -DestinationPath "Kopilka-portable-$tagName.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kopilka-windows
+          path: |
+            Kopilka-setup-*.exe
+            Kopilka-portable-*.zip
+
+  linux:
+    name: Linux AppImage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libfuse2
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Assemble AppDir
+        shell: bash
+        run: ./packaging/linux/make_appdir.sh v${GITHUB_REF_NAME#v}
+
+      - name: Make AppImage
+        shell: bash
+        run: |
+          # appimagetool (appimage/AppImageKit) работает без монтирования:
+          # упаковывает AppDir в образ через mksquashfs, FUSE нужен только
+          # для ЗАПУСКА готового AppImage, поэтому в CI он собирается.
+          curl -sSL -o appimagetool.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool.AppImage
+          ./appimagetool.AppImage --appimage-extract-and-run Kopilka.AppDir \
+            "Kopilka-${GITHUB_REF_NAME#v}-x86_64.AppImage"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kopilka-linux-appimage
+          path: Kopilka-*-x86_64.AppImage
+
+  draft-release:
+    name: Draft GitHub Release
+    needs: [android, windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "Kopilka $GITHUB_REF_NAME" \
+            --generate-notes \
+            dist/*
