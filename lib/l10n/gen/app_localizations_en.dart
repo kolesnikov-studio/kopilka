@@ -221,6 +221,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'The parent category is unavailable or has a different kind.';
 
   @override
+  String get errorBudgetCategoryInvalid =>
+      'A budget can only be set on an expense category.';
+
+  @override
+  String get errorBudgetAlreadyExists => 'This category already has a budget.';
+
+  @override
+  String get errorCategoryHasBudget =>
+      'This category has a budget. Delete the budget first.';
+
+  @override
   String get errorTransferSameAccount =>
       'The source and target accounts must be different.';
 

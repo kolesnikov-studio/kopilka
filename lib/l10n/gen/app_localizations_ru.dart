@@ -222,6 +222,17 @@ class AppLocalizationsRu extends AppLocalizations {
       'Родительская категория недоступна или другого вида.';
 
   @override
+  String get errorBudgetCategoryInvalid =>
+      'Бюджет можно установить только на категорию расходов.';
+
+  @override
+  String get errorBudgetAlreadyExists => 'У этой категории уже есть бюджет.';
+
+  @override
+  String get errorCategoryHasBudget =>
+      'На эту категорию ссылается бюджет. Сначала удалите его.';
+
+  @override
   String get errorTransferSameAccount =>
       'Счёт списания и зачисления должны различаться.';
 

@@ -20,7 +20,7 @@ class BackupService {
   final AppDatabase db;
   final Clock clock;
 
-  /// Экспорт полного дампа в JSON-строку (формат v1, см. кодек).
+  /// Экспорт полного дампа в JSON-строку (формат v2, см. кодек).
   Future<String> exportJson() async =>
       jsonEncode(await exportToJson(db));
 
@@ -55,6 +55,7 @@ class BackupService {
     await db.transaction(() async {
       await db.customStatement('PRAGMA foreign_keys = OFF');
       try {
+        await db.customUpdate('DELETE FROM budgets');
         await db.customUpdate('DELETE FROM transactions');
         await db.customUpdate('DELETE FROM categories');
         await db.customUpdate('DELETE FROM accounts');
@@ -122,6 +123,18 @@ class BackupService {
                 ),
               );
         }
+        for (final BackupBudget row in backup.budgets) {
+          await db.into(db.budgets).insert(
+                BudgetsCompanion.insert(
+                  id: row.id,
+                  categoryId: row.categoryId,
+                  limitMinor: row.limitMinor,
+                  createdAt: row.createdAt,
+                  updatedAt: row.updatedAt,
+                  deletedAt: Value(row.deletedAt),
+                ),
+              );
+        }
       } finally {
         await db.customStatement('PRAGMA foreign_keys = ON');
       }
@@ -176,6 +189,14 @@ class BackupService {
       if (row.categoryId != null && !categoryIds.contains(row.categoryId)) {
         throw BackupValidationException(
           'операция ссылается на отсутствующую категорию',
+          kind: BackupFailure.invalidData,
+        );
+      }
+    }
+    for (final BackupBudget row in backup.budgets) {
+      if (!categoryIds.contains(row.categoryId)) {
+        throw BackupValidationException(
+          'бюджет ссылается на отсутствующую категорию ${row.categoryId}',
           kind: BackupFailure.invalidData,
         );
       }

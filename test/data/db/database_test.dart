@@ -1,4 +1,4 @@
-// Тест схемы БД v1 на in-memory SQLite: таблицы, типы колонок, индексы,
+// Тест схемы БД на in-memory SQLite: таблицы, типы колонок, индексы,
 // вставка/выборка, soft delete и включённые внешние ключи.
 // isNull из drift — конструктор SQL-выражения; в тесте нужен матчер
 // с таким же именем из flutter_test, поэтому drift-вариант скрыт.
@@ -53,8 +53,8 @@ void main() {
     await db.close();
   });
 
-  test('schemaVersion = 1', () {
-    expect(db.schemaVersion, 1);
+  test('schemaVersion = 2', () {
+    expect(db.schemaVersion, 2);
   });
 
   test('схема создаёт четыре таблицы из §3', () async {
@@ -87,6 +87,7 @@ void main() {
       'accounts',
       'categories',
       'transactions',
+      'budgets',
     ]) {
       final Map<String, String> columns = await columnTypes(db, table);
       expect(columns, contains('created_at'), reason: 'таблица $table');

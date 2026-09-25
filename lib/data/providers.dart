@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
+import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
@@ -31,4 +32,8 @@ final categoriesDaoProvider = Provider<CategoriesDao>(
 
 final transactionsDaoProvider = Provider<TransactionsDao>(
   (ref) => ref.watch(appDatabaseProvider).transactionsDao,
+);
+
+final budgetsDaoProvider = Provider<BudgetsDao>(
+  (ref) => ref.watch(appDatabaseProvider).budgetsDao,
 );

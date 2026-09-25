@@ -85,7 +85,7 @@ void main() {
     final DecodedBackup backup =
         decodeJson(jsonDecode(json) as Map<String, dynamic>);
 
-    expect(backup.schemaVersion, 1);
+    expect(backup.schemaVersion, backupSchemaVersion);
     expect(backup.currencies.single.code, 'RUB');
     expect(backup.accounts.single.kind, AccountKind.cash);
     // 12 системных посева + 1 пользовательская (мягко удалена).
@@ -197,9 +197,9 @@ void main() {
     );
   });
 
-  test('каскад миграций применяет формат v1 файла v2', () {
-    // Синтетический пример: когда появится формат v2, здесь проверяется
-    // его миграция. Пока v1 проходит без изменений.
+  test('миграция v1 → v2: budgets дополняется пустым списком', () {
+    // Файл формата v1 (релиз v0.1) не содержит budgets: миграция формата
+    // обязана дополнить его пустой таблицей, данные — без изменений.
     final Map<String, dynamic> document = <String, dynamic>{
       'schema_version': 1,
       'exported_at': '2026-09-25T10:00:00.000Z',
@@ -212,8 +212,68 @@ void main() {
     };
     final DecodedBackup backup = decodeJson(document);
     expect(backup.schemaVersion, 1);
+    expect(backup.budgets, isEmpty);
     expect(backup.currencies, isEmpty);
     expect(backup.exportedAt?.toUtc().toIso8601String(),
         '2026-09-25T10:00:00.000Z');
+  });
+
+  test('декод читает таблицу budgets формата v2', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 2,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[
+          <String, dynamic>{
+            'id': 'bud-1',
+            'category_id': 'cat-1',
+            'limit_minor': 250000,
+            'created_at': '2026-10-01T00:00:00.000Z',
+            'updated_at': '2026-10-02T00:00:00.000Z',
+            'deleted_at': null,
+          },
+        ],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.budgets, hasLength(1));
+    expect(backup.budgets.single.id, 'bud-1');
+    expect(backup.budgets.single.categoryId, 'cat-1');
+    expect(backup.budgets.single.limitMinor, 250000);
+    expect(backup.budgets.single.deletedAt, isNull);
+  });
+
+  test('битая строка budgets — отказ invalidData', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 2,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[
+          <String, dynamic>{
+            'id': 'bud-1',
+            'category_id': 'cat-1',
+            'limit_minor': 'не число',
+            'created_at': '2026-10-01T00:00:00.000Z',
+            'updated_at': '2026-10-01T00:00:00.000Z',
+          },
+        ],
+      },
+    };
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
   });
 }

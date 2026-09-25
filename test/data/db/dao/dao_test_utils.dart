@@ -7,6 +7,7 @@ import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:kopilka/core/ids.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
+import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
@@ -54,6 +55,11 @@ class DataLayerFixture {
       idGenerator: sequentialIds('tx'),
       clock: clock.read,
     );
+    budgets = BudgetsDao(
+      db,
+      idGenerator: sequentialIds('bud'),
+      clock: clock.read,
+    );
   }
 
   final AppDatabase db;
@@ -62,6 +68,7 @@ class DataLayerFixture {
   late final AccountsDao accounts;
   late final CategoriesDao categories;
   late final TransactionsDao transactions;
+  late final BudgetsDao budgets;
 
   Future<void> dispose() => db.close();
 

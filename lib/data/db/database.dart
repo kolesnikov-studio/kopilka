@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
@@ -14,15 +15,16 @@ part 'database.g.dart';
 
 /// Локальная база приложения (SQLite через drift).
 ///
-/// Схема — v1, дословно по ARCHITECTURE.md §3. Балансы не хранятся:
-/// вычисляются запросом из транзакций и `initial_balance_minor` (M1).
+/// Схема v2. v1 — дословно по ARCHITECTURE.md §3; v2 добавляет таблицу
+/// `budgets` (M2, D-14). Балансы не хранятся: вычисляются запросом из
+/// транзакций и `initial_balance_minor` (M1).
 ///
 /// Доступ к данным — через DAO: `currenciesDao`, `accountsDao`,
-/// `categoriesDao`, `transactionsDao`. UI обращается к ним не напрямую,
-/// а через Riverpod-контроллеры (§2).
+/// `categoriesDao`, `transactionsDao`, `budgetsDao`. UI обращается к ним
+/// не напрямую, а через Riverpod-контроллеры (§2).
 @DriftDatabase(
-  tables: [Currencies, Accounts, Categories, Transactions],
-  daos: [CurrenciesDao, AccountsDao, CategoriesDao, TransactionsDao],
+  tables: [Currencies, Accounts, Categories, Transactions, Budgets],
+  daos: [CurrenciesDao, AccountsDao, CategoriesDao, TransactionsDao, BudgetsDao],
 )
 class AppDatabase extends _$AppDatabase {
   /// БД приложения: файл `kopilka.sqlite` в каталоге поддержки приложения.
@@ -32,7 +34,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -40,9 +42,11 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
     },
     onUpgrade: (Migrator m, int from, int to) async {
-      // Каркас миграций. Правило эпох (ROADMAP.md): изменение схемы — только
-      // новая schema_version + миграция + тест миграции. Здесь появятся шаги
-      // `if (from < N) { ... }` для каждой будущей версии.
+      // Правило эпох (ROADMAP.md): изменение схемы — только новая
+      // schema_version + миграция + тест миграции.
+      if (from < 2) {
+        await m.createTable(budgets);
+      }
     },
     beforeOpen: (OpeningDetails details) async {
       // Ссылочная целостность включена; удаление — только soft delete,

@@ -81,6 +81,18 @@ Future<AppDatabase> richSeeded() async {
   );
   await database.categoriesDao.softDelete(customDeleted.id);
 
+  // Бюджеты (v2): живой на вложенную категорию + мягко удалённый на ту же
+  // категорию (после soft delete бюджета категория снова принимает новый).
+  final Budget deadBudget = await database.budgetsDao.create(
+    categoryId: milk.id,
+    limitMinor: 11111,
+  );
+  await database.budgetsDao.softDelete(deadBudget.id);
+  await database.budgetsDao.create(
+    categoryId: milk.id,
+    limitMinor: 12345,
+  );
+
   // Все виды операций: расход (живой/удалённый), доход с заметкой,
   // перевод между счетами в разных валютах.
   await database.transactionsDao.create(
@@ -235,6 +247,22 @@ void main() {
     final int sourceBalance = await source.accountsDao.balanceMinor(card.id);
     final int restoredBalance = await restored.accountsDao.balanceMinor(card.id);
     expect(restoredBalance, sourceBalance);
+
+    // Бюджеты (v2): живой один, мягко удалённый физически на месте.
+    final List<Budget> budgets = await restored.budgetsDao.getAlive();
+    expect(budgets, hasLength(1));
+    expect(budgets.single.limitMinor, 12345);
+    // Ссылка категории сходится по имени (milk внутри фикстуры не виден).
+    final List<QueryRow> budgetCategory = await restored.customSelect(
+      'SELECT c.name AS name FROM budgets b '
+      'JOIN categories c ON c.id = b.category_id '
+      "WHERE b.deleted_at IS NULL",
+    ).get();
+    expect(budgetCategory.single.read<String>('name'), 'Молочка');
+    final List<QueryRow> deadBudgets = await restored.customSelect(
+      'SELECT COUNT(*) AS c FROM budgets WHERE deleted_at IS NOT NULL',
+    ).get();
+    expect(deadBudgets.single.read<int>('c'), 1);
   });
 
   test('round-trip мягко удалённых строк: удалённые остаются удалёнными', () async {

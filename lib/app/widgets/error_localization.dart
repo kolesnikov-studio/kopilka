@@ -21,10 +21,16 @@ String localizedError(AppLocalizations l10n, DataFailure failure) {
       return l10n.errorCategoryHasChildren;
     case DataFailure.categoryHasTransactions:
       return l10n.errorCategoryHasTransactions;
+    case DataFailure.categoryHasBudget:
+      return l10n.errorCategoryHasBudget;
     case DataFailure.categoryCycle:
       return l10n.errorCategoryCycle;
     case DataFailure.parentInvalid:
       return l10n.errorParentInvalid;
+    case DataFailure.budgetCategoryInvalid:
+      return l10n.errorBudgetCategoryInvalid;
+    case DataFailure.budgetAlreadyExists:
+      return l10n.errorBudgetAlreadyExists;
     case DataFailure.unknown:
       return l10n.errorUnknown;
   }

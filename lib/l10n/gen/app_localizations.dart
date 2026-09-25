@@ -476,6 +476,24 @@ abstract class AppLocalizations {
   /// **'The parent category is unavailable or has a different kind.'**
   String get errorParentInvalid;
 
+  /// Tried to create a budget on a non-expense category
+  ///
+  /// In en, this message translates to:
+  /// **'A budget can only be set on an expense category.'**
+  String get errorBudgetCategoryInvalid;
+
+  /// Category already has a live budget
+  ///
+  /// In en, this message translates to:
+  /// **'This category already has a budget.'**
+  String get errorBudgetAlreadyExists;
+
+  /// Cannot delete a category referenced by a live budget
+  ///
+  /// In en, this message translates to:
+  /// **'This category has a budget. Delete the budget first.'**
+  String get errorCategoryHasBudget;
+
   /// Transfer form rejected because both sides are the same account
   ///
   /// In en, this message translates to:
