@@ -2,12 +2,38 @@ import 'package:drift/drift.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/ids.dart';
+import 'package:kopilka/core/months.dart';
 import 'package:kopilka/core/text.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/tables.dart';
 
 part 'transactions_dao.g.dart';
+
+/// Расходы одной категории за месяц (M2, дашборд).
+class CategoryExpense {
+  const CategoryExpense({
+    required this.categoryId,
+    required this.categoryName,
+    required this.amountMinor,
+  });
+
+  final String categoryId;
+  final String categoryName;
+  final int amountMinor;
+}
+
+/// Доходы и расходы одного календарного месяца (M2, динамика).
+///
+/// [monthKey] — канонический ключ `YYYY-MM` из strftime (UTC). Изменяемый
+/// класс: DAO собирает итоги из двух SQL-групп (доходной и расходной).
+class MonthTotals {
+  MonthTotals({required this.monthKey});
+
+  final String monthKey;
+  int incomeMinor = 0;
+  int expenseMinor = 0;
+}
 
 /// Фильтр списка операций (счёт, категория, вид, период, поиск по заметке).
 ///
@@ -310,5 +336,104 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.parentInvalid,
       );
     }
+  }
+
+  /// Расходы по категориям за календарный месяц, в который попадает
+  /// [moment] (M2, дашборд). Переводы не считаются, мягко удалённые —
+  /// тоже; категории без расходов в списке не появляются. Имена берутся
+  /// из живых категорий JOIN'ом; одна категория — одна строка.
+  Future<List<CategoryExpense>> expensesByCategoryForMonth({
+    required DateTime moment,
+  }) async {
+    final DateTime from = monthStart(moment);
+    final DateTime to = nextMonthStart(from);
+    final Expression<int> total = transactions.amountMinor.sum();
+    final List<TypedResult> rows = await (selectOnly(transactions)
+          .join([
+            innerJoin(
+              categories,
+              categories.id.equalsExp(transactions.categoryId),
+            ),
+          ])
+          ..addColumns([categories.id, categories.name, total])
+          ..where(
+            transactions.deletedAt.isNull() &
+                transactions.type.equals(TransactionType.expense.dbValue) &
+                transactions.date.isBiggerOrEqualValue(from) &
+                transactions.date.isSmallerThanValue(to) &
+                categories.deletedAt.isNull(),
+          )
+          ..groupBy([categories.id])
+          ..orderBy([
+            OrderingTerm.desc(total),
+            OrderingTerm.asc(categories.name),
+          ]))
+        .get();
+    return <CategoryExpense>[
+      for (final TypedResult row in rows)
+        CategoryExpense(
+          categoryId: row.read(categories.id)!,
+          categoryName: row.read(categories.name)!,
+          amountMinor: row.read(total) ?? 0,
+        ),
+    ];
+  }
+
+  /// Доходы и расходы по календарным месяцам (M2, динамика на дашборде):
+  /// группы внутри [from, to) по границам месяцев в UTC. Переводы не
+  /// участвуют, мягко удалённые не учитываются. Месяцы без операций в
+  /// списке отсутствуют — UI восстанавливает непрерывность сам.
+  ///
+  /// Месяц операции определяет `strftime('%Y-%m', date, 'unixepoch')`:
+  /// date хранится как unix-секунды, без модификатора 'unixepoch' SQLite
+  /// трактует целое как юлианские дни — месяц был бы неверным. С
+  /// 'unixepoch' секунды читаются как UTC — ровно правило месяцев (§3).
+  /// Raw SQL по образцу [BudgetsDao.watchProgress]: обычный select здесь
+  /// громоздок из-за группировки по выражению.
+  Future<List<MonthTotals>> totalsByMonth({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    if (!to.isAfter(from)) {
+      throw DataValidationException(
+        'период пуст: to должен быть позже from',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    final List<QueryRow> rows = await customSelect(
+      "SELECT strftime('%Y-%m', date, 'unixepoch') AS month_key, type, "
+      'SUM(amount_minor) AS total '
+      'FROM transactions '
+      'WHERE deleted_at IS NULL AND date >= ? AND date < ? '
+      "AND type IN ('expense', 'income') "
+      'GROUP BY month_key, type '
+      'ORDER BY month_key',
+      variables: [
+        Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
+        Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
+      ],
+      readsFrom: {transactions},
+    ).get();
+    final Map<String, MonthTotals> byMonth = <String, MonthTotals>{};
+    for (final QueryRow row in rows) {
+      final String key = row.read<String>('month_key');
+      final TransactionType type = TransactionType.fromDb(
+        row.read<String>('type'),
+      );
+      final int amount = row.read<int>('total');
+      final MonthTotals totals = byMonth.putIfAbsent(
+        key,
+        () => MonthTotals(monthKey: key),
+      );
+      if (type == TransactionType.income) {
+        totals.incomeMinor = amount;
+      } else {
+        totals.expenseMinor = amount;
+      }
+    }
+    return byMonth.values.toList()
+      ..sort(
+        (MonthTotals a, MonthTotals b) => a.monthKey.compareTo(b.monthKey),
+      );
   }
 }

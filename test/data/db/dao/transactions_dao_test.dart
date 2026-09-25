@@ -479,4 +479,205 @@ void main() {
       ),
     );
   });
+
+  group('агрегаты дашборда (M2)', () {
+    test('расходы по категориям за месяц: только живые расходы, без переводов',
+        () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      final Account account = await f.seedAccount();
+      final Category groceries = await f.seedCategory(name: 'Продукты');
+      final Category transport = await f.seedCategory(name: 'Транспорт');
+      final Category incomeCat = await f.seedCategory(
+        name: 'Зарплата',
+        kind: CategoryKind.income,
+      );
+
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: groceries.id,
+        amountMinor: 30000,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: groceries.id,
+        amountMinor: 25000,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: transport.id,
+        amountMinor: 50000,
+      );
+      // Доход, перевод и мягко удалённый расход — не в агрегате.
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        amountMinor: 700000,
+      );
+      final Account target = await f.accounts.create(
+        name: 'B',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
+      );
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: account.id,
+        targetAccountId: target.id,
+        amountMinor: 1000,
+      );
+      final Transaction deleted = await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: groceries.id,
+        amountMinor: 999,
+      );
+      await f.transactions.softDelete(deleted.id);
+
+      final List<CategoryExpense> expenses =
+          await f.db.transactionsDao.expensesByCategoryForMonth(
+        moment: f.clock.read(),
+      );
+      // Сортировка по сумме убыванию: Продукты 550, Транспорт 500.
+      expect(expenses, hasLength(2));
+      expect(expenses.first.categoryName, 'Продукты');
+      expect(expenses.first.amountMinor, 55000);
+      expect(expenses.last.categoryName, 'Транспорт');
+      expect(expenses.last.amountMinor, 50000);
+    });
+
+    test('расходы по категориям: операции соседних месяцев не смешиваются',
+        () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      final Account account = await f.seedAccount();
+      final Category category = await f.seedCategory();
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: category.id,
+        amountMinor: 100,
+        date: DateTime.utc(2026, 8, 20),
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: category.id,
+        amountMinor: 400,
+        date: DateTime.utc(2026, 10, 3),
+      );
+
+      final List<CategoryExpense> september =
+          await f.db.transactionsDao.expensesByCategoryForMonth(
+        moment: DateTime.utc(2026, 9, 15),
+      );
+      expect(september, isEmpty);
+      final List<CategoryExpense> october =
+          await f.db.transactionsDao.expensesByCategoryForMonth(
+        moment: DateTime.utc(2026, 10, 5),
+      );
+      expect(october.single.amountMinor, 400);
+    });
+
+    test('итоги по месяцам: доходы и расходы раздельно, месяцы по UTC',
+        () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      final Account account = await f.seedAccount();
+      final Category expenseCat = await f.seedCategory();
+      final Category incomeCat = await f.seedCategory(
+        name: 'Зарплата',
+        kind: CategoryKind.income,
+      );
+      // Сентябрь: доход 1000, расход 300 + 70.
+      final DateTime sep = DateTime.utc(2026, 9, 15);
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        amountMinor: 100000,
+        date: sep,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        amountMinor: 30000,
+        date: sep,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        amountMinor: 7000,
+        date: DateTime.utc(2026, 9, 28, 23),
+      );
+      // Октябрь: расход 500; август: доход 100. Перевод — мимо.
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        amountMinor: 50000,
+        date: DateTime.utc(2026, 10, 2),
+      );
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        amountMinor: 10000,
+        date: DateTime.utc(2026, 8, 9),
+      );
+      final Account target = await f.accounts.create(
+        name: 'B',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
+      );
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: account.id,
+        targetAccountId: target.id,
+        amountMinor: 4242,
+        date: sep,
+      );
+
+      final List<MonthTotals> totals =
+          await f.db.transactionsDao.totalsByMonth(
+        from: DateTime.utc(2026, 8, 1),
+        to: DateTime.utc(2026, 11, 1),
+      );
+      expect(
+        totals.map((MonthTotals m) => m.monthKey).toList(),
+        <String>['2026-08', '2026-09', '2026-10'],
+      );
+      expect(totals[0].incomeMinor, 10000);
+      expect(totals[0].expenseMinor, 0);
+      expect(totals[1].incomeMinor, 100000);
+      expect(totals[1].expenseMinor, 37000);
+      expect(totals[2].incomeMinor, 0);
+      expect(totals[2].expenseMinor, 50000);
+    });
+
+    test('итоги по месяцам: мягко удалённые не считаются', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      final Account account = await f.seedAccount();
+      final Category category = await f.seedCategory();
+      final Transaction deleted = await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: category.id,
+        amountMinor: 12345,
+      );
+      await f.transactions.softDelete(deleted.id);
+
+      final List<MonthTotals> totals = await f.db.transactionsDao.totalsByMonth(
+        from: DateTime.utc(2026, 9, 1),
+        to: DateTime.utc(2026, 10, 1),
+      );
+      expect(totals, isEmpty);
+    });
+  });
 }
