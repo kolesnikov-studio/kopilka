@@ -50,6 +50,34 @@
     "description": "Prefix of the month total in the category breakdown card"
   },
 
+  "budgetsTitle": "Budgets",
+  "@budgetsTitle": {
+    "description": "Title of the budgets card on the reports dashboard"
+  },
+  "budgetsEmpty": "No budgets yet. Set a monthly limit for a category.",
+  "@budgetsEmpty": {
+    "description": "Empty state of the budgets card"
+  },
+  "budgetAdd": "Add budget",
+  "@budgetAdd": {
+    "description": "Button and dialog title for creating a budget"
+  },
+  "budgetEdit": "Edit budget",
+  "@budgetEdit": {
+    "description": "Dialog title for editing a budget limit"
+  },
+  "budgetDeleteTitle": "Delete budget?",
+  "@budgetDeleteTitle": {
+    "description": "Confirmation title for budget deletion"
+  },
+  "budgetDeleteBody": "The budget for “{name}” will be removed.",
+  "@budgetDeleteBody": {
+    "description": "Confirmation body for budget deletion",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+
   "backupSectionTitle": "Backup and export",
   "@backupSectionTitle": {
     "description": "Section header of the settings screen with backup actions"

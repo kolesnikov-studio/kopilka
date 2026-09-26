@@ -1,8 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/core/money.dart';
+import 'package:kopilka/core/result.dart';
+import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
+import 'package:kopilka/features/budgets/budget_form_dialog.dart';
+import 'package:kopilka/features/budgets/budgets_controller.dart';
 import 'package:kopilka/features/reports/reports_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
@@ -34,6 +39,11 @@ class ReportsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             const _MonthDynamicsCard(),
+            const SizedBox(height: 12),
+            _BudgetsCard(
+              title: l10n.budgetsTitle,
+              emptyText: l10n.budgetsEmpty,
+            ),
           ],
         ),
       ),
@@ -514,5 +524,160 @@ class _LegendDot extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Карточка бюджетов месяца: прогресс-бары категорий, превышение выделяется
+/// цветом ошибки. Создание — кнопкой в заголовке, правка — тапом, удаление
+/// — долгим тапом.
+class _BudgetsCard extends ConsumerWidget {
+  const _BudgetsCard({required this.title, required this.emptyText});
+
+  final String title;
+  final String emptyText;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ThemeData theme = Theme.of(context);
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final String locale = Localizations.localeOf(context).toString();
+    final String symbol = ref.watch(baseCurrencySymbolProvider).value ?? '';
+    final AsyncValue<List<BudgetProgress>> progress =
+        ref.watch(budgetProgressProvider);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(child: Text(title, style: theme.textTheme.titleMedium)),
+                IconButton(
+                  tooltip: l10n.budgetAdd,
+                  onPressed: () => showBudgetFormDialog(context),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            progress.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (Object error, StackTrace stack) =>
+                  Center(child: Text(l10n.errorUnknown)),
+              data: (List<BudgetProgress> rows) {
+                if (rows.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: Text(emptyText)),
+                  );
+                }
+                return Column(
+                  children: <Widget>[
+                    for (final BudgetProgress row in rows)
+                      _BudgetTile(
+                        row: row,
+                        symbol: symbol,
+                        locale: locale,
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Строка бюджета: имя категории, «потрачено из лимита», прогресс-бар.
+/// Превышение лимита — цвет ошибки и 100% заливки.
+class _BudgetTile extends ConsumerWidget {
+  const _BudgetTile({
+    required this.row,
+    required this.symbol,
+    required this.locale,
+  });
+
+  final BudgetProgress row;
+  final String symbol;
+  final String locale;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ThemeData theme = Theme.of(context);
+    final AppLocalizations l10n = AppLocalizations.of(context);
+
+    // Больше 100% не показываем: превышение видно по цвету и тексту.
+    final double percent = row.ratio.clamp(0.0, 1.0);
+    final Color barColor = row.isOver
+        ? theme.colorScheme.error
+        : theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: InkWell(
+        onTap: () => showBudgetFormDialog(context, existing: row),
+        onLongPress: () => _confirmDelete(context, ref, l10n),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(row.categoryName, overflow: TextOverflow.ellipsis),
+                  ),
+                  Text(
+                    '${formatMoneyMinor(row.spentMinor, symbol: symbol, locale: locale)} / '
+                    '${formatMoneyMinor(row.limitMinor, symbol: symbol, locale: locale)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: row.isOver
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: percent,
+                  minHeight: 8,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) async {
+    final bool confirmed = await showConfirmDialog(
+      context: context,
+      title: l10n.budgetDeleteTitle,
+      body: l10n.budgetDeleteBody(row.categoryName),
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    final Result<void> result = await ref
+        .read(budgetsControllerProvider.notifier)
+        .deleteBudget(row.budget.id);
+    if (result.isFailure && context.mounted) {
+      await showDataFailureSnack(context, result.failure);
+    }
   }
 }

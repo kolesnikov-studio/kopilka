@@ -14,6 +14,13 @@
   "reportsMonthDynamicsTitle": "Динамика по месяцам",
   "reportsTotalLabel": "Всего",
 
+  "budgetsTitle": "Бюджеты",
+  "budgetsEmpty": "Бюджетов пока нет. Задайте месячный лимит категории.",
+  "budgetAdd": "Добавить бюджет",
+  "budgetEdit": "Изменить бюджет",
+  "budgetDeleteTitle": "Удалить бюджет?",
+  "budgetDeleteBody": "Бюджет для «{name}» будет удалён.",
+
   "backupSectionTitle": "Бэкап и экспорт",
   "exportJsonAction": "Экспорт бэкапа (JSON)",
   "importJsonAction": "Импорт бэкапа (JSON)",

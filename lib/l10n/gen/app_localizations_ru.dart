@@ -46,6 +46,27 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportsTotalLabel => 'Всего';
 
   @override
+  String get budgetsTitle => 'Бюджеты';
+
+  @override
+  String get budgetsEmpty =>
+      'Бюджетов пока нет. Задайте месячный лимит категории.';
+
+  @override
+  String get budgetAdd => 'Добавить бюджет';
+
+  @override
+  String get budgetEdit => 'Изменить бюджет';
+
+  @override
+  String get budgetDeleteTitle => 'Удалить бюджет?';
+
+  @override
+  String budgetDeleteBody(String name) {
+    return 'Бюджет для «$name» будет удалён.';
+  }
+
+  @override
   String get backupSectionTitle => 'Бэкап и экспорт';
 
   @override

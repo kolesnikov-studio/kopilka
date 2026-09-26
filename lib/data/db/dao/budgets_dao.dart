@@ -131,6 +131,11 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
         .getSingle();
     return BudgetProgress(
       budget: budget,
+      categoryName: (await (select(categories)
+                ..where((t) => t.id.equals(budget.categoryId)))
+              .getSingleOrNull())
+          ?.name ??
+          '',
       spentMinor: row.read(spent) ?? 0,
     );
   }
@@ -148,7 +153,7 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     return customSelect(
       'SELECT b.id AS budget_id, b.category_id AS category_id, '
       'b.limit_minor AS limit_minor, b.created_at AS created_at, '
-      'b.updated_at AS updated_at, '
+      'b.updated_at AS updated_at, c.name AS category_name, '
       'COALESCE(SUM(t.amount_minor), 0) AS spent_minor '
       'FROM budgets b '
       'JOIN categories c ON c.id = b.category_id AND c.deleted_at IS NULL '
@@ -175,6 +180,7 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
                   createdAt: _rawDate(row.read<int>('created_at')),
                   updatedAt: _rawDate(row.read<int>('updated_at')),
                 ),
+                categoryName: row.read<String>('category_name'),
                 spentMinor: row.read<int>('spent_minor'),
               ),
           ],
@@ -207,10 +213,17 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
 
 /// Прогресс бюджета на месяц: потрачено против лимита.
 class BudgetProgress {
-  const BudgetProgress({required this.budget, required this.spentMinor});
+  const BudgetProgress({
+    required this.budget,
+    required this.categoryName,
+    required this.spentMinor,
+  });
 
   /// Бюджет, к которому относится прогресс.
   final Budget budget;
+
+  /// Имя категории на момент чтения (JOIN categories) — для подписи в UI.
+  final String categoryName;
 
   /// Живые расходы категории за месяц, минорные единицы.
   final int spentMinor;

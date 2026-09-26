@@ -47,6 +47,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reportsTotalLabel => 'Total';
 
   @override
+  String get budgetsTitle => 'Budgets';
+
+  @override
+  String get budgetsEmpty =>
+      'No budgets yet. Set a monthly limit for a category.';
+
+  @override
+  String get budgetAdd => 'Add budget';
+
+  @override
+  String get budgetEdit => 'Edit budget';
+
+  @override
+  String get budgetDeleteTitle => 'Delete budget?';
+
+  @override
+  String budgetDeleteBody(String name) {
+    return 'The budget for “$name” will be removed.';
+  }
+
+  @override
   String get backupSectionTitle => 'Backup and export';
 
   @override

@@ -170,6 +170,42 @@ abstract class AppLocalizations {
   /// **'Total'**
   String get reportsTotalLabel;
 
+  /// Title of the budgets card on the reports dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Budgets'**
+  String get budgetsTitle;
+
+  /// Empty state of the budgets card
+  ///
+  /// In en, this message translates to:
+  /// **'No budgets yet. Set a monthly limit for a category.'**
+  String get budgetsEmpty;
+
+  /// Button and dialog title for creating a budget
+  ///
+  /// In en, this message translates to:
+  /// **'Add budget'**
+  String get budgetAdd;
+
+  /// Dialog title for editing a budget limit
+  ///
+  /// In en, this message translates to:
+  /// **'Edit budget'**
+  String get budgetEdit;
+
+  /// Confirmation title for budget deletion
+  ///
+  /// In en, this message translates to:
+  /// **'Delete budget?'**
+  String get budgetDeleteTitle;
+
+  /// Confirmation body for budget deletion
+  ///
+  /// In en, this message translates to:
+  /// **'The budget for “{name}” will be removed.'**
+  String budgetDeleteBody(String name);
+
   /// Section header of the settings screen with backup actions
   ///
   /// In en, this message translates to:
