@@ -13,7 +13,7 @@ part 'categories_dao.g.dart';
 ///
 /// Дерево держим согласованным вручную, потому что каскадов нет (§3):
 /// удаление запрещено, если есть живые вложенные категории или операции.
-@DriftAccessor(tables: [Categories, Transactions])
+@DriftAccessor(tables: [Budgets, Categories, Transactions])
 class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
   CategoriesDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -152,6 +152,14 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.categoryHasTransactions,
       );
     }
+    final int budgets = await _aliveBudgetCount(id);
+    if (budgets > 0) {
+      throw DataValidationException(
+        'на категорию «${current.name}» ссылается живой бюджет — '
+        'сначала удалите его',
+        kind: DataFailure.categoryHasBudget,
+      );
+    }
     final DateTime now = clock();
     await (update(categories)..where((t) => t.id.equals(id))).write(
       CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
@@ -256,6 +264,15 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
             transactions.categoryId.equals(id) &
                 transactions.deletedAt.isNull(),
           ))
+        .getSingle();
+    return row.read(count) ?? 0;
+  }
+
+  Future<int> _aliveBudgetCount(String id) async {
+    final Expression<int> count = budgets.id.count();
+    final TypedResult row = await (selectOnly(budgets)
+          ..addColumns([count])
+          ..where(budgets.categoryId.equals(id) & budgets.deletedAt.isNull()))
         .getSingle();
     return row.read(count) ?? 0;
   }

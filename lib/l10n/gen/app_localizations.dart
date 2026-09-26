@@ -140,6 +140,72 @@ abstract class AppLocalizations {
   /// **'Reports and budgets will appear here. Stage M2.'**
   String get reportsPlaceholder;
 
+  /// Header of the dashboard card with the sum of all account balances
+  ///
+  /// In en, this message translates to:
+  /// **'Total balance'**
+  String get reportsTotalBalance;
+
+  /// Title of the dashboard card with the per-category expense breakdown
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses by category'**
+  String get reportsCategoryBreakdownTitle;
+
+  /// Empty state of the per-category breakdown for the selected month
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses this month.'**
+  String get reportsCategoryBreakdownEmpty;
+
+  /// Title of the dashboard card with income/expense dynamics across months
+  ///
+  /// In en, this message translates to:
+  /// **'Dynamics by month'**
+  String get reportsMonthDynamicsTitle;
+
+  /// Prefix of the month total in the category breakdown card
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get reportsTotalLabel;
+
+  /// Title of the budgets card on the reports dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Budgets'**
+  String get budgetsTitle;
+
+  /// Empty state of the budgets card
+  ///
+  /// In en, this message translates to:
+  /// **'No budgets yet. Set a monthly limit for a category.'**
+  String get budgetsEmpty;
+
+  /// Button and dialog title for creating a budget
+  ///
+  /// In en, this message translates to:
+  /// **'Add budget'**
+  String get budgetAdd;
+
+  /// Dialog title for editing a budget limit
+  ///
+  /// In en, this message translates to:
+  /// **'Edit budget'**
+  String get budgetEdit;
+
+  /// Confirmation title for budget deletion
+  ///
+  /// In en, this message translates to:
+  /// **'Delete budget?'**
+  String get budgetDeleteTitle;
+
+  /// Confirmation body for budget deletion
+  ///
+  /// In en, this message translates to:
+  /// **'The budget for “{name}” will be removed.'**
+  String budgetDeleteBody(String name);
+
   /// Section header of the settings screen with backup actions
   ///
   /// In en, this message translates to:
@@ -475,6 +541,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The parent category is unavailable or has a different kind.'**
   String get errorParentInvalid;
+
+  /// Tried to create a budget on a non-expense category
+  ///
+  /// In en, this message translates to:
+  /// **'A budget can only be set on an expense category.'**
+  String get errorBudgetCategoryInvalid;
+
+  /// Category already has a live budget
+  ///
+  /// In en, this message translates to:
+  /// **'This category already has a budget.'**
+  String get errorBudgetAlreadyExists;
+
+  /// Cannot delete a category referenced by a live budget
+  ///
+  /// In en, this message translates to:
+  /// **'This category has a budget. Delete the budget first.'**
+  String get errorCategoryHasBudget;
 
   /// Transfer form rejected because both sides are the same account
   ///

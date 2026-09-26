@@ -31,6 +31,42 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportsPlaceholder => 'Здесь появятся отчёты и бюджеты. Этап M2.';
 
   @override
+  String get reportsTotalBalance => 'Общий баланс';
+
+  @override
+  String get reportsCategoryBreakdownTitle => 'Расходы по категориям';
+
+  @override
+  String get reportsCategoryBreakdownEmpty => 'В этом месяце расходов нет.';
+
+  @override
+  String get reportsMonthDynamicsTitle => 'Динамика по месяцам';
+
+  @override
+  String get reportsTotalLabel => 'Всего';
+
+  @override
+  String get budgetsTitle => 'Бюджеты';
+
+  @override
+  String get budgetsEmpty =>
+      'Бюджетов пока нет. Задайте месячный лимит категории.';
+
+  @override
+  String get budgetAdd => 'Добавить бюджет';
+
+  @override
+  String get budgetEdit => 'Изменить бюджет';
+
+  @override
+  String get budgetDeleteTitle => 'Удалить бюджет?';
+
+  @override
+  String budgetDeleteBody(String name) {
+    return 'Бюджет для «$name» будет удалён.';
+  }
+
+  @override
   String get backupSectionTitle => 'Бэкап и экспорт';
 
   @override
@@ -220,6 +256,17 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get errorParentInvalid =>
       'Родительская категория недоступна или другого вида.';
+
+  @override
+  String get errorBudgetCategoryInvalid =>
+      'Бюджет можно установить только на категорию расходов.';
+
+  @override
+  String get errorBudgetAlreadyExists => 'У этой категории уже есть бюджет.';
+
+  @override
+  String get errorCategoryHasBudget =>
+      'На эту категорию ссылается бюджет. Сначала удалите его.';
 
   @override
   String get errorTransferSameAccount =>

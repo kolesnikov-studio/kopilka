@@ -7,9 +7,9 @@ import 'package:kopilka/data/db/enums.dart';
 // Формат бэкапа (ARCHITECTURE.md §4):
 //
 // {
-//   "schema_version": 1,
+//   "schema_version": 2,
 //   "exported_at": "2026-09-25T00:00:00.000Z",
-//   "data": { "currencies": [...], "accounts": [...], ... }
+//   "data": { "currencies": [...], "accounts": [...], ..., "budgets": [...] }
 // }
 //
 // Правила §3, которые кодек обязан воспроизводить дословно:
@@ -24,8 +24,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v1.
-const int backupSchemaVersion = 1;
+/// дамп таблиц v2.
+const int backupSchemaVersion = 2;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -56,14 +56,20 @@ enum BackupFailure {
   invalidData,
 }
 
-/// Каркас миграций формата экспорта: `schema_version` файла → v1.
+/// Каркас миграций формата экспорта: `schema_version` файла → текущая
+/// версия.
 ///
 /// Правило эпох (см. ROADMAP.md) касается и формата экспорта: новые версии
-/// добавляются сюда, старые файлы обязаны читаться. Миграций пока нет:
-/// v1 — первая версия формата.
+/// добавляются сюда, старые файлы обязаны читаться. v1 → v2: таблица
+/// `budgets` появилась в v2, старый файл дополняется пустым списком.
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
-    1 => (Map<String, dynamic> document) => document,
+    2 => (Map<String, dynamic> document) => document,
+    1 => (Map<String, dynamic> document) {
+        final Map<String, dynamic> data = _requireObject(document['data'], 'data');
+        data['budgets'] = const <dynamic>[];
+        return document;
+      },
     _ => throw BackupValidationException(
         'нет миграции формата экспорта с версии $from',
         kind: BackupFailure.tooOld,
@@ -217,6 +223,7 @@ Future<Map<String, dynamic>> exportToJson(AppDatabase db) async {
     'accounts': await dumpTable('accounts'),
     'categories': await dumpTable('categories'),
     'transactions': await dumpTable('transactions'),
+    'budgets': await dumpTable('budgets'),
   };
   return <String, dynamic>{
     'schema_version': backupSchemaVersion,
@@ -364,6 +371,20 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
       ),
   ];
 
+  final List<BackupBudget> budgets = <BackupBudget>[
+    for (final Map<String, dynamic> row in _requireTable(data['budgets'], 'budgets'))
+      BackupBudget(
+        id: _requireString(row['id'], 'budgets.id'),
+        categoryId: _requireString(row['category_id'], 'budgets.category_id'),
+        limitMinor: _requireInt(row['limit_minor'], 'budgets.limit_minor'),
+        createdAt: _requireDate(row['created_at'], 'budgets.created_at'),
+        updatedAt: _requireDate(row['updated_at'], 'budgets.updated_at'),
+        deletedAt: row['deleted_at'] == null
+            ? null
+            : _requireDate(row['deleted_at'], 'budgets.deleted_at'),
+      ),
+  ];
+
   return DecodedBackup(
     schemaVersion: version,
     exportedAt: exportedAt,
@@ -371,6 +392,7 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
     accounts: accounts,
     categories: categories,
     transactions: transactions,
+    budgets: budgets,
   );
 }
 
@@ -382,6 +404,7 @@ class DecodedBackup {
     required this.accounts,
     required this.categories,
     required this.transactions,
+    required this.budgets,
     this.exportedAt,
   });
 
@@ -392,6 +415,7 @@ class DecodedBackup {
   final List<BackupAccount> accounts;
   final List<BackupCategory> categories;
   final List<BackupTransaction> transactions;
+  final List<BackupBudget> budgets;
 }
 
 /// Валюта дампа.
@@ -462,6 +486,25 @@ class BackupCategory {
   final String? icon;
   final String? color;
   final bool isSystem;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+}
+
+/// Бюджет дампа.
+class BackupBudget {
+  const BackupBudget({
+    required this.id,
+    required this.categoryId,
+    required this.limitMinor,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String categoryId;
+  final int limitMinor;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;

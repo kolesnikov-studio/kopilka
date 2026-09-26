@@ -32,6 +32,42 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reports and budgets will appear here. Stage M2.';
 
   @override
+  String get reportsTotalBalance => 'Total balance';
+
+  @override
+  String get reportsCategoryBreakdownTitle => 'Expenses by category';
+
+  @override
+  String get reportsCategoryBreakdownEmpty => 'No expenses this month.';
+
+  @override
+  String get reportsMonthDynamicsTitle => 'Dynamics by month';
+
+  @override
+  String get reportsTotalLabel => 'Total';
+
+  @override
+  String get budgetsTitle => 'Budgets';
+
+  @override
+  String get budgetsEmpty =>
+      'No budgets yet. Set a monthly limit for a category.';
+
+  @override
+  String get budgetAdd => 'Add budget';
+
+  @override
+  String get budgetEdit => 'Edit budget';
+
+  @override
+  String get budgetDeleteTitle => 'Delete budget?';
+
+  @override
+  String budgetDeleteBody(String name) {
+    return 'The budget for “$name” will be removed.';
+  }
+
+  @override
   String get backupSectionTitle => 'Backup and export';
 
   @override
@@ -219,6 +255,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorParentInvalid =>
       'The parent category is unavailable or has a different kind.';
+
+  @override
+  String get errorBudgetCategoryInvalid =>
+      'A budget can only be set on an expense category.';
+
+  @override
+  String get errorBudgetAlreadyExists => 'This category already has a budget.';
+
+  @override
+  String get errorCategoryHasBudget =>
+      'This category has a budget. Delete the budget first.';
 
   @override
   String get errorTransferSameAccount =>

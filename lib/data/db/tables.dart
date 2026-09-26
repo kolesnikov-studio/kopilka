@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 
-// Схема v1 — дословно по ARCHITECTURE.md §3.
+// Схема v2. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
+// categories, transactions). v2 добавляет бюджеты (M2, D-14) — см.
+// миграцию в database.dart.
 //
 // Общие правила (нарушать нельзя):
 // - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа
@@ -124,6 +126,33 @@ class Transactions extends Table {
   DateTimeColumn get date => dateTime()();
 
   TextColumn get note => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Бюджеты (v2, D-14): повторяющийся месячный лимит расходов по категории.
+///
+/// Без колонки месяца: бюджет действует каждый календарный месяц, прогресс
+/// считается запросом по операциям месяца (см. `BudgetsDao`).
+class Budgets extends Table {
+  /// UUID v4, генерирует приложение.
+  TextColumn get id => text()();
+
+  /// Категория расходов (FK на `categories.id`). Ровно один живой бюджет
+  /// на категорию — правило DAO, не SQL: уникальный индекс по живым строкам
+  /// в SQLite потребовал бы частичный индекс, а soft delete без каскадов
+  /// (§3) оставляет удалённые строки с тем же `category_id`.
+  TextColumn get categoryId => text().references(Categories, #id)();
+
+  /// Лимит расходов за месяц в минорных единицах.
+  IntColumn get limitMinor => integer()();
 
   DateTimeColumn get createdAt => dateTime()();
 
