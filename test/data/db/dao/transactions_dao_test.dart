@@ -679,5 +679,91 @@ void main() {
       );
       expect(totals, isEmpty);
     });
+
+    test('watchExpensesByCategoryForMonth реагирует на новые операции',
+        () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      final Account account = await f.seedAccount();
+      final Category groceries = await f.seedCategory(name: 'Продукты');
+
+      final Stream<List<CategoryExpense>> stream =
+          f.db.transactionsDao.watchExpensesByCategoryForMonth(
+        moment: f.clock.read(),
+      );
+
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: groceries.id,
+        amountMinor: 1500,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: groceries.id,
+        amountMinor: 500,
+      );
+
+      await expectLater(
+        stream,
+        emitsThrough(
+          predicate<List<CategoryExpense>>(
+            (List<CategoryExpense> list) =>
+                list.length == 1 &&
+                list.single.categoryName == 'Продукты' &&
+                list.single.amountMinor == 2000,
+            'сумма категории дожила до 2000',
+          ),
+        ),
+      );
+    });
+
+    test('watchTotalsByMonth отдаёт итоги и не смешивает месяцы', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      final Account account = await f.seedAccount();
+      final Category expenseCat = await f.seedCategory();
+      final Category incomeCat = await f.seedCategory(
+        name: 'Зарплата',
+        kind: CategoryKind.income,
+      );
+
+      final Stream<List<MonthTotals>> stream =
+          f.db.transactionsDao.watchTotalsByMonth(
+        from: DateTime.utc(2026, 8, 1),
+        to: DateTime.utc(2026, 10, 1),
+      );
+
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: account.id,
+        categoryId: incomeCat.id,
+        amountMinor: 70000,
+        date: DateTime.utc(2026, 8, 11),
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: expenseCat.id,
+        amountMinor: 12000,
+        date: DateTime.utc(2026, 9, 3),
+      );
+
+      await expectLater(
+        stream,
+        emitsThrough(
+          predicate<List<MonthTotals>>(
+            (List<MonthTotals> list) =>
+                list.length == 2 &&
+                list[0].monthKey == '2026-08' &&
+                list[0].incomeMinor == 70000 &&
+                list[1].monthKey == '2026-09' &&
+                list[1].expenseMinor == 12000,
+            'август доход, сентябрь расход',
+          ),
+        ),
+      );
+    });
   });
 }

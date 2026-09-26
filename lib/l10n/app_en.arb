@@ -29,6 +29,27 @@
     "description": "Placeholder text of the reports screen"
   },
 
+  "reportsTotalBalance": "Total balance",
+  "@reportsTotalBalance": {
+    "description": "Header of the dashboard card with the sum of all account balances"
+  },
+  "reportsCategoryBreakdownTitle": "Expenses by category",
+  "@reportsCategoryBreakdownTitle": {
+    "description": "Title of the dashboard card with the per-category expense breakdown"
+  },
+  "reportsCategoryBreakdownEmpty": "No expenses this month.",
+  "@reportsCategoryBreakdownEmpty": {
+    "description": "Empty state of the per-category breakdown for the selected month"
+  },
+  "reportsMonthDynamicsTitle": "Dynamics by month",
+  "@reportsMonthDynamicsTitle": {
+    "description": "Title of the dashboard card with income/expense dynamics across months"
+  },
+  "reportsTotalLabel": "Total",
+  "@reportsTotalLabel": {
+    "description": "Prefix of the month total in the category breakdown card"
+  },
+
   "backupSectionTitle": "Backup and export",
   "@backupSectionTitle": {
     "description": "Section header of the settings screen with backup actions"

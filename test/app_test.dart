@@ -119,7 +119,8 @@ void main() {
 
     await tester.tap(navItem(NavigationBar, l10n.navReports));
     await tester.pumpAndSettle();
-    expect(find.text(l10n.reportsPlaceholder), findsOneWidget);
+    // Экран отчётов реальный: карточка общего баланса.
+    expect(find.text(l10n.reportsTotalBalance), findsOneWidget);
 
     await tester.tap(navItem(NavigationBar, l10n.navSettings));
     await tester.pumpAndSettle();
@@ -141,7 +142,7 @@ void main() {
 
     await tester.tap(navItem(NavigationRail, l10n.navReports));
     await tester.pumpAndSettle();
-    expect(find.text(l10n.reportsPlaceholder), findsOneWidget);
+    expect(find.text(l10n.reportsTotalBalance), findsOneWidget);
   });
 
   testWidgets('обе локали подключены: EN показывает английские тексты', (

@@ -8,6 +8,12 @@
   "navSettings": "Настройки",
   "reportsPlaceholder": "Здесь появятся отчёты и бюджеты. Этап M2.",
 
+  "reportsTotalBalance": "Общий баланс",
+  "reportsCategoryBreakdownTitle": "Расходы по категориям",
+  "reportsCategoryBreakdownEmpty": "В этом месяце расходов нет.",
+  "reportsMonthDynamicsTitle": "Динамика по месяцам",
+  "reportsTotalLabel": "Всего",
+
   "backupSectionTitle": "Бэкап и экспорт",
   "exportJsonAction": "Экспорт бэкапа (JSON)",
   "importJsonAction": "Импорт бэкапа (JSON)",

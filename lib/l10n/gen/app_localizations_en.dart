@@ -32,6 +32,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'Reports and budgets will appear here. Stage M2.';
 
   @override
+  String get reportsTotalBalance => 'Total balance';
+
+  @override
+  String get reportsCategoryBreakdownTitle => 'Expenses by category';
+
+  @override
+  String get reportsCategoryBreakdownEmpty => 'No expenses this month.';
+
+  @override
+  String get reportsMonthDynamicsTitle => 'Dynamics by month';
+
+  @override
+  String get reportsTotalLabel => 'Total';
+
+  @override
   String get backupSectionTitle => 'Backup and export';
 
   @override

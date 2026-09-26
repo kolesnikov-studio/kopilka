@@ -31,6 +31,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get reportsPlaceholder => 'Здесь появятся отчёты и бюджеты. Этап M2.';
 
   @override
+  String get reportsTotalBalance => 'Общий баланс';
+
+  @override
+  String get reportsCategoryBreakdownTitle => 'Расходы по категориям';
+
+  @override
+  String get reportsCategoryBreakdownEmpty => 'В этом месяце расходов нет.';
+
+  @override
+  String get reportsMonthDynamicsTitle => 'Динамика по месяцам';
+
+  @override
+  String get reportsTotalLabel => 'Всего';
+
+  @override
   String get backupSectionTitle => 'Бэкап и экспорт';
 
   @override

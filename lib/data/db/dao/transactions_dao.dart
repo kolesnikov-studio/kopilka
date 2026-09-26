@@ -345,39 +345,67 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Future<List<CategoryExpense>> expensesByCategoryForMonth({
     required DateTime moment,
   }) async {
-    final DateTime from = monthStart(moment);
-    final DateTime to = nextMonthStart(from);
-    final Expression<int> total = transactions.amountMinor.sum();
-    final List<TypedResult> rows = await (selectOnly(transactions)
-          .join([
-            innerJoin(
-              categories,
-              categories.id.equalsExp(transactions.categoryId),
-            ),
-          ])
-          ..addColumns([categories.id, categories.name, total])
-          ..where(
-            transactions.deletedAt.isNull() &
-                transactions.type.equals(TransactionType.expense.dbValue) &
-                transactions.date.isBiggerOrEqualValue(from) &
-                transactions.date.isSmallerThanValue(to) &
-                categories.deletedAt.isNull(),
-          )
-          ..groupBy([categories.id])
-          ..orderBy([
-            OrderingTerm.desc(total),
-            OrderingTerm.asc(categories.name),
-          ]))
-        .get();
-    return <CategoryExpense>[
-      for (final TypedResult row in rows)
-        CategoryExpense(
-          categoryId: row.read(categories.id)!,
-          categoryName: row.read(categories.name)!,
-          amountMinor: row.read(total) ?? 0,
-        ),
-    ];
+    final (JoinedSelectStatement<HasResultSet, dynamic> query,
+            Expression<int> total) =
+        _categoryExpensesQuery(monthStart(moment), nextMonthStart(moment));
+    return _readCategoryExpenses(await query.get(), total);
   }
+
+  /// Живой вариант [expensesByCategoryForMonth]: дашборд перестраивается
+  /// при любом изменении операций или категорий.
+  Stream<List<CategoryExpense>> watchExpensesByCategoryForMonth({
+    required DateTime moment,
+  }) {
+    final (JoinedSelectStatement<HasResultSet, dynamic> query,
+            Expression<int> total) =
+        _categoryExpensesQuery(monthStart(moment), nextMonthStart(moment));
+    return query.watch().map(
+          (List<TypedResult> rows) => _readCategoryExpenses(rows, total),
+        );
+  }
+
+  /// Собирает агрегат расходов по категориям за месяц [from, to).
+  /// Возвращает запрос вместе с выражением суммы: drift сравнивает выражения
+  /// структурно, поэтому чтение строки — тем же объектом, что и в addColumns.
+  (JoinedSelectStatement<HasResultSet, dynamic>, Expression<int>)
+      _categoryExpensesQuery(DateTime from, DateTime to) {
+    final Expression<int> total = transactions.amountMinor.sum();
+    final JoinedSelectStatement<HasResultSet, dynamic> query =
+        selectOnly(transactions)
+        .join([
+          innerJoin(
+            categories,
+            categories.id.equalsExp(transactions.categoryId),
+          ),
+        ])
+      ..addColumns([categories.id, categories.name, total])
+      ..where(
+        transactions.deletedAt.isNull() &
+            transactions.type.equals(TransactionType.expense.dbValue) &
+            transactions.date.isBiggerOrEqualValue(from) &
+            transactions.date.isSmallerThanValue(to) &
+            categories.deletedAt.isNull(),
+      )
+      ..groupBy([categories.id])
+      ..orderBy([
+        OrderingTerm.desc(total),
+        OrderingTerm.asc(categories.name),
+      ]);
+    return (query, total);
+  }
+
+  List<CategoryExpense> _readCategoryExpenses(
+    List<TypedResult> rows,
+    Expression<int> total,
+  ) =>
+      <CategoryExpense>[
+        for (final TypedResult row in rows)
+          CategoryExpense(
+            categoryId: row.read(categories.id)!,
+            categoryName: row.read(categories.name)!,
+            amountMinor: row.read(total) ?? 0,
+          ),
+      ];
 
   /// Доходы и расходы по календарным месяцам (M2, динамика на дашборде):
   /// группы внутри [from, to) по границам месяцев в UTC. Переводы не
@@ -400,20 +428,47 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.invalidInput,
       );
     }
-    final List<QueryRow> rows = await customSelect(
-      "SELECT strftime('%Y-%m', date, 'unixepoch') AS month_key, type, "
-      'SUM(amount_minor) AS total '
-      'FROM transactions '
-      'WHERE deleted_at IS NULL AND date >= ? AND date < ? '
-      "AND type IN ('expense', 'income') "
-      'GROUP BY month_key, type '
-      'ORDER BY month_key',
-      variables: [
-        Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
-        Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
-      ],
-      readsFrom: {transactions},
-    ).get();
+    return _readMonthTotals(
+      await _totalsByMonthSelect(from, to).get(),
+    );
+  }
+
+  /// Живой вариант [totalsByMonth]: та же группировка, поток обновлений.
+  Stream<List<MonthTotals>> watchTotalsByMonth({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    if (!to.isAfter(from)) {
+      throw DataValidationException(
+        'период пуст: to должен быть позже from',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    return _totalsByMonthSelect(from, to)
+        .watch()
+        .map(_readMonthTotals);
+  }
+
+  /// Сырой SQL-запрос динамики по месяцам; общий для get и watch.
+  Selectable<QueryRow> _totalsByMonthSelect(DateTime from, DateTime to) =>
+      customSelect(
+        "SELECT strftime('%Y-%m', date, 'unixepoch') AS month_key, type, "
+        'SUM(amount_minor) AS total '
+        'FROM transactions '
+        'WHERE deleted_at IS NULL AND date >= ? AND date < ? '
+        "AND type IN ('expense', 'income') "
+        'GROUP BY month_key, type '
+        'ORDER BY month_key',
+        variables: [
+          Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
+          Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
+        ],
+        readsFrom: {transactions},
+      );
+
+  /// Собирает итоги из SQL-групп (доходной и расходной); месяцы сортируются
+  /// по ключу, месяцы без операций в списке отсутствуют.
+  List<MonthTotals> _readMonthTotals(List<QueryRow> rows) {
     final Map<String, MonthTotals> byMonth = <String, MonthTotals>{};
     for (final QueryRow row in rows) {
       final String key = row.read<String>('month_key');

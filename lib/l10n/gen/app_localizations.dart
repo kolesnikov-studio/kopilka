@@ -140,6 +140,36 @@ abstract class AppLocalizations {
   /// **'Reports and budgets will appear here. Stage M2.'**
   String get reportsPlaceholder;
 
+  /// Header of the dashboard card with the sum of all account balances
+  ///
+  /// In en, this message translates to:
+  /// **'Total balance'**
+  String get reportsTotalBalance;
+
+  /// Title of the dashboard card with the per-category expense breakdown
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses by category'**
+  String get reportsCategoryBreakdownTitle;
+
+  /// Empty state of the per-category breakdown for the selected month
+  ///
+  /// In en, this message translates to:
+  /// **'No expenses this month.'**
+  String get reportsCategoryBreakdownEmpty;
+
+  /// Title of the dashboard card with income/expense dynamics across months
+  ///
+  /// In en, this message translates to:
+  /// **'Dynamics by month'**
+  String get reportsMonthDynamicsTitle;
+
+  /// Prefix of the month total in the category breakdown card
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get reportsTotalLabel;
+
   /// Section header of the settings screen with backup actions
   ///
   /// In en, this message translates to:
