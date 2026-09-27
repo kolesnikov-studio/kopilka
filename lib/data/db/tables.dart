@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart';
 
-// Схема v2. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
-// categories, transactions). v2 добавляет бюджеты (M2, D-14) — см.
-// миграцию в database.dart.
+// Схема v3. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
+// categories, transactions). v2 добавляет бюджеты (M2, D-14). v3 добавляет
+// nullable-колонку transactions.target_amount_minor — суммы зачисления
+// перевода между счетами в разных валютах (M3, D-17/D-21); см. миграцию
+// в database.dart.
 //
 // Общие правила (нарушать нельзя):
 // - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа
@@ -117,10 +119,18 @@ class Transactions extends Table {
   /// Для перевода — NULL.
   TextColumn get categoryId => text().nullable().references(Categories, #id)();
 
-  /// Сумма в минорных единицах, всегда положительная.
+  /// Сумма списания в минорных единицах, всегда положительная.
   IntColumn get amountMinor => integer()();
 
-  /// Валюта операции (в M1 наследуется от счёта).
+  /// Сумма зачисления перевода в минорных единицах, положительная; валюты —
+  /// целевого счёта. Правила D-17: NULL = перевод в одной валюте и любой
+  /// не-перевод; не NULL — только когда валюты счетов перевода различаются.
+  /// Заполняется только вместе с [amountMinor] (update — одной правкой);
+  /// курс обмена хранить не нужно — он производный (отношение сумм).
+  IntColumn get targetAmountMinor => integer().nullable()();
+
+  /// Валюта операции (суммы списания); для перевода — валюта счёта
+  /// списания, у зачисления — валюта целевого счёта.
   TextColumn get currencyCode => text().references(Currencies, #code)();
 
   DateTimeColumn get date => dateTime()();

@@ -167,6 +167,63 @@ void main() {
     );
   });
 
+  testWidgets('P4: месяц операции определяется датой, а не днём запуска', (
+    WidgetTester tester,
+  ) async {
+    final Fixture f = Fixture();
+    addTearDown(f.dispose);
+    await f.pump(tester);
+
+    final Account account = await f.db.accountsDao.create(
+      name: 'Карта',
+      kind: AccountKind.card,
+      currencyCode: baseCurrencyCode,
+    );
+    final Category currentCat = await f.db.categoriesDao.create(
+      name: 'Молочка',
+      kind: CategoryKind.expense,
+    );
+    final Category prevCat = await f.db.categoriesDao.create(
+      name: 'Транспорт',
+      kind: CategoryKind.expense,
+    );
+    // Обе даты привязаны к границе текущего месяца, а не к «сегодня»:
+    // первая секунда текущего месяца (всегда внутри месяца, даже при
+    // запуске 1-го числа) и последняя секунда предыдущего — тест
+    // детерминирован относительно дня запуска (P4), полночь UTC внутри.
+    final DateTime currentStart = monthStart(DateTime.now().toUtc());
+    final DateTime prevEnd = currentStart.subtract(const Duration(seconds: 1));
+    await f.db.transactionsDao.create(
+      type: TransactionType.expense,
+      accountId: account.id,
+      categoryId: currentCat.id,
+      amountMinor: 30000,
+      date: currentStart,
+    );
+    await f.db.transactionsDao.create(
+      type: TransactionType.expense,
+      accountId: account.id,
+      categoryId: prevCat.id,
+      amountMinor: 20000,
+      date: prevEnd,
+    );
+
+    await tester.pumpAndSettle();
+
+    // Текущий месяц: расход виден независимо от числа.
+    String money(int minor) => formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
+    expect(find.text(money(30000)), findsOneWidget);
+    expect(find.text('Молочка'), findsNWidgets(2));
+
+    // Стрелка назад: предыдущий месяц со своей категорией, без смешивания.
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pumpAndSettle();
+    expect(find.text(money(20000)), findsOneWidget);
+    expect(find.text('Транспорт'), findsNWidgets(2));
+    expect(find.text(money(30000)), findsNothing);
+    expect(find.text('Молочка'), findsNothing);
+  });
+
   testWidgets('динамика по месяцам: столбцы и легенда при данных', (
     WidgetTester tester,
   ) async {
@@ -207,5 +264,113 @@ void main() {
     // Легенда переиспользует подписи фильтров операций.
     expect(find.text(l10n.filterIncomes), findsOneWidget);
     expect(find.text(l10n.filterExpenses), findsOneWidget);
+  });
+
+  group('пометки «по текущему курсу» (B5, M3-шаг 5)', () {
+    Future<Currency> seedUsd(Fixture f) async {
+      await f.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 2);
+      return f.db.currenciesDao.findAlive('USD').then((Currency? c) => c!);
+    }
+
+    testWidgets('моновалютный пользователь: пометки нет (не шумим)',
+        (WidgetTester tester) async {
+      final Fixture f = Fixture();
+      addTearDown(f.dispose);
+      final AppLocalizations l10n = await f.pump(tester);
+
+      await f.db.accountsDao.create(
+        name: 'Рублёвый',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+        initialBalanceMinor: 100000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.reportsAtCurrentRate), findsNothing);
+    });
+
+    testWidgets('мультивалютность: три пометки — баланс, «Всего», футер',
+        (WidgetTester tester) async {
+      final Fixture f = Fixture();
+      addTearDown(f.dispose);
+      final AppLocalizations l10n = await f.pump(tester);
+
+      await seedUsd(f);
+      await f.db.accountsDao.create(
+        name: 'Рублёвый',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+        initialBalanceMinor: 100000,
+      );
+      await f.db.accountsDao.create(
+        name: 'Долларовый',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+        initialBalanceMinor: 2000,
+      );
+      // Расход нужен, чтобы карточка разбивки показывала строку «Всего».
+      final List<Account> alive = await f.db.accountsDao.getAlive();
+      final Category food = await f.db.categoriesDao.create(
+        name: 'Еда',
+        kind: CategoryKind.expense,
+      );
+      await f.db.transactionsDao.create(
+        type: TransactionType.expense,
+        accountId: alive
+            .firstWhere((Account x) => x.currencyCode == baseCurrencyCode)
+            .id,
+        categoryId: food.id,
+        amountMinor: 30000,
+      );
+      await tester.pumpAndSettle();
+
+      // (а) карточка общего баланса; (б) рядом с «Всего» (donut-строка);
+      // (в) футер динамики: итого 3.
+      expect(find.text(l10n.reportsAtCurrentRate), findsNWidgets(3));
+      // Общий баланс конвертирован: (1000,00 − 300,00) + 20,00 × 2 = 740,00 ₽.
+      expect(
+        find.text(formatMoneyMinor(74000, symbol: '₽', locale: 'ru')),
+        findsOneWidget,
+      );
+      // «Всего» доната: расход 300,00 ₽ в базовой — без изменений.
+      expect(
+        find.text('${l10n.reportsTotalLabel}: ${formatMoneyMinor(30000, symbol: '₽', locale: 'ru')}'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('появление второй валюты добавляет пометку живым потоком',
+        (WidgetTester tester) async {
+      final Fixture f = Fixture();
+      addTearDown(f.dispose);
+      final AppLocalizations l10n = await f.pump(tester);
+
+      final Account rub = await f.db.accountsDao.create(
+        name: 'Рублёвый',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+      final Category food = await f.db.categoriesDao.create(
+        name: 'Еда',
+        kind: CategoryKind.expense,
+      );
+      await f.db.transactionsDao.create(
+        type: TransactionType.expense,
+        accountId: rub.id,
+        categoryId: food.id,
+        amountMinor: 30000,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.reportsAtCurrentRate), findsNothing);
+
+      await seedUsd(f);
+      await f.db.accountsDao.create(
+        name: 'Долларовый',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.reportsAtCurrentRate), findsNWidgets(3));
+    });
   });
 }

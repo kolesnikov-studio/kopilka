@@ -76,17 +76,33 @@ class DataLayerFixture {
   Future<Currency> ensureRub() async =>
       await currencies.findAlive('RUB') ?? await currencies.create(code: 'RUB', symbol: '₽', isBase: true);
 
-  /// Счёт в рублях.
+  /// Валюта по коду; создаёт при отсутствии (S1: вторая валюта для M3).
+  Future<Currency> seedCurrency(
+    String code, {
+    required String symbol,
+    bool isBase = false,
+    double rateToBase = 1,
+  }) async =>
+      await currencies.findAlive(code) ??
+      await currencies.create(
+        code: code,
+        symbol: symbol,
+        isBase: isBase,
+        rateToBase: rateToBase,
+      );
+
+  /// Счёт в заданной валюте (S1: по умолчанию — в базовой RUB, как раньше).
   Future<Account> seedAccount({
     String name = 'Наличные',
     AccountKind kind = AccountKind.cash,
     int initialBalanceMinor = 0,
+    String? currencyCode,
   }) async {
-    await ensureRub();
+    final String code = currencyCode ?? (await ensureRub()).code;
     return accounts.create(
       name: name,
       kind: kind,
-      currencyCode: 'RUB',
+      currencyCode: code,
       initialBalanceMinor: initialBalanceMinor,
     );
   }

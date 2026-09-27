@@ -3,6 +3,7 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/core/errors.dart';
+import 'package:kopilka/core/money.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -289,6 +290,118 @@ void main() {
       ),
       1,
     );
+
+    // A12: %, _ и \ в поиске — литеральные символы, а не маски LIKE.
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: cash.id,
+      categoryId: products.id,
+      amountMinor: 400,
+      date: day1,
+      note: 'Скидка 100%',
+    );
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: cash.id,
+      categoryId: products.id,
+      amountMinor: 500,
+      date: day1,
+      note: '100x объём',
+    );
+
+    // Без экранирования «100%» нашло бы и «100x объём» (2 вместо 1).
+    expect(await count(const TransactionFilter(search: '100%')), 1);
+    // «_» — любой символ в маске LIKE: без экранирования «100_» нашло бы
+    // «100x» и «100%»; литеральный поиск — только заметку с настоящим «_».
+    expect(await count(const TransactionFilter(search: '100_')), 0);
+  });
+
+  test('watchFilteredView отдаёт имена счёта, целевого счёта и категории (R7)',
+      () async {
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: cash.id,
+      categoryId: products.id,
+      amountMinor: 100,
+    );
+    await f.transactions.create(
+      type: TransactionType.transfer,
+      accountId: cash.id,
+      targetAccountId: card.id,
+      amountMinor: 250,
+    );
+    // Расход без категории: имя категории null (U4 — UI покажет текст).
+    await f.transactions.create(
+      type: TransactionType.income,
+      accountId: card.id,
+      amountMinor: 500,
+    );
+
+    final List<TransactionView> rows =
+        await f.transactions.watchFilteredView().first;
+    expect(rows, hasLength(3));
+
+    final TransactionView transfer = rows.firstWhere(
+      (TransactionView r) =>
+          TransactionType.fromDb(r.transaction.type) ==
+          TransactionType.transfer,
+    );
+    expect(transfer.accountName, 'Наличные');
+    expect(transfer.targetAccountName, 'Карта');
+    expect(transfer.categoryName, isNull);
+
+    final TransactionView expense = rows.firstWhere(
+      (TransactionView r) =>
+          TransactionType.fromDb(r.transaction.type) ==
+          TransactionType.expense,
+    );
+    expect(expense.accountName, 'Наличные');
+    expect(expense.categoryName, 'Продукты');
+    expect(expense.targetAccountName, isNull);
+
+    final TransactionView income = rows.firstWhere(
+      (TransactionView r) =>
+          TransactionType.fromDb(r.transaction.type) ==
+          TransactionType.income,
+    );
+    expect(income.accountName, 'Карта');
+    expect(income.categoryName, isNull);
+  });
+
+  test('watchFilteredView: view-фильтр совпадает с getFiltered', () async {
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: cash.id,
+      categoryId: products.id,
+      amountMinor: 100,
+    );
+    await f.transactions.create(
+      type: TransactionType.income,
+      accountId: card.id,
+      amountMinor: 500,
+    );
+
+    final List<TransactionView> view = await f.transactions
+        .watchFilteredView(
+          const TransactionFilter(type: TransactionType.expense),
+        )
+        .first;
+    expect(view, hasLength(1));
+    expect(view.single.accountName, 'Наличные');
+    expect(view.single.categoryName, 'Продукты');
+  });
+
+  test('watchFilteredView реагирует на создание операции', () async {
+    expect(await f.transactions.watchFilteredView().first, isEmpty);
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: cash.id,
+      amountMinor: 100,
+    );
+    final List<TransactionView> rows =
+        await f.transactions.watchFilteredView().first;
+    expect(rows, hasLength(1));
+    expect(rows.single.accountName, 'Наличные');
   });
 
   test('список отсортирован от новых к старым', () async {
@@ -481,6 +594,78 @@ void main() {
   });
 
   group('агрегаты дашборда (M2)', () {
+    test('границы месяца: первая секунда попадает в свой месяц (P3)', () async {
+      final Account account = await f.seedAccount();
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: products.id,
+        amountMinor: 111,
+        // Ровно 00:00:00 первого дня месяца (UTC, §3).
+        date: DateTime.utc(2026, 9, 1),
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: products.id,
+        amountMinor: 222,
+        date: DateTime.utc(2026, 8, 31, 23, 59, 59),
+      );
+
+      final List<CategoryExpense> september =
+          await f.db.transactionsDao.expensesByCategoryForMonth(
+        moment: DateTime.utc(2026, 9, 15),
+      );
+      expect(september.single.amountMinor, 111);
+      expect(september.single.categoryName, 'Продукты');
+
+      final List<MonthTotals> totals = await f.db.transactionsDao.totalsByMonth(
+        from: DateTime.utc(2026, 8, 1),
+        to: DateTime.utc(2026, 10, 1),
+      );
+      expect(totals.map((MonthTotals m) => m.monthKey), <String>['2026-08', '2026-09']);
+      expect(totals[0].expenseMinor, 222);
+      expect(totals[1].expenseMinor, 111);
+    });
+
+    test('границы месяца: последняя секунда (23:59:59) остаётся в своём месяце (P3)', () async {
+      final Account account = await f.seedAccount();
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: products.id,
+        amountMinor: 333,
+        date: DateTime.utc(2026, 9, 30, 23, 59, 59),
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: products.id,
+        amountMinor: 444,
+        date: DateTime.utc(2026, 10, 1),
+      );
+
+      final List<CategoryExpense> september =
+          await f.db.transactionsDao.expensesByCategoryForMonth(
+        moment: DateTime.utc(2026, 9, 15),
+      );
+      expect(september.single.amountMinor, 333);
+
+      final List<CategoryExpense> october =
+          await f.db.transactionsDao.expensesByCategoryForMonth(
+        moment: DateTime.utc(2026, 10, 15),
+      );
+      expect(october.single.amountMinor, 444);
+
+      final List<MonthTotals> totals = await f.db.transactionsDao.totalsByMonth(
+        from: DateTime.utc(2026, 9, 1),
+        to: DateTime.utc(2026, 11, 1),
+      );
+      expect(totals.map((MonthTotals m) => m.monthKey), <String>['2026-09', '2026-10']);
+      expect(totals[0].expenseMinor, 333);
+      expect(totals[1].expenseMinor, 444);
+    });
+
     test('расходы по категориям за месяц: только живые расходы, без переводов',
         () async {
       final DataLayerFixture f = DataLayerFixture();
@@ -691,7 +876,7 @@ void main() {
           f.db.transactionsDao.watchExpensesByCategoryForMonth(
         moment: f.clock.read(),
       );
-
+
       await f.transactions.create(
         type: TransactionType.expense,
         accountId: account.id,
@@ -704,7 +889,7 @@ void main() {
         categoryId: groceries.id,
         amountMinor: 500,
       );
-
+
       await expectLater(
         stream,
         emitsThrough(
@@ -718,7 +903,7 @@ void main() {
         ),
       );
     });
-
+
     test('watchTotalsByMonth отдаёт итоги и не смешивает месяцы', () async {
       final DataLayerFixture f = DataLayerFixture();
       addTearDown(f.dispose);
@@ -728,13 +913,13 @@ void main() {
         name: 'Зарплата',
         kind: CategoryKind.income,
       );
-
+
       final Stream<List<MonthTotals>> stream =
           f.db.transactionsDao.watchTotalsByMonth(
         from: DateTime.utc(2026, 8, 1),
         to: DateTime.utc(2026, 10, 1),
       );
-
+
       await f.transactions.create(
         type: TransactionType.income,
         accountId: account.id,
@@ -749,7 +934,7 @@ void main() {
         amountMinor: 12000,
         date: DateTime.utc(2026, 9, 3),
       );
-
+
       await expectLater(
         stream,
         emitsThrough(
@@ -763,6 +948,286 @@ void main() {
             'август доход, сентябрь расход',
           ),
         ),
+      );
+    });
+  });
+
+  group('агрегаты в базовой валюте (M3-шаг 5, D-18)', () {
+    test('донат: построчная конвертация RUB, USD и JPY в базовую', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await f.ensureRub();
+      await f.seedCurrency('USD', symbol: r'$', rateToBase: 2);
+      // Курс — степень двойки: произведение точно в double, проверяется
+      // именно правило построчного half-up, а не хвосты float.
+      await f.seedCurrency('JPY', symbol: '¥', rateToBase: 0.0625);
+      final Account rub = await f.seedAccount(name: 'Рублёвый');
+      final Account usd = await f.accounts.create(
+        name: 'Долларовый',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+      );
+      final Account jpy = await f.accounts.create(
+        name: 'Йенный',
+        kind: AccountKind.card,
+        currencyCode: 'JPY',
+      );
+      final Category food = await f.seedCategory(name: 'Еда');
+      final Category fun = await f.seedCategory(name: 'Развлечения');
+
+      // РУБ 100,00 → 10000; USD 20,00 × курс 2 → 4000; JPY 320
+      // (экспонент 0) → 320 × 0,0625 = 20,00 → 2000. Еда = 12000.
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: rub.id,
+        categoryId: food.id,
+        amountMinor: 10000,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: usd.id,
+        categoryId: fun.id,
+        amountMinor: 2000,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: jpy.id,
+        categoryId: food.id,
+        amountMinor: 320,
+      );
+
+      final List<CategoryExpenseBase> expenses =
+          await f.db.transactionsDao.expensesByCategoryForMonthInBase(
+        moment: f.clock.read(),
+      );
+      expect(expenses, hasLength(2));
+      expect(expenses[0].categoryName, 'Еда');
+      expect(expenses[0].amountMinor, 12000);
+      expect(expenses[1].categoryName, 'Развлечения');
+      expect(expenses[1].amountMinor, 4000);
+    });
+
+    test('смена курса пересчитывает донат без перезапуска (watch, D-16)', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await f.ensureRub();
+      await f.seedCurrency('USD', symbol: r'$', rateToBase: 2);
+      final Account usd = await f.accounts.create(
+        name: 'Долларовый',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+      );
+      final Category food = await f.seedCategory(name: 'Еда');
+
+      final Stream<List<CategoryExpenseBase>> stream = f.db.transactionsDao
+          .watchExpensesByCategoryForMonthInBase(moment: f.clock.read());
+
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: usd.id,
+        categoryId: food.id,
+        amountMinor: 2000,
+      );
+      await expectLater(
+        stream,
+        emitsThrough(
+          predicate<List<CategoryExpenseBase>>(
+            (List<CategoryExpenseBase> list) =>
+                list.single.amountMinor == 4000,
+            '40,00 ₽ по курсу 2',
+          ),
+        ),
+      );
+
+      await f.currencies.updateCurrency(
+        'USD',
+        rateToBase: const Value<double>(4),
+      );
+      await expectLater(
+        stream,
+        emitsThrough(
+          predicate<List<CategoryExpenseBase>>(
+            (List<CategoryExpenseBase> list) =>
+                list.single.amountMinor == 8000,
+            '80,00 ₽ по курсу 4 без перезапуска',
+          ),
+        ),
+      );
+    });
+
+    test('динамика: месяцы в базовой, экспоненты JPY и KWD (D-27)', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await f.ensureRub();
+      await f.seedCurrency('JPY', symbol: '¥', rateToBase: 0.0625);
+      // 1 динар = 200 ₽: минорный KWD крупнее минорного рубля в 10 раз.
+      await f.seedCurrency('KWD', symbol: 'K', rateToBase: 200);
+      final Account rub = await f.seedAccount(name: 'Рублёвый');
+      final Account jpy = await f.accounts.create(
+        name: 'Йенный',
+        kind: AccountKind.card,
+        currencyCode: 'JPY',
+      );
+      final Account kwd = await f.accounts.create(
+        name: 'Динаровый',
+        kind: AccountKind.card,
+        currencyCode: 'KWD',
+      );
+      final Category incomeCat = await f.seedCategory(
+        name: 'Зарплата',
+        kind: CategoryKind.income,
+      );
+      final Category food = await f.seedCategory(name: 'Еда');
+
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: rub.id,
+        categoryId: incomeCat.id,
+        amountMinor: 70000,
+        date: DateTime.utc(2026, 8, 11),
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: rub.id,
+        categoryId: food.id,
+        amountMinor: 12000,
+        date: DateTime.utc(2026, 9, 3),
+      );
+      // JPY 320 (экспонент 0) → 2000.
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: jpy.id,
+        categoryId: food.id,
+        amountMinor: 320,
+        date: DateTime.utc(2026, 9, 4),
+      );
+      // KWD 12345 (экспонент 3) → 123,45 динара × 200 = 246900.
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: kwd.id,
+        categoryId: food.id,
+        amountMinor: 12345,
+        date: DateTime.utc(2026, 10, 5),
+      );
+
+      final List<MonthTotalsBase> totals =
+          await f.db.transactionsDao.totalsByMonthInBase(
+        from: DateTime.utc(2026, 8, 1),
+        to: DateTime.utc(2026, 11, 1),
+      );
+      expect(totals.map((MonthTotalsBase m) => m.monthKey),
+          <String>['2026-08', '2026-09', '2026-10']);
+      expect(totals[0].incomeMinor, 70000);
+      expect(totals[0].expenseMinor, 0);
+      expect(totals[1].expenseMinor, 14000);
+      expect(totals[1].incomeMinor, 0);
+      expect(totals[2].expenseMinor, 246900);
+    });
+
+    test('ожидания конвертации — через formatMoneyMinor по экспоненту базы',
+        () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await f.ensureRub();
+      await f.seedCurrency('JPY', symbol: '¥', rateToBase: 0.0625);
+      // 1 динар = 200 ₽: минорный KWD крупнее минорного рубля в 10 раз.
+      await f.seedCurrency('KWD', symbol: 'K', rateToBase: 200);
+      final Account jpy = await f.accounts.create(
+        name: 'Йенный',
+        kind: AccountKind.card,
+        currencyCode: 'JPY',
+      );
+      final Account kwd = await f.accounts.create(
+        name: 'Динаровый',
+        kind: AccountKind.card,
+        currencyCode: 'KWD',
+      );
+      final Category food = await f.seedCategory(name: 'Еда');
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: jpy.id,
+        categoryId: food.id,
+        amountMinor: 320,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: kwd.id,
+        categoryId: food.id,
+        amountMinor: 12345,
+      );
+
+      final List<CategoryExpenseBase> expenses =
+          await f.db.transactionsDao.expensesByCategoryForMonthInBase(
+        moment: f.clock.read(),
+      );
+      expect(expenses.single.amountMinor, 248900);
+      // База — экспонент 2 (D-27): суммы показываются как рублёвые с копейками,
+      // независимо от экспонентов валют-источников.
+      String money(int minor) => formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
+      expect(money(expenses.single.amountMinor), money(248900));
+    });
+
+    test('одно- и двухвалютный переводы не попадают в агрегаты', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await f.ensureRub();
+      await f.seedCurrency('USD', symbol: r'$', rateToBase: 2);
+      final Account rub = await f.seedAccount(name: 'Рублёвый');
+      final Account rub2 = await f.seedAccount(name: 'Второй');
+      final Account usd = await f.accounts.create(
+        name: 'Долларовый',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+      );
+      final Category food = await f.seedCategory(name: 'Еда');
+
+      // Перевод в одной валюте и мультивалютный (D-17): ни тот, ни другой
+      // не доход и не расход — в донате и динамике их нет.
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: rub.id,
+        targetAccountId: rub2.id,
+        amountMinor: 999999,
+      );
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: rub.id,
+        targetAccountId: usd.id,
+        amountMinor: 500000,
+        targetAmountMinor: 5000,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: rub.id,
+        categoryId: food.id,
+        amountMinor: 10000,
+      );
+
+      final List<CategoryExpenseBase> expenses =
+          await f.db.transactionsDao.expensesByCategoryForMonthInBase(
+        moment: f.clock.read(),
+      );
+      expect(expenses, hasLength(1));
+      expect(expenses.single.amountMinor, 10000);
+
+      final List<MonthTotalsBase> totals =
+          await f.db.transactionsDao.totalsByMonthInBase(
+        from: DateTime.utc(2026, 9, 1),
+        to: DateTime.utc(2026, 10, 1),
+      );
+      expect(totals.single.expenseMinor, 10000);
+      expect(totals.single.incomeMinor, 0);
+    });
+
+    test('пустой период динамики — отказ invalidInput (как в исходной)', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await expectLater(
+        f.db.transactionsDao.totalsByMonthInBase(
+          from: DateTime.utc(2026, 9, 1),
+          to: DateTime.utc(2026, 9, 1),
+        ),
+        throwsA(isA<DataValidationException>()),
       );
     });
   });

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -20,7 +21,7 @@ class BackupService {
   final AppDatabase db;
   final Clock clock;
 
-  /// Экспорт полного дампа в JSON-строку (формат v2, см. кодек).
+  /// Экспорт полного дампа в JSON-строку (формат v3, см. кодек).
   Future<String> exportJson() async =>
       jsonEncode(await exportToJson(db));
 
@@ -114,6 +115,7 @@ class BackupService {
                   targetAccountId: Value(row.targetAccountId),
                   categoryId: Value(row.categoryId),
                   amountMinor: row.amountMinor,
+                  targetAmountMinor: Value(row.targetAmountMinor),
                   currencyCode: row.currencyCode,
                   date: row.date,
                   note: Value(row.note),
@@ -172,6 +174,10 @@ class BackupService {
         );
       }
     }
+    // Счёта переводов по id: для формы перевода и правил D-17.
+    final Map<String, BackupAccount> accountsById = <String, BackupAccount>{
+      for (final BackupAccount row in backup.accounts) row.id: row,
+    };
     for (final BackupTransaction row in backup.transactions) {
       if (!accountIds.contains(row.accountId)) {
         throw BackupValidationException(
@@ -191,6 +197,56 @@ class BackupService {
           'операция ссылается на отсутствующую категорию',
           kind: BackupFailure.invalidData,
         );
+      }
+
+      // Форма перевода (A13, D-21): target_account_id без type='transfer'
+      // и наоборот — отказ, не тихий пропуск; проверяется и для старых
+      // файлов (v1/v2): битая форма из бэкапа обязана отклоняться сразу.
+      final bool isTransfer = row.type == TransactionType.transfer;
+      if (isTransfer && row.targetAccountId == null) {
+        throw BackupValidationException(
+          'перевод ${row.id} без счёта зачисления — битая форма операции',
+          kind: BackupFailure.invalidData,
+        );
+      }
+      if (!isTransfer && row.targetAccountId != null) {
+        throw BackupValidationException(
+          'операция ${row.id} с счётом зачисления без type=transfer — '
+          'битая форма операции',
+          kind: BackupFailure.invalidData,
+        );
+      }
+
+      // Правила второй суммы (D-21/D-17), строго: отказ, не тихий пропуск.
+      if (!isTransfer) {
+        if (row.targetAmountMinor != null) {
+          throw BackupValidationException(
+            'не-перевод ${row.id} с заполненным target_amount_minor — '
+            'отказ импорта (D-21)',
+            kind: BackupFailure.invalidData,
+          );
+        }
+      } else {
+        final BackupAccount? source = accountsById[row.accountId];
+        final BackupAccount? target = accountsById[row.targetAccountId];
+        final bool multiCurrency = source != null &&
+            target != null &&
+            source.currencyCode != target.currencyCode;
+        if (multiCurrency && row.targetAmountMinor == null) {
+          throw BackupValidationException(
+            'перевод ${row.id} между разными валютами '
+            '(${source.currencyCode} → ${target.currencyCode}) '
+            'без target_amount_minor — отказ импорта (D-21)',
+            kind: BackupFailure.invalidData,
+          );
+        }
+        if (!multiCurrency && row.targetAmountMinor != null) {
+          throw BackupValidationException(
+            'перевод ${row.id} в одной валюте с заполненным '
+            'target_amount_minor — отказ импорта (D-21/D-17)',
+            kind: BackupFailure.invalidData,
+          );
+        }
       }
     }
     for (final BackupBudget row in backup.budgets) {
@@ -227,9 +283,12 @@ class BackupService {
         TransactionType.expense => 'expense',
         TransactionType.transfer => 'transfer',
       };
-      final String amount =
-          '${row.amountMinor ~/ 100}.'
-          '${(row.amountMinor % 100).toString().padLeft(2, '0')}';
+      // Масштаб суммы — по экспоненту валюты операции (D-15, A14):
+      // для 2-знаковых валют вывод не изменился, для 0/3 — по справочнику.
+      final String amount = minorToMajorString(
+        row.amountMinor,
+        exponent: currencyExponentByCode(row.currencyCode),
+      );
       csv.writeln(<String>[
         row.id,
         row.date.toUtc().toIso8601String(),
@@ -283,6 +342,8 @@ class BackupService {
   }
 
   /// Оставляет `keep` самых свежих файлов `kopilka-backup-*.json`.
+  /// Сортировка — по ISO-штампу из имени файла (A16/P6): имя файла пишется
+  /// один раз и переживает перенос/копирование каталога, в отличие от mtime.
   Future<int> _rotateBackups(Directory directory, {required int keep}) async {
     final List<File> backups = <File>[
       await for (final FileSystemEntity entity in directory.list())
@@ -295,8 +356,14 @@ class BackupService {
     if (backups.length <= keep) {
       return removed;
     }
+    final RegExp stamp = RegExp(r'kopilka-backup-(.+)\.json$');
+    String orderKey(File file) {
+      final Match? match = stamp.firstMatch(file.path);
+      return match == null ? '' : match.group(1)!;
+    }
+
     backups.sort(
-      (File a, File b) => b.statSync().modified.compareTo(a.statSync().modified),
+      (File a, File b) => orderKey(b).compareTo(orderKey(a)),
     );
     for (final File stale in backups.skip(keep)) {
       await stale.delete();

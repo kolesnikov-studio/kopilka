@@ -7,85 +7,29 @@
 // предзаполняется initial_balance_minor и пишется напрямую; операции
 // задним числом не трогаются (баланс считается из истории по §3).
 //
-// БД подменяется на in-memory по образцу pumpApp (test/app_test.dart):
-// ProviderContainer создаётся явно и закрывается в addTearDown до демонтажа
-// дерева; каталоги настроек — во временном каталоге, их создание — реальный
-// файловый I/O, поэтому через runAsync.
-import 'dart:io';
-
-import 'package:drift/native.dart';
+// Харнесс общий с формой операций (S2, test/helpers/app_harness.dart):
+// БД подменяется на in-memory, каталоги настроек — во временном каталоге.
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kopilka/app/app.dart';
+import 'package:kopilka/app/widgets/error_state.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/seed.dart';
-import 'package:kopilka/data/providers.dart';
-import 'package:kopilka/features/settings/settings_controller.dart';
-import 'package:kopilka/features/settings/update_preferences.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
-class _Harness {
-  _Harness(this.container, this.db, this.l10n);
-
-  final ProviderContainer container;
-  final AppDatabase db;
-  final AppLocalizations l10n;
-}
-
-Future<_Harness> _pumpDialogHarness(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(400, 800);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-
-  // Локаль задаётся явно: платформенная по умолчанию в тестах — en, а строки
-  // ниже берутся из загруженного экземпляра (эталон — сама локализация).
-  tester.platformDispatcher.localeTestValue = const Locale('ru');
-  tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
-  addTearDown(tester.platformDispatcher.clearLocaleTestValue);
-  addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-
-  final AppLocalizations l10n =
-      await AppLocalizations.delegate.load(const Locale('ru'));
-
-  final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
-  addTearDown(db.close);
-  await seedDefaultsIfEmpty(db);
-
-  final Directory baseDir = (await tester.runAsync(
-    () => Directory.systemTemp.createTemp('kopilka_account_dialog_test'),
-  ))!;
-  addTearDown(() => tester.runAsync(() => baseDir.delete(recursive: true)));
-
-  final ProviderContainer container = ProviderContainer(
-    overrides: [
-      appDatabaseProvider.overrideWithValue(db),
-      autoBackupDirectoryStoreProvider
-          .overrideWithValue(AutoBackupDirectoryStore(baseDirectory: baseDir)),
-      updatePreferencesStoreProvider
-          .overrideWithValue(UpdatePreferencesStore(baseDirectory: baseDir)),
-    ],
-  );
-  addTearDown(container.dispose);
-
-  await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: const KopilkaApp(),
-    ),
-  );
-  await tester.pumpAndSettle();
-  return _Harness(container, db, l10n);
-}
+import '../../helpers/app_harness.dart';
 
 void main() {
   testWidgets(
-    'сохранение счёта без валюты: валидация под полем, счёт не создан, диалог живой',
+    'B2.1: в форме создания счёт в один тап сохраняется в базовой валюте',
     (WidgetTester tester) async {
-      final _Harness app = await _pumpDialogHarness(tester);
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
 
-      // Диалог добавления счёта: название и сумма заполнены, валюту не трогаем.
+      // Диалог добавления счёта: валюта не выбрана вручную — дефолт
+      // dropdown'а «базовая валюта» (посев: RUB), не первая по алфавиту.
       await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -100,21 +44,22 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pumpAndSettle();
 
-      // Валидация валюты показана, счёт в БД не попал.
-      expect(find.text(app.l10n.selectCurrencyValidator), findsOneWidget);
-      expect(await app.db.accountsDao.getAlive(), isEmpty);
-
-      // Регрессия заморозки: кнопки активны, «Отмена» закрывает диалог.
-      await tester.tap(find.widgetWithText(TextButton, app.l10n.cancelAction));
-      await tester.pumpAndSettle();
+      // Диалог закрылся, счёт создан в базовой валюте.
       expect(find.byType(AlertDialog), findsNothing);
+      final List<Account> accounts = await app.db.accountsDao.getAlive();
+      expect(accounts, hasLength(1));
+      expect(accounts.single.name, 'Наличные');
+      expect(accounts.single.currencyCode, baseCurrencyCode);
     },
   );
 
   testWidgets(
     'сохранение счёта с операциями без правок не меняет начальный баланс',
     (WidgetTester tester) async {
-      final _Harness app = await _pumpDialogHarness(tester);
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
 
       // Счёт с начальным балансом 10 000,00 и живой операцией 500,00 —
       // вычисленный баланс 10 500,00 отличается от начального.
@@ -156,7 +101,10 @@ void main() {
   testWidgets(
     'редактирование счёта с нулевым начальным балансом сохраняется',
     (WidgetTester tester) async {
-      final _Harness app = await _pumpDialogHarness(tester);
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
 
       final Account account = await app.db.accountsDao.create(
         name: 'Копилка',
@@ -179,6 +127,242 @@ void main() {
       final Account? after = await app.db.accountsDao.findById(account.id);
       expect(after, isNotNull);
       expect(after!.initialBalanceMinor, 0);
+    },
+  );
+
+  testWidgets(
+    'U12: пустое поле начального баланса показывает placeholder «0,00»',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      expect(find.text('0,00'), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, app.l10n.cancelAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'U1: на пустом списке счетов CTA-кнопка открывает форму счёта',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      // База с посевом пуста счетов — на экране текст и CTA-кнопка
+      // (текст совпадает с tooltip FAB, поэтому ищем по типу кнопки).
+      expect(
+        find.widgetWithText(FilledButton, app.l10n.accountsEmptyCta),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.widgetWithText(FilledButton, app.l10n.accountsEmptyCta),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text(app.l10n.accountAdd),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'U2: ошибка потока показывает ErrorState с кнопкой «Повторить»',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      // U2-виджет проверяем напрямую: ErrorState рисует текст ошибки
+      // и кнопку «Повторить» (поведение экранов покрывают их тесты,
+      // здесь — контракт самого виджета).
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: ErrorState(onRetry: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ErrorState), findsOneWidget);
+      expect(find.text(app.l10n.errorUnknown), findsOneWidget);
+      expect(find.text(app.l10n.retryAction), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'B2.1: записи dropdown — «Символ Код — Название» из справочника',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      // Добавляем живую валюту USD: dropdown показывает только живые,
+      // не весь ISO-список (спека B3).
+      await app.db.currenciesDao.create(code: 'USD', symbol: r'$');
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('₽ RUB — Российский рубль').last);
+      await tester.pumpAndSettle();
+
+      // Обе живые валюты видны в меню; ISO-записи (например, JPY) — нет.
+      expect(find.text(r'$ USD — Доллар США'), findsOneWidget);
+      expect(find.text('¥ JPY — Японская иена'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'D-24: у счёта с операциями валюта — строка без кнопки смены',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      final Account account = await app.db.accountsDao.create(
+        name: 'Карта',
+        kind: AccountKind.card,
+        currencyCode: baseCurrencyCode,
+      );
+      await app.db.transactionsDao.create(
+        type: TransactionType.income,
+        accountId: account.id,
+        amountMinor: 100,
+      );
+
+      await tester.tap(find.text(app.l10n.navAccounts).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Карта'));
+      await tester.pumpAndSettle();
+
+      // Строка «Валюта: ₽ RUB» вместо dropdown'а; ни кнопки, ни подсказки —
+      // счёт с операциями смену валюты не получает (B2.2/D-24).
+      expect(find.text('Валюта: ₽ RUB'), findsOneWidget);
+      expect(find.text(app.l10n.accountCurrencyChangeAction), findsNothing);
+      expect(find.text(app.l10n.accountCurrencyLockedHint), findsNothing);
+      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'D-24: у счёта без операций есть подсказка и смена валюты сохраняется',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      await app.db.currenciesDao.create(code: 'USD', symbol: r'$');
+      await app.db.accountsDao.create(
+        name: 'Копилка',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+
+      await tester.tap(find.text(app.l10n.navAccounts).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Копилка'));
+      await tester.pumpAndSettle();
+
+      // Строка + подпись + кнопка: счёт без операций смену валюты получает.
+      expect(find.text('Валюта: ₽ RUB'), findsOneWidget);
+      expect(find.text(app.l10n.accountCurrencyLockedHint), findsOneWidget);
+      expect(
+        find.widgetWithText(TextButton, app.l10n.accountCurrencyChangeAction),
+        findsOneWidget,
+      );
+
+      // Смена валюты явной кнопкой: выбор из списка живых валют.
+      await tester.tap(find.text(app.l10n.accountCurrencyChangeAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(r'$ USD — Доллар США'));
+      await tester.pumpAndSettle();
+
+      // B3: после смены валюты поле суммы очищено — пользователь вводит
+      // начальный баланс уже в новой валюте.
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.amountLabel),
+        '200',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      final Account? after =
+          await app.db.accountsDao.findById((await app.db.accountsDao.getAlive()).first.id);
+      expect(after?.currencyCode, 'USD');
+      expect(after?.initialBalanceMinor, 20000);
+    },
+  );
+
+  testWidgets(
+    'B3: смена валюты в форме создания очищает поле суммы',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.amountLabel),
+        '500',
+      );
+
+      await tester.tap(find.text('₽ RUB — Российский рубль').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('¥ JPY — Японская иена').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('500'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'B3: баланс JPY-счёта в плитке списка — без копеек',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
+      await app.db.accountsDao.create(
+        name: 'Иены',
+        kind: AccountKind.cash,
+        currencyCode: 'JPY',
+        initialBalanceMinor: 12345,
+      );
+
+      await tester.tap(find.text(app.l10n.navAccounts).last);
+      await tester.pumpAndSettle();
+
+      // Формат по экспоненту 0: 12 345 ¥ без дробной части (не «123.45»);
+      // символ из карты справочника (R5); группировка в RU — неразрывный
+      // пробел, поэтому ищем по фрагменту «345» и отсутствию точки.
+      expect(find.textContaining('345'), findsOneWidget);
+      expect(find.textContaining('.'), findsNothing);
     },
   );
 }

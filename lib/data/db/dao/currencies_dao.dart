@@ -45,38 +45,43 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
     }
     _requirePositiveRate(rateToBase);
     final DateTime now = clock();
+    // A10/R9: запись и демотировка прежней базовой — одной транзакцией,
+    // как в setBase: между insert и снятием флага не должно быть момента
+    // с двумя базовыми.
     final Currency? existing = await _findAny(normalizedCode);
-    if (existing == null) {
-      await into(currencies).insert(
-        CurrenciesCompanion.insert(
-          code: normalizedCode,
-          symbol: normalizedSymbol,
-          isBase: Value(isBase),
-          rateToBase: Value(rateToBase),
-          createdAt: now,
-          updatedAt: now,
-        ),
-      );
-    } else if (existing.deletedAt == null) {
-      throw DataValidationException(
-        'валюта $normalizedCode уже есть в справочнике',
-        kind: DataFailure.invalidInput,
-      );
-    } else {
-      await (update(currencies)..where((t) => t.code.equals(normalizedCode)))
-          .write(
-            CurrenciesCompanion(
-              symbol: Value(normalizedSymbol),
-              isBase: Value(isBase),
-              rateToBase: Value(rateToBase),
-              deletedAt: const Value<DateTime?>(null),
-              updatedAt: Value(now),
-            ),
-          );
-    }
-    if (isBase) {
-      await _demoteOtherBase(normalizedCode, now);
-    }
+    await transaction(() async {
+      if (existing == null) {
+        await into(currencies).insert(
+          CurrenciesCompanion.insert(
+            code: normalizedCode,
+            symbol: normalizedSymbol,
+            isBase: Value(isBase),
+            rateToBase: Value(rateToBase),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+      } else if (existing.deletedAt == null) {
+        throw DataValidationException(
+          'валюта $normalizedCode уже есть в справочнике',
+          kind: DataFailure.invalidInput,
+        );
+      } else {
+        await (update(currencies)..where((t) => t.code.equals(normalizedCode)))
+            .write(
+              CurrenciesCompanion(
+                symbol: Value(normalizedSymbol),
+                isBase: Value(isBase),
+                rateToBase: Value(rateToBase),
+                deletedAt: const Value<DateTime?>(null),
+                updatedAt: Value(now),
+              ),
+            );
+      }
+      if (isBase) {
+        await _demoteOtherBase(normalizedCode, now);
+      }
+    });
     final Currency? created = await findAlive(normalizedCode);
     if (created == null) {
       throw DataValidationException(
@@ -136,6 +141,9 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Делает валюту базовой, снимая флаг с остальных живых валют.
+  /// Курсы не трогает: для смены базовой с пересчётом курсов — [changeBase]
+  /// (D-20). Оставлен как низкоуровневая операция и для обратной
+  /// совместимости тестов слоя данных.
   Future<void> setBase(String code) async {
     await _requireAlive(code);
     final DateTime now = clock();
@@ -149,6 +157,67 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
       );
     });
   }
+
+  /// Делает валюту базовой с пересчётом курсов остальных живых валют
+  /// (D-20, R9). Новая базовая получает курс ровно 1, курс каждой прочей
+  /// живой валюты делится на её старый курс к новой базовой:
+  /// `rate'(v) = rate(v) / rate(newBase)` — отношение курсов не зависит
+  /// от выбора знаменателя, поэтому пересчёт сохраняет все относительные
+  /// курсы и не меняет данные операций.
+  ///
+  /// Идемпотентность: запрос базовой валюты — успешный выход без записи
+  /// (после смены базовой повторный вызов с тем же кодом не ошибка,
+  /// UI-отказов этот случай не создаёт: у базовой валюты действие скрыто).
+  /// Отказ `notFound` — код не найден среди живых (в т.ч. мягко удалён).
+  ///
+  /// R9: вся правка — одна транзакция; между демотировкой старой базовой
+  /// и промоцией новой не существует читаемого состояния без базовой
+  /// или с двумя базовыми.
+  Future<void> changeBase(String code) async {
+    final Currency target = await _requireAlive(code);
+    if (target.isBase) {
+      return;
+    }
+    final DateTime now = clock();
+    await transaction(() async {
+      // Демотировка прежней базовой — первой операцией транзакции: до её
+      // завершения другие транзакции видят ровно одну базовую (R9).
+      await _demoteOtherBase(code, now);
+      // Пересчёт курсов: живые валюты, кроме новой базовой.
+      final List<Currency> alive = await (select(currencies)
+            ..where(
+              (t) => t.deletedAt.isNull() & t.code.equals(code).not(),
+            ))
+          .get();
+      final double oldTargetRate = target.rateToBase;
+      for (final Currency currency in alive) {
+        final double recalculated = currency.isBase
+            ? 1.0 / oldTargetRate
+            : currency.rateToBase / oldTargetRate;
+        await (update(currencies)
+                ..where((t) => t.code.equals(currency.code)))
+            .write(
+          CurrenciesCompanion(
+            rateToBase: Value(recalculated),
+            isBase: const Value<bool>(false),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+      // Промоция новой базовой — последней операцией: курс ровно 1 (D-16).
+      await (update(currencies)..where((t) => t.code.equals(code))).write(
+        CurrenciesCompanion(
+          isBase: const Value<bool>(true),
+          rateToBase: const Value<double>(1),
+          updatedAt: Value(now),
+        ),
+      );
+    });
+  }
+
+  /// Сколько живых счетов используют валюту (B1.4: экран «Валюты» объясняет
+  /// отказ удаления до попытки — счётчиком счетов, без списка).
+  Future<int> aliveAccountsUsing(String code) => _aliveAccountsUsing(code);
 
   /// Мягко удаляет валюту. Запрещено, пока валюту используют живые счета.
   Future<void> softDelete(String code) async {

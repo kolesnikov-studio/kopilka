@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/ids.dart';
@@ -110,25 +111,21 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
   }
 
   /// Прогресс бюджета на календарный месяц, в который попадает [moment]:
-  /// сумма живых расходов категории за месяц против лимита. Переводы
-  /// расходами не считаются, мягко удалённые операции не учитываются.
+  /// сумма живых расходов категории за месяц, конвертированных в базовую
+  /// валюту (D-18), против лимита. Лимит не конвертируется — он уже в
+  /// минорных единицах базовой (D-19). Переводы расходами не считаются,
+  /// мягко удалённые операции не учитываются.
   Future<BudgetProgress> progressOf(
     Budget budget, {
     required DateTime moment,
   }) async {
     final DateTime from = monthStart(moment);
     final DateTime to = nextMonthStart(from);
-    final Expression<int> spent = transactions.amountMinor.sum();
-    final TypedResult row = await (selectOnly(transactions)
-          ..addColumns([spent])
-          ..where(
-            transactions.categoryId.equals(budget.categoryId) &
-                transactions.deletedAt.isNull() &
-                transactions.type.equals(TransactionType.expense.dbValue) &
-                transactions.date.isBiggerOrEqualValue(from) &
-                transactions.date.isSmallerThanValue(to),
-          ))
-        .getSingle();
+    final List<QueryRow> rows = await _progressOpsSelect(
+      budget.categoryId,
+      from,
+      to,
+    ).get();
     return BudgetProgress(
       budget: budget,
       categoryName: (await (select(categories)
@@ -136,13 +133,15 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
               .getSingleOrNull())
           ?.name ??
           '',
-      spentMinor: row.read(spent) ?? 0,
+      spentMinor: _spentInBase(rows),
     );
   }
 
   /// Поток живых бюджетов с расходами за календарный месяц, в который
-  /// попадает [moment]. Пересчитывается при изменении бюджетов, категорий
-  /// или операций. Расходы считаются одним JOIN-агрегатом в SQL.
+  /// попадает [moment]. Пересчитывается при изменении бюджетов, категорий,
+  /// операций и курсов валют (D-18: readsFrom включает currencies).
+  /// Расходы конвертируются в базовую построчно в Dart — SQL не умеет
+  /// округлять «до минорной единицы базы» (D-18/D-22, приём шага 5).
   ///
   /// Бюджеты с мягко удалённой категорией не показываются: такая комбинация
   /// не возникает через DAO (удаление категории с бюджетом запрещено) и
@@ -154,37 +153,108 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       'SELECT b.id AS budget_id, b.category_id AS category_id, '
       'b.limit_minor AS limit_minor, b.created_at AS created_at, '
       'b.updated_at AS updated_at, c.name AS category_name, '
-      'COALESCE(SUM(t.amount_minor), 0) AS spent_minor '
+      't.id AS tx_id, t.amount_minor AS amount_minor, '
+      't.currency_code AS currency_code, '
+      'COALESCE(cur.rate_to_base, 1.0) AS rate '
       'FROM budgets b '
       'JOIN categories c ON c.id = b.category_id AND c.deleted_at IS NULL '
       'LEFT JOIN transactions t '
       'ON t.category_id = b.category_id AND t.type = ? '
       'AND t.deleted_at IS NULL AND t.date >= ? AND t.date < ? '
+      'LEFT JOIN currencies AS cur ON cur.code = t.currency_code '
       'WHERE b.deleted_at IS NULL '
-      'GROUP BY b.id '
       'ORDER BY b.created_at, b.id',
       variables: [
         Variable<String>(TransactionType.expense.dbValue),
         Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
         Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
       ],
-      readsFrom: {budgets, categories, transactions},
-    ).watch().map(
-          (List<QueryRow> rows) => <BudgetProgress>[
-            for (final QueryRow row in rows)
-              BudgetProgress(
-                budget: Budget(
-                  id: row.read<String>('budget_id'),
-                  categoryId: row.read<String>('category_id'),
-                  limitMinor: row.read<int>('limit_minor'),
-                  createdAt: _rawDate(row.read<int>('created_at')),
-                  updatedAt: _rawDate(row.read<int>('updated_at')),
-                ),
-                categoryName: row.read<String>('category_name'),
-                spentMinor: row.read<int>('spent_minor'),
-              ),
-          ],
+      readsFrom: {budgets, categories, transactions, currencies},
+    ).watch().map(_groupProgressRows);
+  }
+
+  /// Операции-кандидаты прогресса одного бюджета в периоде [from, to):
+  /// суммы в минорных единицах своей валюты и текущий курс валюты операции
+  /// к базовой. Операция с валютой без строки справочника получает курс 1
+  /// (несогласованный импорт не выпадает из прогресса — как в шаге 5).
+  Selectable<QueryRow> _progressOpsSelect(
+    String categoryId,
+    DateTime from,
+    DateTime to,
+  ) => customSelect(
+        'SELECT t.id AS tx_id, t.amount_minor AS amount_minor, '
+        't.currency_code AS currency_code, '
+        'COALESCE(cur.rate_to_base, 1.0) AS rate '
+        'FROM transactions AS t '
+        'LEFT JOIN currencies AS cur ON cur.code = t.currency_code '
+        'WHERE t.category_id = ? AND t.type = ? AND t.deleted_at IS NULL '
+        'AND t.date >= ? AND t.date < ?',
+        variables: [
+          Variable<String>(categoryId),
+          Variable<String>(TransactionType.expense.dbValue),
+          Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
+          Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
+        ],
+        readsFrom: {transactions, currencies},
+      );
+
+  /// Группирует строки watch-запроса по бюджетам, конвертируя каждую
+  /// операцию в базовую до суммирования (D-18). Бюджет без операций
+  /// (LEFT JOIN дал NULL-строку) даёт spent 0.
+  List<BudgetProgress> _groupProgressRows(List<QueryRow> rows) {
+    final Map<String, BudgetProgress> byBudget = <String, BudgetProgress>{};
+    final Map<String, int> spentByBudget = <String, int>{};
+    for (final QueryRow row in rows) {
+      final String budgetId = row.read<String>('budget_id');
+      if (!byBudget.containsKey(budgetId)) {
+        byBudget[budgetId] = BudgetProgress(
+          budget: Budget(
+            id: budgetId,
+            categoryId: row.read<String>('category_id'),
+            limitMinor: row.read<int>('limit_minor'),
+            createdAt: _rawDate(row.read<int>('created_at')),
+            updatedAt: _rawDate(row.read<int>('updated_at')),
+          ),
+          categoryName: row.read<String>('category_name'),
+          spentMinor: 0,
         );
+      }
+      // Левое соединение с операциями: строка бюджета без операций имеет
+      // NULL tx_id и не вносит ничего в сумму.
+      if (row.read<String?>('tx_id') == null) {
+        continue;
+      }
+      spentByBudget[budgetId] = (spentByBudget[budgetId] ?? 0) +
+          convertMinor(
+            row.read<int>('amount_minor'),
+            row.read<double>('rate'),
+            exponent: currencyExponentByCode(
+              row.read<String>('currency_code'),
+            ),
+          );
+    }
+    return <BudgetProgress>[
+      for (final MapEntry<String, BudgetProgress> entry in byBudget.entries)
+        BudgetProgress(
+          budget: entry.value.budget,
+          categoryName: entry.value.categoryName,
+          spentMinor: spentByBudget[entry.key] ?? 0,
+        ),
+    ];
+  }
+
+  /// Сумма конвертированных построчно операций прогресса одного бюджета
+  /// (для [progressOf]).
+  int _spentInBase(List<QueryRow> rows) {
+    int spent = 0;
+    for (final QueryRow row in rows) {
+      spent += convertMinor(
+        row.read<int>('amount_minor'),
+        row.read<double>('rate'),
+        exponent: currencyExponentByCode(row.read<String>('currency_code')),
+      );
+    }
+    return spent;
   }
 
   /// customSelect отдаёт даты сырыми int-секундами SQLite — та же

@@ -17,13 +17,22 @@ void main() {
   });
 
   test('локальное время внутри месяца даёт тот же месяц в UTC', () {
-    // UTC+6: 1 октября 02:00 локали = 30 сентября 20:00 UTC — месяц ещё
-    // сентябрь. Смена зоны устройства месяц операции не меняет.
-    final DateTime local = DateTime(2026, 10, 1, 2).subtract(
-      const Duration(hours: 6),
+    // Момент собирается от смещения ЭТОЙ машины (H1): 1 октября 02:00 UTC
+    // минус местное смещение — в зоне UTC+6 это «30 сентября 20:00, месяц
+    // ещё сентябрь». Ожидания выводятся из самого мгновения, поэтому тест
+    // истинный в любой зоне (в UTC±0 разницы зон нет — проверка вырождается
+    // честно, без ложной ветки, как было раньше).
+    final DateTime instantUtc =
+        DateTime.utc(2026, 10, 1, 2).subtract(DateTime.now().timeZoneOffset);
+    final DateTime local = instantUtc.toLocal();
+
+    // Мгновение одно, зоны разные; monthStart обязан дать один месяц.
+    expect(local.toUtc(), instantUtc);
+    expect(
+      monthStart(local),
+      DateTime.utc(instantUtc.year, instantUtc.month),
     );
-    expect(local.timeZoneOffset, const Duration(hours: 6));
-    expect(monthStart(local), DateTime.utc(2026, 9));
+    expect(monthStart(local), monthStart(instantUtc));
   });
 
   test('переход через год: декабрь → январь следующего года', () {

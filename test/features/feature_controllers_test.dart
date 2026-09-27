@@ -17,6 +17,7 @@ import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/accounts/accounts_controller.dart';
 import 'package:kopilka/features/categories/categories_controller.dart';
+import 'package:kopilka/features/reports/reports_controller.dart';
 import 'package:kopilka/features/transactions/transactions_controller.dart';
 
 class Fixture {
@@ -56,6 +57,19 @@ class Fixture {
     );
     return result.value.id;
   }
+}
+
+/// Ждёт, пока [condition] не станет истинной (bounded): drift-потоки и
+/// Riverpod асинхронны — фиксированная пауза или чтение .future после
+/// записи не гарантируют выдачу нового значения (гонка).
+Future<void> waitUntil(bool Function() condition) async {
+  for (int i = 0; i < 200; i++) {
+    if (condition()) {
+      return;
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  fail('условие не выполнилось за отведённое время');
 }
 
 void main() {
@@ -251,5 +265,113 @@ void main() {
         .customSelect('SELECT COUNT(*) AS count FROM transactions')
         .get();
     expect(raw.single.read<int>('count'), 1);
+  });
+
+  test('currenciesMapProvider: карта код → валюта (R5), базовая из потока (R5)',
+      () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+
+    // autoDispose-провайдеры живут, только пока есть слушатель.
+    f.container.listen(currenciesMapProvider, (_, _) {});
+    f.container.listen(baseCurrencyStreamProvider, (_, _) {});
+
+    final Map<String, Currency> map =
+        await f.container.read(currenciesMapProvider.future);
+    expect(map[baseCurrencyCode], isNotNull);
+    expect(map[baseCurrencyCode]!.isBase, isTrue);
+
+    final Currency base =
+        await f.container.read(baseCurrencyStreamProvider.future);
+    expect(base.code, baseCurrencyCode);
+    expect(base.symbol, '₽');
+
+    // Символ по коду — то, чем пользуются плитки после R4/R5.
+    expect(map['RUB']!.symbol, '₽');
+  });
+
+  test('общий баланс дашборда: конвертация по текущему курсу (D-18)', () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+    // Слушатель держит autoDispose-провайдер живым между чтениями.
+    f.container.listen(totalBalanceProvider, (_, _) {});
+
+    // Счёт в базовой: 1000,00; счёт в USD: 20,00 × курс 2 = 40,00.
+    await f.db.accountsDao.create(
+      name: 'Рублёвый',
+      kind: AccountKind.cash,
+      currencyCode: baseCurrencyCode,
+      initialBalanceMinor: 100000,
+    );
+    await f.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 2);
+    await f.db.accountsDao.create(
+      name: 'Долларовый',
+      kind: AccountKind.card,
+      currencyCode: 'USD',
+      initialBalanceMinor: 2000,
+    );
+
+    await waitUntil(
+      () => f.container.read(totalBalanceProvider).value == 104000,
+    );
+
+    // Смена курса пересчитывает итог без перезапуска (D-18).
+    await f.db.currenciesDao.updateCurrency(
+      'USD',
+      rateToBase: const Value<double>(4),
+    );
+    await waitUntil(
+      () => f.container.read(totalBalanceProvider).value == 108000,
+    );
+  });
+
+  test('reportsMultiCurrencyProvider: одна валюта — false, две — true (B5)',
+      () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+    f.container.listen(reportsMultiCurrencyProvider, (_, _) {});
+
+    await f.newAccount('Рублёвый');
+    await waitUntil(
+      () => f.container.read(reportsMultiCurrencyProvider).value == false,
+    );
+
+    await f.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 2);
+    await f.db.accountsDao.create(
+      name: 'Долларовый',
+      kind: AccountKind.card,
+      currencyCode: 'USD',
+    );
+    await waitUntil(
+      () => f.container.read(reportsMultiCurrencyProvider).value == true,
+    );
+  });
+
+  test('convertBalanceToBase: half-up по модулю, знак отдельно (D-22)', () {
+    int convert(int minor, double rate) => convertBalanceToBase(
+          AccountBalance(
+            account: Account(
+              id: 'a',
+              name: 'А',
+              kind: 'cash',
+              currencyCode: 'USD',
+              initialBalanceMinor: 0,
+              sortOrder: 0,
+              createdAt: DateTime.utc(2026),
+              updatedAt: DateTime.utc(2026),
+            ),
+            balanceMinor: minor,
+          ),
+          <String, double>{'USD': rate},
+        );
+
+    // Половина округляется вверх по модулю: 0.5 → 1, −0.5 → −1.
+    expect(convert(1, 0.5), 1);
+    expect(convert(-1, 0.5), -1);
+    expect(convert(2500, 1.0005), 2501);
+    expect(convert(-2500, 1.0005), -2501);
+    // Курс 1 и отсутствующий код — без изменений.
+    expect(convert(12345, 1.0), 12345);
+    expect(convert(12345, 1.0), 12345);
   });
 }

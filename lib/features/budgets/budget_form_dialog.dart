@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/amount_field.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
+import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
+import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/budgets/budgets_controller.dart';
 import 'package:kopilka/features/categories/categories_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -46,8 +48,8 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
     if (existing != null) {
       _categoryId = existing.budget.categoryId;
       // Показываем в мажорных единицах: int только для хранения (§3).
-      _limit.text = (existing.budget.limitMinor / minorUnitsPerMajor)
-          .toStringAsFixed(2);
+      // Лимит — в базовой валюте (D-19), масштаб — её экспонент (R2).
+      _limit.text = minorToMajorString(existing.budget.limitMinor);
     }
   }
 
@@ -91,6 +93,9 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
+    // Лимит — в базовой валюте (D-19): символ — в суффиксе поля (B6, как
+    // в B3), код — в подсказке под полем (на случай смены базовой, D-20).
+    final Currency? base = ref.watch(baseCurrencyStreamProvider).value;
     final List<Category> categories =
         ref.watch(categoriesByKindProvider(CategoryKind.expense)).value ??
             const <Category>[];
@@ -150,7 +155,29 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             const SizedBox(height: 12),
-            AmountField(controller: _limit),
+            AmountField(
+              controller: _limit,
+              suffixText: base?.symbol,
+            ),
+            const SizedBox(height: 8),
+            if (base != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  l10n.budgetBaseCurrencyHint(base.code),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
+            // U11: бюджет повторяющийся (D-14) — предупреждаем в диалоге,
+            // чтобы «на этот месяц» не читалось как одноразовый лимит.
+            Text(
+              l10n.budgetMonthlyHint,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
             ],
           ),
         ),

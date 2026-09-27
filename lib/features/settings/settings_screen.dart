@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:kopilka/app/routes.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/data/export/backup_codec.dart';
 import 'package:kopilka/data/export/backup_service.dart';
 import 'package:kopilka/data/update/update_service.dart';
+import 'package:kopilka/features/settings/currencies_controller.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/update_controller.dart';
 import 'package:kopilka/features/settings/update_offer_dialog.dart';
@@ -208,6 +211,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         children: <Widget>[
           const SizedBox(height: 8),
+          // Валюты (B1): отдельный пункт-строка с счётчиком живых валют —
+          // выше секции бэкапа; внутри экрана три активных действия.
+          ListTile(
+            leading: const Icon(Icons.currency_exchange),
+            title: Text(l10n.currenciesScreenTitle),
+            subtitle: Text(
+              l10n.currenciesSettingsSubtitle(
+                ref.watch(currenciesListProvider).value?.length ?? 0,
+              ),
+            ),
+            onTap: () => context.push(AppRoutes.currencies),
+          ),
           _SectionHeader(title: l10n.backupSectionTitle),
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),
@@ -236,6 +251,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               backupDirectory.isEmpty
                   ? l10n.autoBackupDisabled
                   : backupDirectory,
+              // U6: длинный путь Windows не должен растягивать строку —
+              // ellipsis с показом начала пути.
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Padding(

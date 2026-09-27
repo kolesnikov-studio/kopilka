@@ -1,12 +1,14 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
+import 'package:kopilka/app/widgets/error_state.dart';
+import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/result.dart';
+import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
-import 'package:kopilka/features/categories/categories_controller.dart';
+import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/transactions/transaction_form_dialog.dart';
 import 'package:kopilka/features/transactions/transactions_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -22,8 +24,8 @@ class TransactionsScreen extends ConsumerWidget {
     final TransactionsFilterState filter = ref.watch(
       transactionsFilterProvider,
     );
-    final AsyncValue<List<Transaction>> transactions = ref.watch(
-      filteredTransactionsProvider,
+    final AsyncValue<List<TransactionView>> transactions = ref.watch(
+      filteredTransactionViewsProvider,
     );
     final bool filtered = filter.type != null ||
         filter.accountId != null ||
@@ -65,15 +67,23 @@ class TransactionsScreen extends ConsumerWidget {
           Expanded(
             child: transactions.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object error, StackTrace stack) =>
-                  Center(child: Text(l10n.errorUnknown)),
-              data: (List<Transaction> rows) {
+              error: (Object error, StackTrace stack) => ErrorState(
+                onRetry: () => ref.invalidate(filteredTransactionViewsProvider),
+              ),
+              data: (List<TransactionView> rows) {
                 if (rows.isEmpty) {
-                  return Center(
-                    child: Text(
-                      filtered
-                          ? l10n.transactionsEmptyFiltered
-                          : l10n.transactionsEmpty,
+                  if (filtered) {
+                    return Center(
+                      child: Text(l10n.transactionsEmptyFiltered),
+                    );
+                  }
+                  // U1: CTA на пустом списке — та же форма, что у FAB.
+                  return EmptyState(
+                    text: l10n.transactionsEmpty,
+                    ctaLabel: l10n.transactionsEmptyCta,
+                    onCta: () => showTransactionFormDialog(
+                      context,
+                      type: TransactionType.expense,
                     ),
                   );
                 }
@@ -82,7 +92,7 @@ class TransactionsScreen extends ConsumerWidget {
                   separatorBuilder: (BuildContext context, int index) =>
                       const Divider(height: 1),
                   itemBuilder: (BuildContext context, int index) =>
-                      _TransactionTile(transaction: rows[index]),
+                      _TransactionTile(row: rows[index]),
                 );
               },
             ),
@@ -160,54 +170,57 @@ class _QuickEntryFab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
+    // U10: FAB открывает форму активного типа фильтра (расход — без
+    // фильтра); подпись кнопки следует типу, чтобы обещать ровно то,
+    // что откроется.
+    final TransactionType type = filter.type ?? TransactionType.expense;
+    final String label = switch (type) {
+      TransactionType.expense => l10n.expenseAction,
+      TransactionType.income => l10n.incomeAction,
+      TransactionType.transfer => l10n.transferAction,
+    };
     return FloatingActionButton.extended(
-      onPressed: () => showTransactionFormDialog(
-        context,
-        type: filter.type ?? TransactionType.expense,
-      ),
-      label: Text(l10n.expenseAction),
+      onPressed: () => showTransactionFormDialog(context, type: type),
+      label: Text(label),
       icon: const Icon(Icons.add),
     );
   }
 }
 
 class _TransactionTile extends ConsumerWidget {
-  const _TransactionTile({required this.transaction});
+  const _TransactionTile({required this.row});
 
-  final Transaction transaction;
+  final TransactionView row;
+
+  /// Строка перевода (R8): единое место формирования «Счёт А → Счёт Б» —
+  /// на M3-шаге 4 здесь появятся две суммы и две валюты.
+  static String transferLine(String fromName, String? toName) =>
+      '$fromName → ${toName ?? '…'}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final String locale = Localizations.localeOf(context).toString();
-    final List<Account> accounts =
-        ref.watch(accountsProvider).value ?? const <Account>[];
-    final List<Category> categories =
-        ref.watch(allCategoriesProvider).value ?? const <Category>[];
-
+    final Transaction transaction = row.transaction;
     final TransactionType type = TransactionType.fromDb(transaction.type);
-    final Account? account = _byId(accounts, transaction.accountId);
-    final Account? target = transaction.targetAccountId == null
-        ? null
-        : _byId(accounts, transaction.targetAccountId!);
-    final Category? category = transaction.categoryId == null
-        ? null
-        : _byId(categories, transaction.categoryId!);
 
-    final String accountName = account?.name ?? '—';
+    // U4: вместо «—» — локализованные тексты; имена приходят из DAO (R7).
     final String line = switch (type) {
-      TransactionType.transfer =>
-        '$accountName → ${target?.name ?? '—'}',
+      TransactionType.transfer => transferLine(
+          row.accountName,
+          row.targetAccountName,
+        ),
       TransactionType.income ||
       TransactionType.expense =>
-        category?.name ?? accountName,
+        row.categoryName ??
+            (row.accountName.isNotEmpty
+                ? row.accountName
+                : l10n.transactionTileAccountGone),
     };
+    // Категории у операции может не быть (не задана) — «Без категории» (U4).
+    final String subtitleCategoryName = row.categoryName ??
+        (type == TransactionType.transfer ? '' : l10n.transactionTileNoCategory);
 
-    final String sign = switch (type) {
-      TransactionType.income => '+',
-      TransactionType.expense => '−',
-      TransactionType.transfer => '⇄',
-    };
     final Color amountColor = switch (type) {
       TransactionType.income => Colors.green.shade700,
       TransactionType.expense =>
@@ -215,6 +228,57 @@ class _TransactionTile extends ConsumerWidget {
       TransactionType.transfer =>
         Theme.of(context).colorScheme.onSurfaceVariant,
     };
+    final TextStyle amountStyle = Theme.of(context)
+        .textTheme
+        .titleMedium!
+        .copyWith(color: amountColor);
+
+    // Символ валюты из справочника (R4/A7); код вне справочника — fallback
+    // на код. Формат — по экспоненту валюты (B3/D-27).
+    final Map<String, Currency> currencies =
+        ref.watch(currenciesMapProvider).value ?? const <String, Currency>{};
+    String amountText(int amountMinor, String? code) => formatMoneyMinor(
+          amountMinor,
+          symbol: currencies[code]?.symbol ?? (code ?? ''),
+          locale: locale,
+          exponent: currencyExponentByCode(code ?? ''),
+        );
+
+    // B4.3: сумма справа. У мультивалютного перевода — обе суммы в
+    // компактном формате «− 100,00 ₽ → 1,00 $», каждая по экспоненту
+    // своей валюты; строка не помещается — перенос на вторую (Wrap),
+    // сокращать группировку и округлять нельзя. Курс в список не выводим.
+    final bool multiCurrencyTransfer = type == TransactionType.transfer &&
+        row.targetCurrencyCode != null &&
+        row.targetCurrencyCode != row.accountCurrencyCode &&
+        transaction.targetAmountMinor != null;
+    final Widget amount = multiCurrencyTransfer
+        ? Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 4,
+            children: <Widget>[
+              Text(amountText(transaction.amountMinor, row.accountCurrencyCode),
+                  style: amountStyle),
+              Text('→', style: amountStyle),
+              Text(
+                amountText(
+                  transaction.targetAmountMinor!,
+                  row.targetCurrencyCode,
+                ),
+                style: amountStyle,
+              ),
+            ],
+          )
+        : Text(
+            switch (type) {
+              TransactionType.income => '+ ${amountText(transaction.amountMinor, transaction.currencyCode)}',
+              TransactionType.expense => '− ${amountText(transaction.amountMinor, transaction.currencyCode)}',
+              // U5: «⇄» читается хуже «→»; направление совпадает со строкой.
+              TransactionType.transfer => '→ ${amountText(transaction.amountMinor, transaction.currencyCode)}',
+            },
+            style: amountStyle,
+          );
 
     return ListTile(
       leading: Icon(
@@ -227,22 +291,16 @@ class _TransactionTile extends ConsumerWidget {
       title: Text(line),
       subtitle: Text(
         MaterialLocalizations.of(context).formatMediumDate(transaction.date) +
-            (transaction.note == null ? '' : ' · ${transaction.note}'),
+            (transaction.note == null
+                ? (subtitleCategoryName.isEmpty
+                    ? ''
+                    : ' · $subtitleCategoryName')
+                : ' · ${transaction.note}'),
       ),
-      trailing: Text(
-        '$sign ${formatMoneyMinor(transaction.amountMinor, symbol: '₽', locale: locale)}',
-        style: Theme.of(context)
-            .textTheme
-            .titleMedium
-            ?.copyWith(color: amountColor),
-      ),
+      trailing: amount,
       onLongPress: () => _confirmDelete(context, ref, l10n),
     );
   }
-
-  T? _byId<T>(List<T> items, String id) => items
-      .where((T item) => (item as dynamic).id == id)
-      .firstOrNull;
 
   Future<void> _confirmDelete(
     BuildContext context,
@@ -259,7 +317,7 @@ class _TransactionTile extends ConsumerWidget {
     }
     final Result<void> result = await ref
         .read(transactionsControllerProvider.notifier)
-        .deleteTransaction(transaction.id);
+        .deleteTransaction(row.transaction.id);
     if (result.isFailure && context.mounted) {
       await showDataFailureSnack(context, result.failure);
     }

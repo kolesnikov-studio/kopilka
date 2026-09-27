@@ -94,7 +94,8 @@ Future<AppDatabase> richSeeded() async {
   );
 
   // Все виды операций: расход (живой/удалённый), доход с заметкой,
-  // перевод между счетами в разных валютах.
+  // перевод между счетами в разных валютах (D-17: обе суммы, вторая —
+  // в валюте зачисления).
   await database.transactionsDao.create(
     type: TransactionType.expense,
     accountId: card.id,
@@ -119,6 +120,7 @@ Future<AppDatabase> richSeeded() async {
     accountId: card.id,
     targetAccountId: savings.id,
     amountMinor: 7000,
+    targetAmountMinor: 88,
   );
   await database.transactionsDao.create(
     type: TransactionType.income,
@@ -236,6 +238,9 @@ void main() {
             TransactionType.fromDb(t.type) == TransactionType.transfer);
     expect(transfer.accountId, isNotNull);
     expect(transfer.targetAccountId, isNotNull);
+    // Вторая сумма перевода (D-17) пережила round-trip без искажений.
+    expect(transfer.amountMinor, 7000);
+    expect(transfer.targetAmountMinor, 88);
 
     // Заметка с разделителем CSV и кавычками — исключительно вопрос
     // JSON-дампа: строка не искажается.

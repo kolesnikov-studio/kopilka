@@ -2,11 +2,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
+import 'package:kopilka/app/widgets/error_state.dart';
+import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
+import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/features/budgets/budget_form_dialog.dart';
+import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/budgets/budgets_controller.dart';
 import 'package:kopilka/features/reports/reports_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -58,8 +62,17 @@ class _BalanceCard extends ConsumerWidget {
     final ThemeData theme = Theme.of(context);
     final AppLocalizations l10n = AppLocalizations.of(context);
     final String locale = Localizations.localeOf(context).toString();
-    final String symbol = ref.watch(baseCurrencySymbolProvider).value ?? '';
+    // Базовая валюта целиком (R5): символ и экспонент приходят одним
+    // объектом — состояние «символ есть, экспонент нет» невозможно.
+    final Currency? base = ref.watch(baseCurrencyStreamProvider).value;
+    final String symbol = base?.symbol ?? '';
+    final int exponent = base == null
+        ? defaultCurrencyExponent
+        : currencyExponentByCode(base.code);
     final int? balance = ref.watch(totalBalanceProvider).value;
+    // Пометка «по текущему курсу» (B5): только при мультивалютности счетов.
+    final bool multiCurrency =
+        ref.watch(reportsMultiCurrencyProvider).value ?? false;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -78,9 +91,23 @@ class _BalanceCard extends ConsumerWidget {
             Text(
               balance == null
                   ? '…'
-                  : formatMoneyMinor(balance, symbol: symbol, locale: locale),
+                  : formatMoneyMinor(
+                      balance,
+                      symbol: symbol,
+                      locale: locale,
+                      exponent: exponent,
+                    ),
               style: theme.textTheme.headlineMedium,
             ),
+            if (multiCurrency) ...<Widget>[
+              const SizedBox(height: 4),
+              Text(
+                l10n.reportsAtCurrentRate,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -139,8 +166,15 @@ class _CategoryBreakdownCard extends ConsumerWidget {
     final ThemeData theme = Theme.of(context);
     final AppLocalizations l10n = AppLocalizations.of(context);
     final String locale = Localizations.localeOf(context).toString();
-    final String symbol = ref.watch(baseCurrencySymbolProvider).value ?? '';
-    final AsyncValue<List<CategoryExpense>> expenses =
+    final Currency? base = ref.watch(baseCurrencyStreamProvider).value;
+    final String symbol = base?.symbol ?? '';
+    final int exponent = base == null
+        ? defaultCurrencyExponent
+        : currencyExponentByCode(base.code);
+    // Пометка «по текущему курсу» (B5): только при мультивалютности счетов.
+    final bool multiCurrency =
+        ref.watch(reportsMultiCurrencyProvider).value ?? false;
+    final AsyncValue<List<CategoryExpenseBase>> expenses =
         ref.watch(expensesByCategoryProvider);
 
     return Card(
@@ -154,36 +188,59 @@ class _CategoryBreakdownCard extends ConsumerWidget {
             const SizedBox(height: 12),
             expenses.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (Object error, StackTrace stack) => Center(
-                child: Text(l10n.errorUnknown),
+              error: (Object error, StackTrace stack) => ErrorState(
+                onRetry: () => ref.invalidate(expensesByCategoryProvider),
               ),
-              data: (List<CategoryExpense> rows) {
+              data: (List<CategoryExpenseBase> rows) {
                 if (rows.isEmpty) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 24),
                     child: Center(child: Text(emptyText)),
                   );
                 }
-                final int total =
-                    rows.fold<int>(0, (int s, CategoryExpense r) => s + r.amountMinor);
+                final int total = rows.fold<int>(
+                    0, (int s, CategoryExpenseBase r) => s + r.amountMinor);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     _CategoryDonut(rows: rows),
                     const SizedBox(height: 12),
-                    Text(
-                      '${l10n.reportsTotalLabel}: '
-                      '${formatMoneyMinor(total, symbol: symbol, locale: locale)}',
-                      style: theme.textTheme.titleSmall,
+                    // «Всего» и пометка — отдельные виджеты (B5): пометка
+                    // ставится рядом с суммой только при мультивалютности.
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            '${l10n.reportsTotalLabel}: '
+                            '${formatMoneyMinor(
+                              total,
+                              symbol: symbol,
+                              locale: locale,
+                              exponent: exponent,
+                            )}',
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                        if (multiCurrency) ...<Widget>[
+                          const SizedBox(width: 6),
+                          Text(
+                            l10n.reportsAtCurrentRate,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 8),
                     ...<Widget>[
-                      for (final CategoryExpense row in rows)
+                      for (final CategoryExpenseBase row in rows)
                         _CategoryLegendTile(
                           row: row,
                           total: total,
                           symbol: symbol,
                           locale: locale,
+                          exponent: exponent,
                         ),
                     ],
                   ],
@@ -220,13 +277,13 @@ Color Function(Color) _shade(double amount) =>
 class _CategoryDonut extends StatelessWidget {
   const _CategoryDonut({required this.rows});
 
-  final List<CategoryExpense> rows;
+  final List<CategoryExpenseBase> rows;
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final int total =
-        rows.fold<int>(0, (int s, CategoryExpense r) => s + r.amountMinor);
+    final int total = rows.fold<int>(
+        0, (int s, CategoryExpenseBase r) => s + r.amountMinor);
     final ColorScheme colors = theme.colorScheme;
 
     return SizedBox(
@@ -241,7 +298,7 @@ class _CategoryDonut extends StatelessWidget {
                 centerSpaceRadius: 44,
                 startDegreeOffset: -90,
                 sections: <PieChartSectionData>[
-                  for (final (int index, CategoryExpense row)
+                  for (final (int index, CategoryExpenseBase row)
                       in rows.indexed)
                     PieChartSectionData(
                       value: row.amountMinor.toDouble(),
@@ -264,7 +321,7 @@ class _CategoryDonut extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                for (final (int index, CategoryExpense row) in rows.indexed)
+                for (final (int index, CategoryExpenseBase row) in rows.indexed)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
@@ -304,12 +361,16 @@ class _CategoryLegendTile extends StatelessWidget {
     required this.total,
     required this.symbol,
     required this.locale,
+    required this.exponent,
   });
 
-  final CategoryExpense row;
+  final CategoryExpenseBase row;
   final int total;
   final String symbol;
   final String locale;
+
+  /// Экспонент базовой валюты (D-27): подписи дашборда — в базовой.
+  final int exponent;
 
   @override
   Widget build(BuildContext context) {
@@ -334,7 +395,12 @@ class _CategoryLegendTile extends StatelessWidget {
           SizedBox(
             width: 96,
             child: Text(
-              formatMoneyMinor(row.amountMinor, symbol: symbol, locale: locale),
+              formatMoneyMinor(
+                row.amountMinor,
+                symbol: symbol,
+                locale: locale,
+                exponent: exponent,
+              ),
               textAlign: TextAlign.right,
               style: theme.textTheme.bodyMedium,
             ),
@@ -356,7 +422,7 @@ class _MonthDynamicsCard extends ConsumerWidget {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final String locale = Localizations.localeOf(context).toString();
     final String symbol = ref.watch(baseCurrencySymbolProvider).value ?? '';
-    final AsyncValue<List<MonthTotals>> totals =
+    final AsyncValue<List<MonthTotalsBase>> totals =
         ref.watch(monthTotalsProvider);
 
     return Card(
@@ -371,8 +437,10 @@ class _MonthDynamicsCard extends ConsumerWidget {
             totals.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (Object error, StackTrace stack) =>
-                  Center(child: Text(l10n.errorUnknown)),
-              data: (List<MonthTotals> rows) {
+                  ErrorState(
+                    onRetry: () => ref.invalidate(monthTotalsProvider),
+                  ),
+              data: (List<MonthTotalsBase> rows) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
@@ -390,6 +458,18 @@ class _MonthDynamicsCard extends ConsumerWidget {
                           label: l10n.filterExpenses,
                         ),
                         const Spacer(),
+                        // Пометка «по текущему курсу» рядом с символом
+                        // валюты в футере (B5): только при мультивалютности.
+                        if (ref.watch(reportsMultiCurrencyProvider).value ??
+                            false) ...<Widget>[
+                          Text(
+                            l10n.reportsAtCurrentRate,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         Text(
                           symbol,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -413,7 +493,7 @@ class _MonthDynamicsCard extends ConsumerWidget {
 class _MonthBars extends StatelessWidget {
   const _MonthBars({required this.rows, required this.locale});
 
-  final List<MonthTotals> rows;
+  final List<MonthTotalsBase> rows;
   final String locale;
 
   @override
@@ -460,7 +540,7 @@ class _MonthBars extends StatelessWidget {
             ),
           ),
           barGroups: <BarChartGroupData>[
-            for (final (int index, MonthTotals row) in rows.indexed)
+            for (final (int index, MonthTotalsBase row) in rows.indexed)
               BarChartGroupData(
                 x: index,
                 barRods: <BarChartRodData>[
@@ -485,9 +565,9 @@ class _MonthBars extends StatelessWidget {
     );
   }
 
-  double _maxY(List<MonthTotals> rows) {
+  double _maxY(List<MonthTotalsBase> rows) {
     double max = 0;
-    for (final MonthTotals row in rows) {
+    for (final MonthTotalsBase row in rows) {
       if (row.incomeMinor > max) {
         max = row.incomeMinor.toDouble();
       }
@@ -544,6 +624,22 @@ class _BudgetsCard extends ConsumerWidget {
     final String symbol = ref.watch(baseCurrencySymbolProvider).value ?? '';
     final AsyncValue<List<BudgetProgress>> progress =
         ref.watch(budgetProgressProvider);
+    // Формат «потрачено / лимит» — по экспоненту базовой (B6/D-27):
+    // символ и экспонент приходят одним объектом (R5), до загрузки — «…»,
+    // как на дашборде. Пометка «по текущему курсу» не нужна (B6): лимит
+    // и есть базовая (D-19), конвертируется только потраченное.
+    final Currency? base = ref.watch(baseCurrencyStreamProvider).value;
+    final int exponent = base == null
+        ? defaultCurrencyExponent
+        : currencyExponentByCode(base.code);
+    String money(int minor) => base == null
+        ? '…'
+        : formatMoneyMinor(
+            minor,
+            symbol: symbol,
+            locale: locale,
+            exponent: exponent,
+          );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -565,7 +661,9 @@ class _BudgetsCard extends ConsumerWidget {
             progress.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (Object error, StackTrace stack) =>
-                  Center(child: Text(l10n.errorUnknown)),
+                  ErrorState(
+                    onRetry: () => ref.invalidate(budgetProgressProvider),
+                  ),
               data: (List<BudgetProgress> rows) {
                 if (rows.isEmpty) {
                   return Padding(
@@ -578,7 +676,7 @@ class _BudgetsCard extends ConsumerWidget {
                     for (final BudgetProgress row in rows)
                       _BudgetTile(
                         row: row,
-                        symbol: symbol,
+                        money: money,
                         locale: locale,
                       ),
                   ],
@@ -597,12 +695,12 @@ class _BudgetsCard extends ConsumerWidget {
 class _BudgetTile extends ConsumerWidget {
   const _BudgetTile({
     required this.row,
-    required this.symbol,
+    required this.money,
     required this.locale,
   });
 
   final BudgetProgress row;
-  final String symbol;
+  final String Function(int minor) money;
   final String locale;
 
   @override
@@ -633,8 +731,7 @@ class _BudgetTile extends ConsumerWidget {
                     child: Text(row.categoryName, overflow: TextOverflow.ellipsis),
                   ),
                   Text(
-                    '${formatMoneyMinor(row.spentMinor, symbol: symbol, locale: locale)} / '
-                    '${formatMoneyMinor(row.limitMinor, symbol: symbol, locale: locale)}',
+                    '${money(row.spentMinor)} / ${money(row.limitMinor)}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: row.isOver
                           ? theme.colorScheme.error

@@ -7,6 +7,10 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/providers.dart';
 
+// Конвенция Value<T> (A1): `Value.absent()` — поле не менять, `Value(null)`
+// — записать NULL (только nullable-поля). Полный текст — в начале
+// accounts_controller.dart; здесь дублируется для читателя файла.
+
 /// Живые категории по виду — для экрана и выбора в формах операций.
 final categoriesByKindProvider =
     StreamProvider.family<List<Category>, CategoryKind>((ref, kind) {

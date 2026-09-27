@@ -17,6 +17,11 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+// S3-хелпер (перевод на него — решение ревью M3-шага 1, «в шаге 4»):
+// структурные проверки после миграции идут общими инвариантами вместо
+// локальных PRAGMA-копий.
+import '../../helpers/schema_invariants.dart';
+
 /// DDL схемы v1 (v0.1): budgets не существует, индексы транзакций на месте.
 const List<String> _v1Ddl = <String>[
   'CREATE TABLE currencies ('
@@ -122,11 +127,12 @@ void main() {
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
 
-    // beforeOpen после миграции: версия поднята до 2.
+    // beforeOpen после миграции: исполнена вся цепочка до текущей версии
+    // (v1 → v2 → v3, D-21: файл v0.1 открывается без потерь).
     final int version =
         (await db.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version');
-    expect(version, 2, reason: 'после открытия база должна быть на v2');
+    expect(version, 3, reason: 'после открытия база должна быть на текущей схеме');
 
     // Данные v0.1 выжили дословно.
     final List<Currency> currencies = await db.select(db.currencies).get();
@@ -167,19 +173,18 @@ void main() {
     expect(created.limitMinor, 12345);
     expect((await db.budgetsDao.getAlive()).single.id, created.id);
 
-    // Индексы транзакций пережили миграцию (createAll не трогает их).
-    final List<QueryRow> indexes = await db.customSelect(
-      "SELECT name FROM sqlite_master WHERE type = 'index' "
-      "AND tbl_name = 'transactions'",
-    ).get();
+    // Индексы транзакций пережили миграцию (createAll не трогает их)
+    // — общий инвариант S3.
     expect(
-      indexes.map((QueryRow row) => row.read<String>('name')),
+      await indexNames(db, 'transactions'),
       containsAll(<String>[
         'idx_transactions_date',
         'idx_transactions_account_id',
         'idx_transactions_category_id',
       ]),
     );
+    // Служебные колонки §3 у всех таблиц на месте после миграции (S3).
+    await expectTimestampColumns(db, expectedTables);
   });
 
   test('повторное открытие базы v2: без ре-миграции, данные на месте',
@@ -201,15 +206,15 @@ void main() {
     );
     await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 2),
-    // данные живы.
+    // Повторное открытие: onUpgrade не выполняется (версия уже текущая,
+    // 3), данные живы.
     final AppDatabase second =
         AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(second.close);
     expect(
       (await second.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      2,
+      3,
     );
     final List<Budget> alive = await second.budgetsDao.getAlive();
     expect(alive.single.id, budget.id);

@@ -16,7 +16,30 @@ class AppLocalizationsRu extends AppLocalizations {
   String get navAccounts => 'Счета';
 
   @override
-  String get navTransactions => 'Транзакции';
+  String get navTransactions => 'Операции';
+
+  @override
+  String get retryAction => 'Повторить';
+
+  @override
+  String get accountsEmptyCta => 'Добавить счёт';
+
+  @override
+  String get transactionsEmptyCta => 'Добавить операцию';
+
+  @override
+  String get accountLabel => 'Счёт';
+
+  @override
+  String get selectAccountValidator => 'Выберите счёт.';
+
+  @override
+  String get budgetMonthlyHint => 'Лимит действует каждый месяц';
+
+  @override
+  String budgetBaseCurrencyHint(String code) {
+    return 'Лимит в базовой валюте ($code)';
+  }
 
   @override
   String get navCategories => 'Категории';
@@ -26,9 +49,6 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get navSettings => 'Настройки';
-
-  @override
-  String get reportsPlaceholder => 'Здесь появятся отчёты и бюджеты. Этап M2.';
 
   @override
   String get reportsTotalBalance => 'Общий баланс';
@@ -44,6 +64,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get reportsTotalLabel => 'Всего';
+
+  @override
+  String get reportsAtCurrentRate => 'по текущему курсу';
 
   @override
   String get budgetsTitle => 'Бюджеты';
@@ -196,9 +219,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get deleteAction => 'Удалить';
 
   @override
-  String get editAction => 'Изменить';
-
-  @override
   String get nameLabel => 'Название';
 
   @override
@@ -274,6 +294,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get amountInvalid => 'Введите сумму больше нуля.';
+
+  @override
+  String accountCurrencyRow(String symbol, String code) {
+    return 'Валюта: $symbol $code';
+  }
+
+  @override
+  String get accountCurrencyLockedHint =>
+      'Валюта счёта меняется, пока у счёта нет операций';
+
+  @override
+  String get accountCurrencyChangeAction => 'Сменить валюту';
 
   @override
   String get selectCurrencyValidator => 'Выберите валюту.';
@@ -399,4 +431,109 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get transactionDeleteBody => 'Операция будет скрыта из списков.';
+
+  @override
+  String get transactionTileNoCategory => 'Без категории';
+
+  @override
+  String get transactionTileAccountGone => 'Счёт удалён';
+
+  @override
+  String get currenciesScreenTitle => 'Валюты';
+
+  @override
+  String currenciesSettingsSubtitle(int count) {
+    return 'В списке: $count';
+  }
+
+  @override
+  String get currenciesBaseBadge => 'Базовая валюта';
+
+  @override
+  String currenciesRateOf(String rate, String code) {
+    return '1 = $rate $code';
+  }
+
+  @override
+  String get currencyAdd => 'Добавить валюту';
+
+  @override
+  String get currencySearchHint => 'Поиск по коду или названию';
+
+  @override
+  String get currencyAlreadyAdded => 'уже добавлена';
+
+  @override
+  String get currencyRateHint =>
+      'Курс: сколько базовой валюты в одной единице этой валюты';
+
+  @override
+  String get currencyRateLabel => 'Курс к базовой';
+
+  @override
+  String get currencyRateInvalid =>
+      'Введите курс больше нуля (до 6 знаков после разделителя).';
+
+  @override
+  String currencyRateDialogTitle(String code, String base) {
+    return 'Курс $code → $base';
+  }
+
+  @override
+  String get currencyRateRecalcNote => 'Отчёты пересчитаются по новому курсу.';
+
+  @override
+  String get currencyMakeBase => 'Сделать базовой';
+
+  @override
+  String currencyChangeBaseTitle(String code) {
+    return 'Сделать $code базовой?';
+  }
+
+  @override
+  String currencyChangeBaseBody(String code) {
+    return 'Балансы счетов останутся в своих валютах. Курсы остальных валют будут пересчитаны относительно $code. Отчёты и лимиты бюджетов будут пересчитаны по новым курсам.';
+  }
+
+  @override
+  String get currencyChangeBaseAction => 'Сделать базовой';
+
+  @override
+  String currencyDeleteTitle(String code) {
+    return 'Удалить валюту $code из справочника?';
+  }
+
+  @override
+  String get currencyDeleteBody => 'История операций не изменится.';
+
+  @override
+  String currencyDeleteBlockedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Эту валюту используют $count счета.',
+      many: 'Эту валюту используют $count счетов.',
+      few: 'Эту валюту используют $count счёта.',
+      one: 'Эту валюту использует $count счёт.',
+    );
+    return '$_temp0 Сначала удалите или перенесите их в другую валюту.';
+  }
+
+  @override
+  String get currencyDeleteMenuAction => 'Удалить';
+
+  @override
+  String get transferAmountOut => 'Списано';
+
+  @override
+  String get transferAmountIn => 'Зачислено';
+
+  @override
+  String transferRateLine(String from, String rate, String to) {
+    return 'По курсу 1 $from = $rate $to';
+  }
+
+  @override
+  String get transferPrefillNote =>
+      'Предзаполнено по текущему курсу — поправьте, если курс обмена отличался';
 }

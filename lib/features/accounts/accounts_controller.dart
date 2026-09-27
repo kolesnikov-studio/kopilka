@@ -7,6 +7,12 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/providers.dart';
 
+// Конвенция Value<T> (A1, решение мейнтейнера 2026-09-26): частичные обновления
+// остаются на drift-типе `Value<T>`, обёртки не вводим. Семантика при вызове
+// DAO: `Value.absent()` — поле не менять; `Value(null)` — записать NULL
+// (только nullable-поля). Смешивать в вызове нельзя: читатель кода обязан
+// видеть, какая из двух семантик имеется в виду.
+
 /// Строка списка счетов: счёт и его баланс из `AccountsDao.watchBalances()`.
 ///
 /// Балансы не считаются и не хранятся в UI (§3): единственный источник —
@@ -73,6 +79,11 @@ class AccountsController extends Notifier {
       return Failure<Account>(error.kind);
     }
   }
+
+  /// Есть ли у счёта живые операции (B2.2/D-24): read-only вопрос к DAO,
+  /// отказ при смене валюты остаётся последней линией (гонка возможна).
+  Future<bool> hasAliveTransactions(String id) =>
+      _accounts.hasAliveTransactions(id);
 
   /// Мягко удаляет счёт. Отказ «есть живые операции» UI объясняет текстом
   /// [DataFailure.accountHasTransactions].

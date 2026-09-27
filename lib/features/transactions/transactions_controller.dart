@@ -71,6 +71,14 @@ final filteredTransactionsProvider =
   return ref.watch(transactionsDaoProvider).watchFiltered(state.toFilter());
 });
 
+/// Строки списка операций с именами счетов и категории (R7): имена приходят
+/// JOIN'ом из DAO, плиткам не нужны подписки на списки счетов/категорий.
+final filteredTransactionViewsProvider =
+    StreamProvider<List<TransactionView>>((ref) {
+  final TransactionsFilterState state = ref.watch(transactionsFilterProvider);
+  return ref.watch(transactionsDaoProvider).watchFilteredView(state.toFilter());
+});
+
 /// Живые счета — для форм и подстановки имён в списке операций.
 final accountsProvider = StreamProvider<List<Account>>((ref) {
   return ref.watch(accountsDaoProvider).watchAlive();
@@ -108,12 +116,18 @@ class TransactionsController extends Notifier {
     }
   }
 
-  /// Создаёт перевод. Отказ «счёт списания = зачисления» приходит из DAO
-  /// как [DataFailure.invalidInput] и объясняется пользователю.
+  /// Создаёт перевод. Отказы правил D-17 (счёт списания = зачисления;
+  /// у мультивалютного перевода нет второй суммы) приходят из DAO как
+  /// [DataFailure.invalidInput] и объясняются пользователю снеком.
+  ///
+  /// `targetAmountMinor` — сумма зачисления (M3-шаг 4, B4.1): обязательна
+  /// при разных валютах счетов, у одно-валютного не передаётся (DAO
+  /// контролирует корректность, D-17).
   Future<Result<Transaction>> createTransfer({
     required String accountId,
     required String targetAccountId,
     required int amountMinor,
+    int? targetAmountMinor,
     String? note,
     DateTime? date,
   }) async {
@@ -123,6 +137,7 @@ class TransactionsController extends Notifier {
         accountId: accountId,
         targetAccountId: targetAccountId,
         amountMinor: amountMinor,
+        targetAmountMinor: targetAmountMinor,
         note: note,
         date: date ?? utcNow(),
       );

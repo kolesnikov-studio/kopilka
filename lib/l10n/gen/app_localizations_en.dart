@@ -19,6 +19,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navTransactions => 'Transactions';
 
   @override
+  String get retryAction => 'Retry';
+
+  @override
+  String get accountsEmptyCta => 'Add account';
+
+  @override
+  String get transactionsEmptyCta => 'Add transaction';
+
+  @override
+  String get accountLabel => 'Account';
+
+  @override
+  String get selectAccountValidator => 'Select an account.';
+
+  @override
+  String get budgetMonthlyHint => 'The limit repeats every month';
+
+  @override
+  String budgetBaseCurrencyHint(String code) {
+    return 'Limit in base currency ($code)';
+  }
+
+  @override
   String get navCategories => 'Categories';
 
   @override
@@ -26,10 +49,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navSettings => 'Settings';
-
-  @override
-  String get reportsPlaceholder =>
-      'Reports and budgets will appear here. Stage M2.';
 
   @override
   String get reportsTotalBalance => 'Total balance';
@@ -45,6 +64,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reportsTotalLabel => 'Total';
+
+  @override
+  String get reportsAtCurrentRate => 'at current rate';
 
   @override
   String get budgetsTitle => 'Budgets';
@@ -196,9 +218,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get deleteAction => 'Delete';
 
   @override
-  String get editAction => 'Edit';
-
-  @override
   String get nameLabel => 'Name';
 
   @override
@@ -273,6 +292,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get amountInvalid => 'Enter an amount greater than zero.';
+
+  @override
+  String accountCurrencyRow(String symbol, String code) {
+    return 'Currency: $symbol $code';
+  }
+
+  @override
+  String get accountCurrencyLockedHint =>
+      'Currency can be changed while the account has no transactions.';
+
+  @override
+  String get accountCurrencyChangeAction => 'Change currency';
 
   @override
   String get selectCurrencyValidator => 'Select a currency.';
@@ -399,4 +430,108 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get transactionDeleteBody =>
       'The transaction will be hidden from the lists.';
+
+  @override
+  String get transactionTileNoCategory => 'No category';
+
+  @override
+  String get transactionTileAccountGone => 'Deleted account';
+
+  @override
+  String get currenciesScreenTitle => 'Currencies';
+
+  @override
+  String currenciesSettingsSubtitle(int count) {
+    return '$count in the list';
+  }
+
+  @override
+  String get currenciesBaseBadge => 'Base currency';
+
+  @override
+  String currenciesRateOf(String rate, String code) {
+    return '1 = $rate $code';
+  }
+
+  @override
+  String get currencyAdd => 'Add currency';
+
+  @override
+  String get currencySearchHint => 'Search by code or name';
+
+  @override
+  String get currencyAlreadyAdded => 'already added';
+
+  @override
+  String get currencyRateHint =>
+      'Rate: how much base currency one unit of this currency is worth';
+
+  @override
+  String get currencyRateLabel => 'Rate to base';
+
+  @override
+  String get currencyRateInvalid =>
+      'Enter a rate greater than zero (up to 6 decimal places).';
+
+  @override
+  String currencyRateDialogTitle(String code, String base) {
+    return 'Rate $code → $base';
+  }
+
+  @override
+  String get currencyRateRecalcNote =>
+      'Reports are recalculated using the new rate.';
+
+  @override
+  String get currencyMakeBase => 'Make base';
+
+  @override
+  String currencyChangeBaseTitle(String code) {
+    return 'Make $code the base currency?';
+  }
+
+  @override
+  String currencyChangeBaseBody(String code) {
+    return 'Account balances stay in their own currencies. Rates of the other currencies will be recalculated relative to $code. Reports and budget limits will be recalculated using the new rates.';
+  }
+
+  @override
+  String get currencyChangeBaseAction => 'Make base';
+
+  @override
+  String currencyDeleteTitle(String code) {
+    return 'Remove currency $code from the list?';
+  }
+
+  @override
+  String get currencyDeleteBody => 'Transaction history will not change.';
+
+  @override
+  String currencyDeleteBlockedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count accounts use this currency.',
+      one: '$count account uses this currency.',
+    );
+    return '$_temp0 Delete or move them to another currency first.';
+  }
+
+  @override
+  String get currencyDeleteMenuAction => 'Delete';
+
+  @override
+  String get transferAmountOut => 'Debited';
+
+  @override
+  String get transferAmountIn => 'Credited';
+
+  @override
+  String transferRateLine(String from, String rate, String to) {
+    return 'At the rate 1 $from = $rate $to';
+  }
+
+  @override
+  String get transferPrefillNote =>
+      'Prefilled with the current rate — correct it if the exchange rate differed';
 }

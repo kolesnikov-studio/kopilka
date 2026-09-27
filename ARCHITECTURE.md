@@ -87,3 +87,35 @@ lib/
 - Unit-тесты: денежная логика, импорт/экспорт, DAO (drift in-memory).
 - CI GitHub Actions: `analyze` + `test` на каждый PR; сборка артефактов (NSIS, portable, AppImage, APK) на тег релиза + черновик Release.
 - Conventional commits; миграции drift — строго с первого релиза: у пользователей появятся данные с v0.1, ломать схему после — недопустимо.
+- Грабли среды и тестов (возвращены по итогам quality-ревью тестов, 2026-09-26):
+  зависший `flutter_tester.exe` держит `build/native_assets/windows/sqlite3.dll`
+  (лечится `taskkill //F //IM flutter_tester.exe`); порядок демонтажа в тестах —
+  сперва `container.dispose()`, потом `db.close()`; суммы в ожиданиях — через
+  `formatMoneyMinor` (неразрывные пробелы в литералах); в SQL-фильтрах дат-секунд
+  обязателен `strftime(..., 'unixepoch')` (§3).
+
+## 8. Код вне рефакторинга («не трогать», из ревью 2026-09-26)
+
+Единый список для задач M3+; здесь — истина. Изменения — только через
+новое решение (D-xx).
+
+- `core/result.dart`, `core/errors.dart` — каркас Result-отказов, устоялся.
+- `core/months.dart` и SQL-паттерн `strftime(..., 'unixepoch')` — правило
+  месяцев UTC (§3); тесты-замки P3 есть, код не менять.
+- `TransactionsDao._balancesSql` и балансные агрегаты — выверены ревью;
+  правки только с тестом на инвариант. Список составлен до схемы v3:
+  инвариант балансных агрегатов включает правило D-17 (зачисление —
+  `COALESCE(target_amount_minor, amount_minor)`, D-31).
+- `BackupService.importJson` — порядок и атомарность импорта (FK OFF/ON
+  в `finally`, порядок DELETE/INSERT, валидация до транзакции); расширять
+  только проверками R3, механизм не трогать.
+- `UpdateService` (`parseSemver`/`compareSemver`/`latestUpdate`) — чистые
+  функции, покрыты, вне M3.
+- `seed.dart` — данные посева (включая литерал «₽»), это данные, не UI.
+- Soft delete + `_requireAlive` + clock/idGenerator в DAO — единообразный
+  паттерн, менять не нужно.
+- `DataLayerFixture` (тесты) — не переписывать; расширять точечно (S1).
+- Механизм миграций и `migration_v2/v3_test` — только новые версии схемы,
+  старые тесты не редактировать (правило эпох в ROADMAP.md).
+- Схема БД — v3; изменения только по правилу эпох (новая schema_version +
+  миграция + тест).

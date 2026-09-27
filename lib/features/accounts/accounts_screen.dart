@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
+import 'package:kopilka/app/widgets/error_state.dart';
+import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
-import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
+import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/accounts/account_form_dialog.dart';
 import 'package:kopilka/features/accounts/accounts_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -29,11 +31,17 @@ class AccountsScreen extends ConsumerWidget {
       ),
       body: balances.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (Object error, StackTrace stack) =>
-            Center(child: Text(l10n.errorUnknown)),
+        error: (Object error, StackTrace stack) => ErrorState(
+          // Поток DAO сам переподпишется при пересборке виджета.
+          onRetry: () => ref.invalidate(accountsWithBalancesProvider),
+        ),
         data: (List<AccountBalance> rows) {
           if (rows.isEmpty) {
-            return Center(child: Text(l10n.accountsEmpty));
+            return EmptyState(
+              text: l10n.accountsEmpty,
+              ctaLabel: l10n.accountsEmptyCta,
+              onCta: () => showAccountFormDialog(context),
+            );
           }
           return ListView.separated(
             padding: const EdgeInsets.only(bottom: 88),
@@ -81,25 +89,21 @@ class _AccountTile extends ConsumerWidget {
       trailing: Text(
         formatMoneyMinor(
           row.balanceMinor,
-          symbol: _currencySymbol(ref, row.account.currencyCode),
+          // R5: символ по карте справочника (уходит линейный поиск);
+          // код вне справочника — fallback на сам код.
+          symbol: ref.watch(currenciesMapProvider).value?[row.account.currencyCode]
+                  ?.symbol ??
+              row.account.currencyCode,
           locale: locale,
+          // B3: формат по экспоненту валюты счёта (JPY без копеек,
+          // KWD с тремя знаками).
+          exponent: currencyExponentByCode(row.account.currencyCode),
         ),
         style: Theme.of(context).textTheme.titleMedium,
       ),
       onTap: () => showAccountFormDialog(context, account: row),
       onLongPress: () => _confirmDelete(context, ref, l10n),
     );
-  }
-
-  String _currencySymbol(WidgetRef ref, String code) {
-    final List<Currency> currencies =
-        ref.watch(currenciesProvider).value ?? const <Currency>[];
-    for (final Currency currency in currencies) {
-      if (currency.code == code) {
-        return currency.symbol;
-      }
-    }
-    return code;
   }
 
   Future<void> _confirmDelete(

@@ -12,6 +12,36 @@
   "@navTransactions": {
     "description": "Navigation label and screen title for the transactions section"
   },
+
+  "retryAction": "Retry",
+  "@retryAction": { "description": "Button retrying a failed screen load (U2)" },
+  "accountsEmptyCta": "Add account",
+  "@accountsEmptyCta": {
+    "description": "Call-to-action button on the empty accounts list (U1)"
+  },
+  "transactionsEmptyCta": "Add transaction",
+  "@transactionsEmptyCta": {
+    "description": "Call-to-action button on the empty transactions list (U1)"
+  },
+  "accountLabel": "Account",
+  "@accountLabel": {
+    "description": "Field label for the account picker in the transaction form (U8)"
+  },
+  "selectAccountValidator": "Select an account.",
+  "@selectAccountValidator": {
+    "description": "Validation message when the transaction form has no account selected (U9)"
+  },
+  "budgetMonthlyHint": "The limit repeats every month",
+  "@budgetMonthlyHint": {
+    "description": "Hint in the budget form that the limit applies to every month (U11)"
+  },
+  "budgetBaseCurrencyHint": "Limit in base currency ({code})",
+  "@budgetBaseCurrencyHint": {
+    "description": "Helper under the budget limit field: the limit is counted in the base currency, whose code is shown in case the user changed it (B6, D-19/D-20)",
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
   "navCategories": "Categories",
   "@navCategories": {
     "description": "Navigation label and screen title for the categories section"
@@ -23,10 +53,6 @@
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Navigation label and screen title for the settings section"
-  },
-  "reportsPlaceholder": "Reports and budgets will appear here. Stage M2.",
-  "@reportsPlaceholder": {
-    "description": "Placeholder text of the reports screen"
   },
 
   "reportsTotalBalance": "Total balance",
@@ -48,6 +74,10 @@
   "reportsTotalLabel": "Total",
   "@reportsTotalLabel": {
     "description": "Prefix of the month total in the category breakdown card"
+  },
+  "reportsAtCurrentRate": "at current rate",
+  "@reportsAtCurrentRate": {
+    "description": "Marker shown on dashboard cards when amounts are converted to the base currency at the current rate (D-18); hidden when all accounts use a single currency"
   },
 
   "budgetsTitle": "Budgets",
@@ -237,8 +267,6 @@
   "@cancelAction": { "description": "Button that closes a form without changes" },
   "deleteAction": "Delete",
   "@deleteAction": { "description": "Button that deletes the record" },
-  "editAction": "Edit",
-  "@editAction": { "description": "Button that opens the record for editing" },
   "nameLabel": "Name",
   "@nameLabel": { "description": "Field label for a record name" },
   "amountLabel": "Amount",
@@ -284,6 +312,22 @@
   "@errorTransferSameAccount": { "description": "Transfer form rejected because both sides are the same account" },
   "amountInvalid": "Enter an amount greater than zero.",
   "@amountInvalid": { "description": "Amount field validation message" },
+  "accountCurrencyRow": "Currency: {symbol} {code}",
+  "@accountCurrencyRow": {
+    "description": "Read-only currency line shown instead of the picker when editing an account (B2.2/D-24)",
+    "placeholders": {
+      "symbol": { "type": "String" },
+      "code": { "type": "String" }
+    }
+  },
+  "accountCurrencyLockedHint": "Currency can be changed while the account has no transactions.",
+  "@accountCurrencyLockedHint": {
+    "description": "Hint under the currency line shown only while the account has no transactions (B2.2/D-24)"
+  },
+  "accountCurrencyChangeAction": "Change currency",
+  "@accountCurrencyChangeAction": {
+    "description": "Button opening the currency picker for an account without transactions (B2.2/D-24)"
+  },
   "selectCurrencyValidator": "Select a currency.",
   "@selectCurrencyValidator": {
     "description": "Validation message of the account form when no currency is chosen"
@@ -378,5 +422,139 @@
   "transactionDeleteTitle": "Delete transaction?",
   "@transactionDeleteTitle": { "description": "Confirmation title for transaction deletion" },
   "transactionDeleteBody": "The transaction will be hidden from the lists.",
-  "@transactionDeleteBody": { "description": "Confirmation body for transaction deletion" }
+  "@transactionDeleteBody": { "description": "Confirmation body for transaction deletion" },
+
+  "transactionTileNoCategory": "No category",
+  "@transactionTileNoCategory": {
+    "description": "Tile subtitle/name for an expense or income without a category (U4)"
+  },
+  "transactionTileAccountGone": "Deleted account",
+  "@transactionTileAccountGone": {
+    "description": "Tile text for an account that no longer exists (U4)"
+  },
+
+  "currenciesScreenTitle": "Currencies",
+  "@currenciesScreenTitle": {
+    "description": "Title of the currencies screen and the settings entry that opens it (B1)"
+  },
+  "currenciesSettingsSubtitle": "{count} in the list",
+  "@currenciesSettingsSubtitle": {
+    "description": "Settings entry subtitle showing how many currencies are in the list",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "currenciesBaseBadge": "Base currency",
+  "@currenciesBaseBadge": {
+    "description": "Subtitle of the base currency row; its rate is always 1 and hidden (D-16)"
+  },
+  "currenciesRateOf": "1 = {rate} {code}",
+  "@currenciesRateOf": {
+    "description": "Row subtitle showing how much base currency one unit of the currency is worth (B1)",
+    "placeholders": {
+      "rate": { "type": "String" },
+      "code": { "type": "String" }
+    }
+  },
+  "currencyAdd": "Add currency",
+  "@currencyAdd": {
+    "description": "Tooltip of the floating action button and title of the add-currency dialog (B1.1)"
+  },
+  "currencySearchHint": "Search by code or name",
+  "@currencySearchHint": {
+    "description": "Search field hint inside the add-currency dialog (B1.1)"
+  },
+  "currencyAlreadyAdded": "already added",
+  "@currencyAlreadyAdded": {
+    "description": "Badge on ISO list entries that are already in the user's list (B1.1)"
+  },
+  "currencyRateHint": "Rate: how much base currency one unit of this currency is worth",
+  "@currencyRateHint": {
+    "description": "Helper text under the rate field when adding a currency (B1.1)"
+  },
+  "currencyRateLabel": "Rate to base",
+  "@currencyRateLabel": {
+    "description": "Label of the rate input field in add and edit dialogs (B1.1/B1.2)"
+  },
+  "currencyRateInvalid": "Enter a rate greater than zero (up to 6 decimal places).",
+  "@currencyRateInvalid": {
+    "description": "Validation message of the rate field (B1.1/B1.2)"
+  },
+  "currencyRateDialogTitle": "Rate {code} → {base}",
+  "@currencyRateDialogTitle": {
+    "description": "Title of the rate editing dialog (B1.2)",
+    "placeholders": {
+      "code": { "type": "String" },
+      "base": { "type": "String" }
+    }
+  },
+  "currencyRateRecalcNote": "Reports are recalculated using the new rate.",
+  "@currencyRateRecalcNote": {
+    "description": "Note in the rate editing dialog about silent recalculation of aggregates (D-16/B1.2)"
+  },
+  "currencyMakeBase": "Make base",
+  "@currencyMakeBase": {
+    "description": "Row menu action that starts changing the base currency (B1.3)"
+  },
+  "currencyChangeBaseTitle": "Make {code} the base currency?",
+  "@currencyChangeBaseTitle": {
+    "description": "Confirmation title for changing the base currency (B1.3)",
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "currencyChangeBaseBody": "Account balances stay in their own currencies. Rates of the other currencies will be recalculated relative to {code}. Reports and budget limits will be recalculated using the new rates.",
+  "@currencyChangeBaseBody": {
+    "description": "Confirmation body explaining the consequences of changing the base currency (B1.3/D-20)",
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "currencyChangeBaseAction": "Make base",
+  "@currencyChangeBaseAction": {
+    "description": "Confirm button of the change-base dialog (B1.3)"
+  },
+  "currencyDeleteTitle": "Remove currency {code} from the list?",
+  "@currencyDeleteTitle": {
+    "description": "Confirmation title for removing a currency (B1.4)",
+    "placeholders": {
+      "code": { "type": "String" }
+    }
+  },
+  "currencyDeleteBody": "Transaction history will not change.",
+  "@currencyDeleteBody": {
+    "description": "Confirmation body for removing a currency (B1.4)"
+  },
+  "currencyDeleteBlockedBody": "{count, plural, one{{count} account uses this currency.} other{{count} accounts use this currency.}} Delete or move them to another currency first.",
+  "@currencyDeleteBlockedBody": {
+    "description": "Explanation shown before a blocked currency removal attempt (B1.4)",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "currencyDeleteMenuAction": "Delete",
+  "@currencyDeleteMenuAction": {
+    "description": "Row menu action that starts removing a currency (B1.4)"
+  },
+  "transferAmountOut": "Debited",
+  "@transferAmountOut": {
+    "description": "Label of the transfer outflow amount field, in the currency of the source account (B4.1)"
+  },
+  "transferAmountIn": "Credited",
+  "@transferAmountIn": {
+    "description": "Label of the transfer inflow amount field, in the currency of the target account (B4.1)"
+  },
+  "transferRateLine": "At the rate 1 {from} = {rate} {to}",
+  "@transferRateLine": {
+    "description": "Derived-rate hint under the transfer inflow field: rate is the ratio of the two entered amounts, formatted by the step-2 rate formatter (B4.1, D-26)",
+    "placeholders": {
+      "from": { "type": "String" },
+      "rate": { "type": "String" },
+      "to": { "type": "String" }
+    }
+  },
+  "transferPrefillNote": "Prefilled with the current rate — correct it if the exchange rate differed",
+  "@transferPrefillNote": {
+    "description": "Helper shown under the prefilled inflow amount of a cross-currency transfer (B4.1)"
+  }
 }

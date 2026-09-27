@@ -6,10 +6,12 @@ abstract final class AppRoutes {
   static const String categories = '/categories';
   static const String reports = '/reports';
   static const String settings = '/settings';
+  static const String currencies = '/settings/currencies';
 
   static const String accountsName = 'accounts';
   static const String transactionsName = 'transactions';
   static const String categoriesName = 'categories';
   static const String reportsName = 'reports';
   static const String settingsName = 'settings';
+  static const String currenciesName = 'currencies';
 }

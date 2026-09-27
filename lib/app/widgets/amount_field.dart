@@ -13,7 +13,12 @@ class AmountField extends StatelessWidget {
     super.key,
     required this.controller,
     this.onSubmitted,
+    this.onChanged,
     this.allowZero = false,
+    this.exponent = defaultCurrencyExponent,
+    this.hintText,
+    this.suffixText,
+    this.labelText,
   });
 
   final TextEditingController controller;
@@ -22,21 +27,46 @@ class AmountField extends StatelessWidget {
   /// Разрешает ноль как корректное значение (по умолчанию — только > 0).
   final bool allowZero;
 
+  /// Число знаков после разделителя у валюты поля (D-15): 2 — копейки,
+  /// 0 — без дробной части, 3 — динары. По умолчанию 2.
+  final int exponent;
+
+  /// Подсказка внутри пустого поля (U12: «0,00» в начальном балансе счёта);
+  /// null — без подсказки.
+  final String? hintText;
+
+  /// Символ валюты в суффиксе поля (B3): «какая валюта у этой суммы»
+  /// видна всегда; null — без суффикса (M1/M2-вызовы без контекста валют).
+  final String? suffixText;
+
+  /// Свой заголовок поля (B4.1: «Списано»/«Зачислено» у перевода);
+  /// null — стандартный «Сумма».
+  final String? labelText;
+
+  /// Вызывается при каждой правке текста пользователем (B4.1: пересчёт
+  /// расчётной строки курса и предзаполнения второй суммы перевода);
+  /// программная смена `controller.text` её не вызывает.
+  final ValueChanged<String>? onChanged;
+
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     return TextFormField(
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [AmountInputFormatter()],
+      inputFormatters: [AmountInputFormatter(exponent: exponent)],
+      onChanged: onChanged,
       decoration: InputDecoration(
-        labelText: l10n.amountLabel,
+        labelText: labelText ?? l10n.amountLabel,
+        hintText: hintText,
+        suffixText: suffixText,
         errorMaxLines: 2,
       ),
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (String? value) => parseAmountToMinor(
             value ?? '',
             allowZero: allowZero,
+            exponent: exponent,
           ) ==
           null
           ? l10n.amountInvalid
@@ -47,9 +77,17 @@ class AmountField extends StatelessWidget {
 }
 
 /// Пропускает только цифры, пробелы, запятую и точку; не более одного
-/// разделителя и не более двух знаков после него.
+/// разделителя и не более [exponent] знаков после него (D-15: экспонент
+/// валюты управляет вводом; экспонент 0 запрещает разделитель целиком).
 class AmountInputFormatter extends TextInputFormatter {
-  static final RegExp _allowed = RegExp(r'^\d*[\s.,]?\d{0,2}$');
+  AmountInputFormatter({this.exponent = defaultCurrencyExponent})
+    : _allowed = exponent > 0
+          ? RegExp(r'^\d*[\s.,]?\d{0,' + exponent.toString() + r'}$')
+          : RegExp(r'^\d*$');
+
+  final RegExp _allowed;
+
+  final int exponent;
 
   @override
   TextEditingValue formatEditUpdate(

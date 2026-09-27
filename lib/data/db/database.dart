@@ -15,8 +15,10 @@ part 'database.g.dart';
 
 /// Локальная база приложения (SQLite через drift).
 ///
-/// Схема v2. v1 — дословно по ARCHITECTURE.md §3; v2 добавляет таблицу
-/// `budgets` (M2, D-14). Балансы не хранятся: вычисляются запросом из
+/// Схема v3. v1 — дословно по ARCHITECTURE.md §3; v2 добавляет таблицу
+/// `budgets` (M2, D-14); v3 добавляет nullable-колонку
+/// `transactions.target_amount_minor` — сумму зачисления перевода между
+/// валютами (M3, D-17/D-21). Балансы не хранятся: вычисляются запросом из
 /// транзакций и `initial_balance_minor` (M1).
 ///
 /// Доступ к данным — через DAO: `currenciesDao`, `accountsDao`,
@@ -34,7 +36,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -43,9 +45,14 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (Migrator m, int from, int to) async {
       // Правило эпох (ROADMAP.md): изменение схемы — только новая
-      // schema_version + миграция + тест миграции.
+      // schema_version + миграция + тест миграции. Цепочка v1→v2→v3
+      // исполняется по порядку: from < 2 добавляет budgets, from < 3 —
+      // колонку переводов (ALTER TABLE без перезаписи данных, D-21).
       if (from < 2) {
         await m.createTable(budgets);
+      }
+      if (from < 3) {
+        await m.addColumn(transactions, transactions.targetAmountMinor);
       }
     },
     beforeOpen: (OpeningDetails details) async {

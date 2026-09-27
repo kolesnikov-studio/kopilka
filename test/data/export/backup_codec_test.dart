@@ -276,4 +276,97 @@ void main() {
       ),
     );
   });
+
+  test('v3: строка перевода с target_amount_minor читается типизированно', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 3,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[
+          <String, dynamic>{
+            'id': 'tx-mc',
+            'type': 'transfer',
+            'account_id': 'acc-1',
+            'target_account_id': 'acc-2',
+            'amount_minor': 7900,
+            'target_amount_minor': 100,
+            'currency_code': 'RUB',
+            'date': '2026-09-26T00:00:00.000Z',
+            'created_at': '2026-09-26T00:00:00.000Z',
+            'updated_at': '2026-09-26T00:00:00.000Z',
+          },
+        ],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.transactions.single.type, TransactionType.transfer);
+    expect(backup.transactions.single.amountMinor, 7900);
+    expect(backup.transactions.single.targetAmountMinor, 100);
+  });
+
+  test('v1/v2 без поля target_amount_minor: читается как NULL (D-21)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 2,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[
+          <String, dynamic>{
+            'id': 'tx-old',
+            'type': 'transfer',
+            'account_id': 'acc-1',
+            'target_account_id': 'acc-2',
+            'amount_minor': 5000,
+            'currency_code': 'RUB',
+            'date': '2026-09-26T00:00:00.000Z',
+            'created_at': '2026-09-26T00:00:00.000Z',
+            'updated_at': '2026-09-26T00:00:00.000Z',
+          },
+        ],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.transactions.single.targetAmountMinor, isNull);
+  });
+
+  test('битый target_amount_minor (не число) — отказ invalidData', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 3,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[
+          <String, dynamic>{
+            'id': 'tx-mc',
+            'type': 'transfer',
+            'account_id': 'acc-1',
+            'target_account_id': 'acc-2',
+            'amount_minor': 7900,
+            'target_amount_minor': 'не число',
+            'currency_code': 'RUB',
+            'date': '2026-09-26T00:00:00.000Z',
+            'created_at': '2026-09-26T00:00:00.000Z',
+            'updated_at': '2026-09-26T00:00:00.000Z',
+          },
+        ],
+        'budgets': <dynamic>[],
+      },
+    };
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
 }

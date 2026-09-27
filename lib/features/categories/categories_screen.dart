@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
+import 'package:kopilka/app/widgets/error_state.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -28,8 +29,9 @@ class CategoriesScreen extends ConsumerWidget {
       ),
       body: categories.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (Object error, StackTrace stack) =>
-            Center(child: Text(l10n.errorUnknown)),
+        error: (Object error, StackTrace stack) => ErrorState(
+          onRetry: () => ref.invalidate(allCategoriesProvider),
+        ),
         data: (List<Category> rows) {
           if (rows.isEmpty) {
             return Center(child: Text(l10n.categoriesEmpty));

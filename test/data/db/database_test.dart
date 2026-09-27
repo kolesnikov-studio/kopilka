@@ -7,40 +7,13 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/data/db/database.dart';
 
+import '../../helpers/schema_invariants.dart';
+
 /// Фиксированное «сейчас» в UTC: тесты не должны зависеть от часов.
 final DateTime fixedNow = DateTime.utc(2026, 9, 24, 12);
 
-/// Имена таблиц, созданных в схеме.
-Future<Set<String>> tableNames(AppDatabase db) async {
-  final List<QueryRow> rows = await db
-      .customSelect(
-        "SELECT name FROM sqlite_master "
-        "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
-      )
-      .get();
-  return rows.map((QueryRow row) => row.read<String>('name')).toSet();
-}
-
-/// Типы колонок таблицы (имя → тип SQLite).
-Future<Map<String, String>> columnTypes(AppDatabase db, String table) async {
-  final List<QueryRow> rows = await db
-      .customSelect('PRAGMA table_info($table)')
-      .get();
-  return {
-    for (final QueryRow row in rows) row.read<String>('name'): row.read<String>('type'),
-  };
-}
-
-/// Индексы таблицы.
-Future<Set<String>> indexNames(AppDatabase db, String table) async {
-  final List<QueryRow> rows = await db
-      .customSelect(
-        "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?",
-        variables: [Variable<String>(table)],
-      )
-      .get();
-  return rows.map((QueryRow row) => row.read<String>('name')).toSet();
-}
+// tableNames / columnTypes / indexNames / expectTimestampColumns —
+// из S3-хелпера (schema_invariants.dart).
 
 void main() {
   late AppDatabase db;
@@ -53,19 +26,14 @@ void main() {
     await db.close();
   });
 
-  test('schemaVersion = 2', () {
-    expect(db.schemaVersion, 2);
+  test('schemaVersion = 3', () {
+    expect(db.schemaVersion, 3);
   });
 
-  test('схема создаёт четыре таблицы из §3', () async {
+  test('схема создаёт пять таблиц: четыре из §3 плюс budgets (v2)', () async {
     expect(
       await tableNames(db),
-      containsAll(<String>[
-        'currencies',
-        'accounts',
-        'categories',
-        'transactions',
-      ]),
+      containsAll(expectedTables),
     );
   });
 
@@ -81,19 +49,9 @@ void main() {
     expect(transaction['date'], 'INTEGER');
   });
 
-  test('в каждой таблице есть created_at, updated_at и deleted_at', () async {
-    for (final String table in <String>[
-      'currencies',
-      'accounts',
-      'categories',
-      'transactions',
-      'budgets',
-    ]) {
-      final Map<String, String> columns = await columnTypes(db, table);
-      expect(columns, contains('created_at'), reason: 'таблица $table');
-      expect(columns, contains('updated_at'), reason: 'таблица $table');
-      expect(columns, contains('deleted_at'), reason: 'таблица $table');
-    }
+  test('в каждой таблице есть created_at, updated_at и deleted_at (S3)',
+      () async {
+    await expectTimestampColumns(db, expectedTables);
   });
 
   test('индексы транзакций созданы', () async {

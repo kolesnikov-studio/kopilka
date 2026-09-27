@@ -124,6 +124,42 @@ void main() {
     expect(await f.accounts.balanceMinor(second.id), 25000);
   });
 
+  test(
+    'инвариант D-17: мультивалютный перевод зачисляет target_amount_minor',
+    () async {
+      // Регресс DoD M3-шага 7: входящий перевод раньше crédитировался
+      // суммой списания (amount_minor, валютой источника) — баланс
+      // целевого счёта и общий баланс дашборда уезжали в разы.
+      final Account rub = await f.seedAccount(
+        name: 'Рубли',
+        initialBalanceMinor: 1000000,
+      );
+      await f.seedCurrency('USD', symbol: r'$', rateToBase: 100);
+      final Account usd = await f.seedAccount(
+        name: 'Доллары',
+        kind: AccountKind.bank,
+        currencyCode: 'USD',
+      );
+
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: rub.id,
+        targetAccountId: usd.id,
+        amountMinor: 500000, // списание 5 000,00 ₽
+        targetAmountMinor: 5000, // зачисление 50,00 $
+      );
+
+      // Списание — по сумме списания, зачисление — по сумме зачисления.
+      expect(await f.accounts.balanceMinor(rub.id), 500000);
+      expect(await f.accounts.balanceMinor(usd.id), 5000);
+      expect(
+        (await f.accounts.getBalances())
+            .map((AccountBalance b) => b.balanceMinor),
+        <int>[500000, 5000],
+      );
+    },
+  );
+
   test('удалённые операции в балансе не учитываются', () async {
     final Account account = await f.seedAccount(initialBalanceMinor: 100000);
     final Transaction expense = await f.transactions.create(
@@ -194,6 +230,37 @@ void main() {
       f.accounts.balanceMinor('нет-такого'),
       throwsA(isA<DataValidationException>()),
     );
+  });
+
+  test('balanceMinor (однострочный SQL, R6) совпадает с watchBalances', () async {
+    final Account first = await f.seedAccount(initialBalanceMinor: 100000);
+    final Account second = await f.seedAccount(
+      name: 'Вторая',
+      initialBalanceMinor: 50000,
+    );
+    await f.transactions.create(
+      type: TransactionType.income,
+      accountId: first.id,
+      amountMinor: 30000,
+    );
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: first.id,
+      amountMinor: 12345,
+    );
+    await f.transactions.create(
+      type: TransactionType.transfer,
+      accountId: second.id,
+      targetAccountId: first.id,
+      amountMinor: 7000,
+    );
+
+    final int single = await f.accounts.balanceMinor(first.id);
+    final int fromStream = (await f.accounts.watchBalances().first)
+        .firstWhere((AccountBalance b) => b.account.id == first.id)
+        .balanceMinor;
+    expect(single, 100000 + 30000 - 12345 + 7000);
+    expect(single, fromStream);
   });
 
   test('updateAccount меняет поля и обновляет только updatedAt', () async {

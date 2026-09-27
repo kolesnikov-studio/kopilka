@@ -1741,6 +1741,17 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _targetAmountMinorMeta = const VerificationMeta(
+    'targetAmountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> targetAmountMinor = GeneratedColumn<int>(
+    'target_amount_minor',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
     'currencyCode',
   );
@@ -1814,6 +1825,7 @@ class $TransactionsTable extends Transactions
     targetAccountId,
     categoryId,
     amountMinor,
+    targetAmountMinor,
     currencyCode,
     date,
     note,
@@ -1879,6 +1891,15 @@ class $TransactionsTable extends Transactions
       );
     } else if (isInserting) {
       context.missing(_amountMinorMeta);
+    }
+    if (data.containsKey('target_amount_minor')) {
+      context.handle(
+        _targetAmountMinorMeta,
+        targetAmountMinor.isAcceptableOrUnknown(
+          data['target_amount_minor']!,
+          _targetAmountMinorMeta,
+        ),
+      );
     }
     if (data.containsKey('currency_code')) {
       context.handle(
@@ -1960,6 +1981,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.int,
         data['${effectivePrefix}amount_minor'],
       )!,
+      targetAmountMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}target_amount_minor'],
+      ),
       currencyCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
@@ -2008,10 +2033,18 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   /// Для перевода — NULL.
   final String? categoryId;
 
-  /// Сумма в минорных единицах, всегда положительная.
+  /// Сумма списания в минорных единицах, всегда положительная.
   final int amountMinor;
 
-  /// Валюта операции (в M1 наследуется от счёта).
+  /// Сумма зачисления перевода в минорных единицах, положительная; валюты —
+  /// целевого счёта. Правила D-17: NULL = перевод в одной валюте и любой
+  /// не-перевод; не NULL — только когда валюты счетов перевода различаются.
+  /// Заполняется только вместе с [amountMinor] (update — одной правкой);
+  /// курс обмена хранить не нужно — он производный (отношение сумм).
+  final int? targetAmountMinor;
+
+  /// Валюта операции (суммы списания); для перевода — валюта счёта
+  /// списания, у зачисления — валюта целевого счёта.
   final String currencyCode;
   final DateTime date;
   final String? note;
@@ -2025,6 +2058,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     this.targetAccountId,
     this.categoryId,
     required this.amountMinor,
+    this.targetAmountMinor,
     required this.currencyCode,
     required this.date,
     this.note,
@@ -2045,6 +2079,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       map['category_id'] = Variable<String>(categoryId);
     }
     map['amount_minor'] = Variable<int>(amountMinor);
+    if (!nullToAbsent || targetAmountMinor != null) {
+      map['target_amount_minor'] = Variable<int>(targetAmountMinor);
+    }
     map['currency_code'] = Variable<String>(currencyCode);
     map['date'] = Variable<DateTime>(date);
     if (!nullToAbsent || note != null) {
@@ -2070,6 +2107,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ? const Value.absent()
           : Value(categoryId),
       amountMinor: Value(amountMinor),
+      targetAmountMinor: targetAmountMinor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetAmountMinor),
       currencyCode: Value(currencyCode),
       date: Value(date),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
@@ -2093,6 +2133,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       targetAccountId: serializer.fromJson<String?>(json['targetAccountId']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       amountMinor: serializer.fromJson<int>(json['amountMinor']),
+      targetAmountMinor: serializer.fromJson<int?>(json['targetAmountMinor']),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
       date: serializer.fromJson<DateTime>(json['date']),
       note: serializer.fromJson<String?>(json['note']),
@@ -2111,6 +2152,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'targetAccountId': serializer.toJson<String?>(targetAccountId),
       'categoryId': serializer.toJson<String?>(categoryId),
       'amountMinor': serializer.toJson<int>(amountMinor),
+      'targetAmountMinor': serializer.toJson<int?>(targetAmountMinor),
       'currencyCode': serializer.toJson<String>(currencyCode),
       'date': serializer.toJson<DateTime>(date),
       'note': serializer.toJson<String?>(note),
@@ -2127,6 +2169,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     Value<String?> targetAccountId = const Value.absent(),
     Value<String?> categoryId = const Value.absent(),
     int? amountMinor,
+    Value<int?> targetAmountMinor = const Value.absent(),
     String? currencyCode,
     DateTime? date,
     Value<String?> note = const Value.absent(),
@@ -2142,6 +2185,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         : this.targetAccountId,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     amountMinor: amountMinor ?? this.amountMinor,
+    targetAmountMinor: targetAmountMinor.present
+        ? targetAmountMinor.value
+        : this.targetAmountMinor,
     currencyCode: currencyCode ?? this.currencyCode,
     date: date ?? this.date,
     note: note.present ? note.value : this.note,
@@ -2163,6 +2209,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       amountMinor: data.amountMinor.present
           ? data.amountMinor.value
           : this.amountMinor,
+      targetAmountMinor: data.targetAmountMinor.present
+          ? data.targetAmountMinor.value
+          : this.targetAmountMinor,
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
@@ -2183,6 +2232,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('targetAccountId: $targetAccountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('amountMinor: $amountMinor, ')
+          ..write('targetAmountMinor: $targetAmountMinor, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('date: $date, ')
           ..write('note: $note, ')
@@ -2201,6 +2251,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     targetAccountId,
     categoryId,
     amountMinor,
+    targetAmountMinor,
     currencyCode,
     date,
     note,
@@ -2218,6 +2269,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.targetAccountId == this.targetAccountId &&
           other.categoryId == this.categoryId &&
           other.amountMinor == this.amountMinor &&
+          other.targetAmountMinor == this.targetAmountMinor &&
           other.currencyCode == this.currencyCode &&
           other.date == this.date &&
           other.note == this.note &&
@@ -2233,6 +2285,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String?> targetAccountId;
   final Value<String?> categoryId;
   final Value<int> amountMinor;
+  final Value<int?> targetAmountMinor;
   final Value<String> currencyCode;
   final Value<DateTime> date;
   final Value<String?> note;
@@ -2247,6 +2300,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.targetAccountId = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.amountMinor = const Value.absent(),
+    this.targetAmountMinor = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.date = const Value.absent(),
     this.note = const Value.absent(),
@@ -2262,6 +2316,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.targetAccountId = const Value.absent(),
     this.categoryId = const Value.absent(),
     required int amountMinor,
+    this.targetAmountMinor = const Value.absent(),
     required String currencyCode,
     required DateTime date,
     this.note = const Value.absent(),
@@ -2284,6 +2339,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? targetAccountId,
     Expression<String>? categoryId,
     Expression<int>? amountMinor,
+    Expression<int>? targetAmountMinor,
     Expression<String>? currencyCode,
     Expression<DateTime>? date,
     Expression<String>? note,
@@ -2299,6 +2355,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (targetAccountId != null) 'target_account_id': targetAccountId,
       if (categoryId != null) 'category_id': categoryId,
       if (amountMinor != null) 'amount_minor': amountMinor,
+      if (targetAmountMinor != null) 'target_amount_minor': targetAmountMinor,
       if (currencyCode != null) 'currency_code': currencyCode,
       if (date != null) 'date': date,
       if (note != null) 'note': note,
@@ -2316,6 +2373,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Value<String?>? targetAccountId,
     Value<String?>? categoryId,
     Value<int>? amountMinor,
+    Value<int?>? targetAmountMinor,
     Value<String>? currencyCode,
     Value<DateTime>? date,
     Value<String?>? note,
@@ -2331,6 +2389,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       targetAccountId: targetAccountId ?? this.targetAccountId,
       categoryId: categoryId ?? this.categoryId,
       amountMinor: amountMinor ?? this.amountMinor,
+      targetAmountMinor: targetAmountMinor ?? this.targetAmountMinor,
       currencyCode: currencyCode ?? this.currencyCode,
       date: date ?? this.date,
       note: note ?? this.note,
@@ -2361,6 +2420,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     }
     if (amountMinor.present) {
       map['amount_minor'] = Variable<int>(amountMinor.value);
+    }
+    if (targetAmountMinor.present) {
+      map['target_amount_minor'] = Variable<int>(targetAmountMinor.value);
     }
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
@@ -2395,6 +2457,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('targetAccountId: $targetAccountId, ')
           ..write('categoryId: $categoryId, ')
           ..write('amountMinor: $amountMinor, ')
+          ..write('targetAmountMinor: $targetAmountMinor, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('date: $date, ')
           ..write('note: $note, ')
@@ -4511,6 +4574,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       Value<String?> targetAccountId,
       Value<String?> categoryId,
       required int amountMinor,
+      Value<int?> targetAmountMinor,
       required String currencyCode,
       required DateTime date,
       Value<String?> note,
@@ -4527,6 +4591,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<String?> targetAccountId,
       Value<String?> categoryId,
       Value<int> amountMinor,
+      Value<int?> targetAmountMinor,
       Value<String> currencyCode,
       Value<DateTime> date,
       Value<String?> note,
@@ -4630,6 +4695,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<int> get amountMinor => $composableBuilder(
     column: $table.amountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get targetAmountMinor => $composableBuilder(
+    column: $table.targetAmountMinor,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4775,6 +4845,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get targetAmountMinor => $composableBuilder(
+    column: $table.targetAmountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get date => $composableBuilder(
     column: $table.date,
     builder: (column) => ColumnOrderings(column),
@@ -4910,6 +4985,11 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<int> get amountMinor => $composableBuilder(
     column: $table.amountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get targetAmountMinor => $composableBuilder(
+    column: $table.targetAmountMinor,
     builder: (column) => column,
   );
 
@@ -5060,6 +5140,7 @@ class $$TransactionsTableTableManager
                 Value<String?> targetAccountId = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<int> amountMinor = const Value.absent(),
+                Value<int?> targetAmountMinor = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
                 Value<String?> note = const Value.absent(),
@@ -5074,6 +5155,7 @@ class $$TransactionsTableTableManager
                 targetAccountId: targetAccountId,
                 categoryId: categoryId,
                 amountMinor: amountMinor,
+                targetAmountMinor: targetAmountMinor,
                 currencyCode: currencyCode,
                 date: date,
                 note: note,
@@ -5090,6 +5172,7 @@ class $$TransactionsTableTableManager
                 Value<String?> targetAccountId = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 required int amountMinor,
+                Value<int?> targetAmountMinor = const Value.absent(),
                 required String currencyCode,
                 required DateTime date,
                 Value<String?> note = const Value.absent(),
@@ -5104,6 +5187,7 @@ class $$TransactionsTableTableManager
                 targetAccountId: targetAccountId,
                 categoryId: categoryId,
                 amountMinor: amountMinor,
+                targetAmountMinor: targetAmountMinor,
                 currencyCode: currencyCode,
                 date: date,
                 note: note,

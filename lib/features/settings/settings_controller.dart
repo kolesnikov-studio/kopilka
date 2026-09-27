@@ -122,8 +122,7 @@ class SettingsController extends Notifier {
   @override
   void build() {}
 
-  BackupService get _service =>
-      BackupService(ref.watch(appDatabaseProvider));
+  BackupService get _service => ref.watch(backupServiceProvider);
 
   static String _stamp() => DateTime.now()
       .toUtc()

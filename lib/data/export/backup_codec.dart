@@ -7,10 +7,14 @@ import 'package:kopilka/data/db/enums.dart';
 // Формат бэкапа (ARCHITECTURE.md §4):
 //
 // {
-//   "schema_version": 2,
+//   "schema_version": 3,
 //   "exported_at": "2026-09-25T00:00:00.000Z",
 //   "data": { "currencies": [...], "accounts": [...], ..., "budgets": [...] }
 // }
+//
+// v3 (M3, D-21): в строках transactions появилось необязательное поле
+// target_amount_minor (сумма зачисления перевода между валютами, D-17);
+// чтение v1/v2 не меняется — нет поля = NULL.
 //
 // Правила §3, которые кодек обязан воспроизводить дословно:
 // - PK — UUID v4 (TEXT), сгенерирован приложением при создании записи;
@@ -24,8 +28,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v2.
-const int backupSchemaVersion = 2;
+/// дамп таблиц v3.
+const int backupSchemaVersion = 3;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -62,8 +66,11 @@ enum BackupFailure {
 /// Правило эпох (см. ROADMAP.md) касается и формата экспорта: новые версии
 /// добавляются сюда, старые файлы обязаны читаться. v1 → v2: таблица
 /// `budgets` появилась в v2, старый файл дополняется пустым списком.
+/// v2 → v3: правки не требует — в v3 только необязательное поле строк
+/// transactions, его отсутствие означает NULL (D-21).
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
+    3 => (Map<String, dynamic> document) => document,
     2 => (Map<String, dynamic> document) => document,
     1 => (Map<String, dynamic> document) {
         final Map<String, dynamic> data = _requireObject(document['data'], 'data');
@@ -208,15 +215,19 @@ Map<String, dynamic> encodeRow(Map<String, Object?> row) => <String, dynamic>{
         field.key: _encodeValue(field.key, field.value),
     };
 
-/// Полный дамп базы в JSON-объект формата v1 (§4: все четыре таблицы,
-/// включая мягко удалённые строки).
+/// Полный дамп базы в JSON-объект текущего формата (§4: все таблицы,
+/// включая мягко удалённые строки). Имена таблиц — только из константного
+/// белого списка [dumpedTables] (A15): интерполяция имени в SELECT
+/// допустима, когда источник имени — фиксированный список кода.
 Future<Map<String, dynamic>> exportToJson(AppDatabase db) async {
-  Future<List<Map<String, dynamic>>> dumpTable(String table) async =>
-      <Map<String, dynamic>>[
-        for (final QueryRow row
-            in await db.customSelect('SELECT * FROM $table').get())
-          encodeRow(row.data),
-      ];
+  Future<List<Map<String, dynamic>>> dumpTable(String table) async {
+    assert(dumpedTables.contains(table));
+    return <Map<String, dynamic>>[
+      for (final QueryRow row
+          in await db.customSelect('SELECT * FROM $table').get())
+        encodeRow(row.data),
+    ];
+  }
 
   final Map<String, Object?> data = <String, Object?>{
     'currencies': await dumpTable('currencies'),
@@ -231,6 +242,16 @@ Future<Map<String, dynamic>> exportToJson(AppDatabase db) async {
     'data': data,
   };
 }
+
+/// Белый список таблиц дампа (A15): единственный источник имён для
+/// SELECT-интерполяции; должен совпадать с набором `data` выше.
+const Set<String> dumpedTables = <String>{
+  'currencies',
+  'accounts',
+  'categories',
+  'transactions',
+  'budgets',
+};
 
 /// Разбирает JSON-документ бэкапа в типизированный дамп с миграцией формата.
 ///
@@ -357,6 +378,13 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
           row['amount_minor'],
           'transactions.amount_minor',
         ),
+        // v3 (D-21): необязательное поле; нет поля = NULL (файлы v1/v2).
+        targetAmountMinor: row['target_amount_minor'] == null
+            ? null
+            : _requireInt(
+                row['target_amount_minor'],
+                'transactions.target_amount_minor',
+              ),
         currencyCode: _requireString(
           row['currency_code'],
           'transactions.currency_code',
@@ -522,6 +550,7 @@ class BackupTransaction {
     required this.createdAt,
     required this.updatedAt,
     this.targetAccountId,
+    this.targetAmountMinor,
     this.categoryId,
     this.note,
     this.deletedAt,
@@ -531,6 +560,10 @@ class BackupTransaction {
   final TransactionType type;
   final String accountId;
   final String? targetAccountId;
+
+  /// Сумма зачисления перевода (v3, D-17/D-21): NULL = перевод в одной
+  /// валюте или не-перевод; у файлов v1/v2 поля нет — читается как NULL.
+  final int? targetAmountMinor;
   final String? categoryId;
   final int amountMinor;
   final String currencyCode;

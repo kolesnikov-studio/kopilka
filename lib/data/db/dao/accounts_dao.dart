@@ -93,20 +93,29 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     readsFrom: {accounts, transactions},
   ).watch().map(_mapBalances);
 
-  /// Баланс одного счёта в минорных единицах.
+  /// Баланс одного счёта в минорных единицах (A8/R6): тот же
+  /// [_balanceExpression] одним SQL-запросом по `WHERE a.id = ?` —
+  /// вместо скана балансов всех счетов.
   ///
   /// Брошен [DataValidationException], если живого счёта с таким id нет.
   Future<int> balanceMinor(String accountId) async {
-    final List<AccountBalance> balances = await getBalances();
-    return balances
-        .firstWhere(
-          (AccountBalance balance) => balance.account.id == accountId,
-          orElse: () => throw DataValidationException(
-          'счёт $accountId не найден',
-          kind: DataFailure.notFound,
-        ),
-        )
-        .balanceMinor;
+    final List<QueryRow> rows = await customSelect(
+      'SELECT $_balanceExpression AS balance_minor '
+      'FROM accounts AS a '
+      'LEFT JOIN transactions AS t '
+      'ON t.account_id = a.id AND t.deleted_at IS NULL '
+      'WHERE a.deleted_at IS NULL AND a.id = ? '
+      'GROUP BY a.id',
+      variables: [Variable<String>(accountId)],
+      readsFrom: {accounts, transactions},
+    ).get();
+    if (rows.isEmpty) {
+      throw DataValidationException(
+        'счёт $accountId не найден',
+        kind: DataFailure.notFound,
+      );
+    }
+    return rows.single.read<int>('balance_minor');
   }
 
   /// Меняет поля счёта; не переданные поля (`Value.absent()`) остаются как
@@ -156,6 +165,24 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
       ),
     );
     return _requireAlive(id);
+  }
+
+  /// Есть ли у счёта живые операции (включая переводы, где счёт —
+  /// зачисление). Read-only признак для UI (B2.2/D-24: кнопка «Сменить
+  /// валюту» показывается только пока операций нет); DAO-отказ
+  /// `accountHasTransactions` при самой смене остаётся последней линией —
+  /// между чтением признака и записью возможна гонка.
+  Future<bool> hasAliveTransactions(String id) async {
+    final Expression<int> count = transactions.id.count();
+    final TypedResult row = await (selectOnly(transactions)
+          ..addColumns([count])
+          ..where(
+            transactions.deletedAt.isNull() &
+                (transactions.accountId.equals(id) |
+                    transactions.targetAccountId.equals(id)),
+          ))
+        .getSingle();
+    return (row.read(count) ?? 0) > 0;
   }
 
   /// Мягко удаляет счёт. Каскадов нет (§3), поэтому удалить счёт с живыми
@@ -241,6 +268,12 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
 
   /// Баланс: начальный остаток + доходы − расходы − исходящие переводы
   /// + входящие переводы. Считается только по живым записям.
+  ///
+  /// Входящий перевод зачисляется суммой зачисления (D-17):
+  /// target_amount_minor — сумма в валюте целевого счёта, обязательная
+  /// для мультивалютного перевода; у одно-валютного она NULL, и SUM
+  /// падает на amount_minor. Смешения валют нет: D-17 запрещает
+  /// target_amount_minor при совпадающих валютах.
   static const String _balanceExpression =
       '''
 a.initial_balance_minor
@@ -250,7 +283,8 @@ a.initial_balance_minor
       WHEN 'transfer' THEN -t.amount_minor
       ELSE 0 END), 0)
   + COALESCE((
-      SELECT SUM(incoming.amount_minor) FROM transactions AS incoming
+      SELECT SUM(COALESCE(incoming.target_amount_minor, incoming.amount_minor))
+      FROM transactions AS incoming
       WHERE incoming.type = 'transfer'
         AND incoming.target_account_id = a.id
         AND incoming.deleted_at IS NULL

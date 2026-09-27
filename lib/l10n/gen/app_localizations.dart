@@ -116,6 +116,48 @@ abstract class AppLocalizations {
   /// **'Transactions'**
   String get navTransactions;
 
+  /// Button retrying a failed screen load (U2)
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retryAction;
+
+  /// Call-to-action button on the empty accounts list (U1)
+  ///
+  /// In en, this message translates to:
+  /// **'Add account'**
+  String get accountsEmptyCta;
+
+  /// Call-to-action button on the empty transactions list (U1)
+  ///
+  /// In en, this message translates to:
+  /// **'Add transaction'**
+  String get transactionsEmptyCta;
+
+  /// Field label for the account picker in the transaction form (U8)
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get accountLabel;
+
+  /// Validation message when the transaction form has no account selected (U9)
+  ///
+  /// In en, this message translates to:
+  /// **'Select an account.'**
+  String get selectAccountValidator;
+
+  /// Hint in the budget form that the limit applies to every month (U11)
+  ///
+  /// In en, this message translates to:
+  /// **'The limit repeats every month'**
+  String get budgetMonthlyHint;
+
+  /// Helper under the budget limit field: the limit is counted in the base currency, whose code is shown in case the user changed it (B6, D-19/D-20)
+  ///
+  /// In en, this message translates to:
+  /// **'Limit in base currency ({code})'**
+  String budgetBaseCurrencyHint(String code);
+
   /// Navigation label and screen title for the categories section
   ///
   /// In en, this message translates to:
@@ -133,12 +175,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
-
-  /// Placeholder text of the reports screen
-  ///
-  /// In en, this message translates to:
-  /// **'Reports and budgets will appear here. Stage M2.'**
-  String get reportsPlaceholder;
 
   /// Header of the dashboard card with the sum of all account balances
   ///
@@ -169,6 +205,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Total'**
   String get reportsTotalLabel;
+
+  /// Marker shown on dashboard cards when amounts are converted to the base currency at the current rate (D-18); hidden when all accounts use a single currency
+  ///
+  /// In en, this message translates to:
+  /// **'at current rate'**
+  String get reportsAtCurrentRate;
 
   /// Title of the budgets card on the reports dashboard
   ///
@@ -434,12 +476,6 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get deleteAction;
 
-  /// Button that opens the record for editing
-  ///
-  /// In en, this message translates to:
-  /// **'Edit'**
-  String get editAction;
-
   /// Field label for a record name
   ///
   /// In en, this message translates to:
@@ -571,6 +607,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter an amount greater than zero.'**
   String get amountInvalid;
+
+  /// Read-only currency line shown instead of the picker when editing an account (B2.2/D-24)
+  ///
+  /// In en, this message translates to:
+  /// **'Currency: {symbol} {code}'**
+  String accountCurrencyRow(String symbol, String code);
+
+  /// Hint under the currency line shown only while the account has no transactions (B2.2/D-24)
+  ///
+  /// In en, this message translates to:
+  /// **'Currency can be changed while the account has no transactions.'**
+  String get accountCurrencyLockedHint;
+
+  /// Button opening the currency picker for an account without transactions (B2.2/D-24)
+  ///
+  /// In en, this message translates to:
+  /// **'Change currency'**
+  String get accountCurrencyChangeAction;
 
   /// Validation message of the account form when no currency is chosen
   ///
@@ -811,6 +865,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The transaction will be hidden from the lists.'**
   String get transactionDeleteBody;
+
+  /// Tile subtitle/name for an expense or income without a category (U4)
+  ///
+  /// In en, this message translates to:
+  /// **'No category'**
+  String get transactionTileNoCategory;
+
+  /// Tile text for an account that no longer exists (U4)
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted account'**
+  String get transactionTileAccountGone;
+
+  /// Title of the currencies screen and the settings entry that opens it (B1)
+  ///
+  /// In en, this message translates to:
+  /// **'Currencies'**
+  String get currenciesScreenTitle;
+
+  /// Settings entry subtitle showing how many currencies are in the list
+  ///
+  /// In en, this message translates to:
+  /// **'{count} in the list'**
+  String currenciesSettingsSubtitle(int count);
+
+  /// Subtitle of the base currency row; its rate is always 1 and hidden (D-16)
+  ///
+  /// In en, this message translates to:
+  /// **'Base currency'**
+  String get currenciesBaseBadge;
+
+  /// Row subtitle showing how much base currency one unit of the currency is worth (B1)
+  ///
+  /// In en, this message translates to:
+  /// **'1 = {rate} {code}'**
+  String currenciesRateOf(String rate, String code);
+
+  /// Tooltip of the floating action button and title of the add-currency dialog (B1.1)
+  ///
+  /// In en, this message translates to:
+  /// **'Add currency'**
+  String get currencyAdd;
+
+  /// Search field hint inside the add-currency dialog (B1.1)
+  ///
+  /// In en, this message translates to:
+  /// **'Search by code or name'**
+  String get currencySearchHint;
+
+  /// Badge on ISO list entries that are already in the user's list (B1.1)
+  ///
+  /// In en, this message translates to:
+  /// **'already added'**
+  String get currencyAlreadyAdded;
+
+  /// Helper text under the rate field when adding a currency (B1.1)
+  ///
+  /// In en, this message translates to:
+  /// **'Rate: how much base currency one unit of this currency is worth'**
+  String get currencyRateHint;
+
+  /// Label of the rate input field in add and edit dialogs (B1.1/B1.2)
+  ///
+  /// In en, this message translates to:
+  /// **'Rate to base'**
+  String get currencyRateLabel;
+
+  /// Validation message of the rate field (B1.1/B1.2)
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a rate greater than zero (up to 6 decimal places).'**
+  String get currencyRateInvalid;
+
+  /// Title of the rate editing dialog (B1.2)
+  ///
+  /// In en, this message translates to:
+  /// **'Rate {code} → {base}'**
+  String currencyRateDialogTitle(String code, String base);
+
+  /// Note in the rate editing dialog about silent recalculation of aggregates (D-16/B1.2)
+  ///
+  /// In en, this message translates to:
+  /// **'Reports are recalculated using the new rate.'**
+  String get currencyRateRecalcNote;
+
+  /// Row menu action that starts changing the base currency (B1.3)
+  ///
+  /// In en, this message translates to:
+  /// **'Make base'**
+  String get currencyMakeBase;
+
+  /// Confirmation title for changing the base currency (B1.3)
+  ///
+  /// In en, this message translates to:
+  /// **'Make {code} the base currency?'**
+  String currencyChangeBaseTitle(String code);
+
+  /// Confirmation body explaining the consequences of changing the base currency (B1.3/D-20)
+  ///
+  /// In en, this message translates to:
+  /// **'Account balances stay in their own currencies. Rates of the other currencies will be recalculated relative to {code}. Reports and budget limits will be recalculated using the new rates.'**
+  String currencyChangeBaseBody(String code);
+
+  /// Confirm button of the change-base dialog (B1.3)
+  ///
+  /// In en, this message translates to:
+  /// **'Make base'**
+  String get currencyChangeBaseAction;
+
+  /// Confirmation title for removing a currency (B1.4)
+  ///
+  /// In en, this message translates to:
+  /// **'Remove currency {code} from the list?'**
+  String currencyDeleteTitle(String code);
+
+  /// Confirmation body for removing a currency (B1.4)
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction history will not change.'**
+  String get currencyDeleteBody;
+
+  /// Explanation shown before a blocked currency removal attempt (B1.4)
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} account uses this currency.} other{{count} accounts use this currency.}} Delete or move them to another currency first.'**
+  String currencyDeleteBlockedBody(int count);
+
+  /// Row menu action that starts removing a currency (B1.4)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get currencyDeleteMenuAction;
+
+  /// Label of the transfer outflow amount field, in the currency of the source account (B4.1)
+  ///
+  /// In en, this message translates to:
+  /// **'Debited'**
+  String get transferAmountOut;
+
+  /// Label of the transfer inflow amount field, in the currency of the target account (B4.1)
+  ///
+  /// In en, this message translates to:
+  /// **'Credited'**
+  String get transferAmountIn;
+
+  /// Derived-rate hint under the transfer inflow field: rate is the ratio of the two entered amounts, formatted by the step-2 rate formatter (B4.1, D-26)
+  ///
+  /// In en, this message translates to:
+  /// **'At the rate 1 {from} = {rate} {to}'**
+  String transferRateLine(String from, String rate, String to);
+
+  /// Helper shown under the prefilled inflow amount of a cross-currency transfer (B4.1)
+  ///
+  /// In en, this message translates to:
+  /// **'Prefilled with the current rate — correct it if the exchange rate differed'**
+  String get transferPrefillNote;
 }
 
 class _AppLocalizationsDelegate
