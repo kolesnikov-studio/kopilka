@@ -36,6 +36,11 @@ class RateSyncPreferencesStore {
       return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
     } on IOException {
       return <String, dynamic>{};
+    } on FormatException {
+      // Битый JSON (T-2, D-43.г) — «молча выкл»: настройка не критична,
+      // падать из-за неё нельзя нигде, не только в main. Паттерн —
+      // update_preferences.dart.
+      return <String, dynamic>{};
     }
   }
 

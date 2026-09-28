@@ -60,6 +60,11 @@ dev_dependencies:
   # rules and activating additional ones.
   # Тесты миграции схемы v1→v2: база v0.1 строится сырым sqlite3 API.
   sqlite3: ^3.0.0
+  # Шим FilePicker в тестах (замки T-1/Dz-2): типы PlatformFile и шов
+  # FilePickerPlatform приходят транзитивно от file_picker — без явных
+  # зависимостей импорт в тесте ловит depend_on_referenced_packages.
+  cross_file: ^0.3.5
+  file_picker_platform_interface: ^4.0.0
   flutter_lints: ^6.0.0
   drift_dev: ^2.35.0
   build_runner: ^2.16.1

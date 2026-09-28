@@ -239,6 +239,10 @@
   "@errorCsvInvalidFormat": {
     "description": "CSV file could not be parsed (quotes, structure) — no line known"
   },
+  "errorCsvNoDataRows": "The file has no data rows.",
+  "@errorCsvNoDataRows": {
+    "description": "CSV has a header but no data rows (or is empty): import stops before the mapping dialog (Dz-2)"
+  },
   "errorCsvInvalidFormatLine": "This file is not a valid CSV (line {line}).",
   "@errorCsvInvalidFormatLine": {
     "description": "CSV file could not be parsed; the failing line is known",
@@ -406,9 +410,9 @@
   "@rateSyncEnabled": {
     "description": "Opt-in switch tile enabling online rate synchronization (D-36: off by default)"
   },
-  "rateSyncEnabledHint": "Off by default; manual rate entry stays available offline",
+  "rateSyncEnabledHint": "Rates update at app launch and via the button below; manual entry stays available offline",
   "@rateSyncEnabledHint": {
-    "description": "Subtitle of the rate sync switch: opt-in reminder and offline fallback (D-36)"
+    "description": "Subtitle of the rate sync switch: full opt-in scope — quiet launch sync, the manual button, and the offline fallback (D-36, Dz-1)"
   },
   "rateSyncNow": "Update now",
   "@rateSyncNow": {

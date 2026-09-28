@@ -102,7 +102,9 @@ CsvImportDraft? _reportPickFailure(
 /// Локализованный текст отказа импорта по машиночитаемому виду слоя
 /// (без стека и без «частичной загрузки»): номер строки — там, где слой
 /// его даёт (invalidData/invalidFormat); дубли имён счетов/категорий
-/// приходят с line 0 (D-40) — общий текст.
+/// приходят с line 0 (D-40) — общий текст. Общий отказ файла (line 0) —
+/// текст «нет строк данных» (Dz-2): теперь это единственный line-0-источник
+/// invalidFormat — пустой файл и файл без строк данных.
 String csvImportFailureText(
   AppLocalizations l10n,
   CsvImportFailure failure,
@@ -111,7 +113,7 @@ String csvImportFailureText(
     switch (failure) {
       CsvImportFailure.invalidFormat => line > 0
           ? l10n.errorCsvInvalidFormatLine(line)
-          : l10n.errorCsvInvalidFormat,
+          : l10n.errorCsvNoDataRows,
       CsvImportFailure.invalidMapping => l10n.errorCsvInvalidMapping,
       CsvImportFailure.invalidData => line > 0
           ? l10n.errorCsvInvalidDataLine(line)

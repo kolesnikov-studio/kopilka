@@ -191,6 +191,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не удалось разобрать файл: это не корректный CSV.';
 
   @override
+  String get errorCsvNoDataRows => 'В файле нет строк данных.';
+
+  @override
   String errorCsvInvalidFormatLine(int line) {
     return 'Не удалось разобрать файл: это не корректный CSV (строка $line).';
   }
@@ -324,7 +327,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get rateSyncEnabledHint =>
-      'Выключено по умолчанию; ручной ввод курса остаётся без сети';
+      'Курсы обновляются при запуске приложения и по кнопке ниже; без сети курсы вводятся вручную';
 
   @override
   String get rateSyncNow => 'Обновить сейчас';

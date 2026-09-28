@@ -191,6 +191,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorCsvInvalidFormat => 'This file is not a valid CSV.';
 
   @override
+  String get errorCsvNoDataRows => 'The file has no data rows.';
+
+  @override
   String errorCsvInvalidFormatLine(int line) {
     return 'This file is not a valid CSV (line $line).';
   }
@@ -323,7 +326,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get rateSyncEnabledHint =>
-      'Off by default; manual rate entry stays available offline';
+      'Rates update at app launch and via the button below; manual entry stays available offline';
 
   @override
   String get rateSyncNow => 'Update now';

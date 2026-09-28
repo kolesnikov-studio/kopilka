@@ -10,6 +10,7 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/export/csv_import.dart';
+import 'package:kopilka/features/settings/csv_import_controller.dart';
 
 /// БД в памяти с севом (валюта RUB, системные категории) и двумя счетами:
 /// «Наличные» и «Карта» (RUB), для переводов.
@@ -112,6 +113,54 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('чтение файла в черновик (CsvImportController.loadDraft)', () {
+    final CsvImportController controller = CsvImportController();
+
+    test('пустой файл 0 байт — CsvPickFailed(invalidFormat, line: 0) (T-5)',
+        () {
+      // Шапки нет — маппинг не к чему применять (M4-шаг 3).
+      final CsvPickOutcome outcome = controller.loadDraft('');
+      expect(
+        outcome,
+        isA<CsvPickFailed>()
+            .having(
+              (CsvPickFailed e) => e.failure,
+              'failure',
+              CsvImportFailure.invalidFormat,
+            )
+            .having((CsvPickFailed e) => e.line, 'line', 0),
+      );
+    });
+
+    test('файл с одной шапкой (0 строк данных) — тот же ранний отказ (Dz-2)',
+        () {
+      // Файл экспорта без операций: раньше проходил все диалоги с
+      // «операций: 0» (ревью M4, Dz-2) — теперь ранний отказ.
+      final CsvPickOutcome outcome = controller.loadDraft('$header\n');
+      expect(
+        outcome,
+        isA<CsvPickFailed>()
+            .having(
+              (CsvPickFailed e) => e.failure,
+              'failure',
+              CsvImportFailure.invalidFormat,
+            )
+            .having((CsvPickFailed e) => e.line, 'line', 0),
+      );
+    });
+
+    test('файл с одной строкой данных — черновик с rowCount = 1', () {
+      // Граница отказа: шапка + ровно одна строка данных — это валидный
+      // файл, ранний отказ его не задевает.
+      final CsvPickOutcome outcome = controller.loadDraft(
+        '$header\n'
+        'uuid;2026-09-27T10:00:00.000Z;expense;Наличные;;Жильё;10;RUB;\n',
+      );
+      expect(outcome, isA<CsvPickLoaded>());
+      expect((outcome as CsvPickLoaded).draft.rowCount, 1);
     });
   });
 
@@ -688,6 +737,26 @@ void main() {
           rows.firstWhere((Transaction t) => t.type == 'expense');
       expect(kindById[income.categoryId!], 'income');
       expect(kindById[expense.categoryId!], 'expense');
+    });
+
+    test('регистр имён значим: «продукты» ≠ «Продукты» — отказ (D-40.а)',
+        () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      // Имя категории — ключ сопоставления, сравнение точное: совпадение
+      // без учёта регистра «склеило» бы разные записи (D-40.а).
+      final String csv = '$header\n'
+          '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'продукты', '10', 'RUB', '')}\n';
+      await expectLater(
+        importCsvFile(database, csv: csv),
+        throwsA(
+          isA<CsvImportException>()
+              .having((CsvImportException e) => e.kind, 'kind',
+                  CsvImportFailure.invalidData)
+              .having((CsvImportException e) => e.line, 'line', 2),
+        ),
+      );
+      expect(await database.transactionsDao.getFiltered(), isEmpty);
     });
 
     test('повторный импорт того же файла дублирует операции (merge, не upsert)',

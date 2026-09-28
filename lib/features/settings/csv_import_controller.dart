@@ -110,8 +110,9 @@ class CsvImportController extends Notifier {
   }
 
   /// Шов тестов и UI: черновик из текста файла, без файловой системы.
-  /// Пустой файл — отказ invalidFormat: шапки нет, маппинг не к чему
-  /// применять.
+  /// Пустой файл (0 байт) и файл без строк данных (только шапка, Dz-2) —
+  /// ранний отказ invalidFormat: маппинг и подтверждение «0 операций»
+  /// лишь ложно обещали бы работу импорта (D-42.б — честный отказ дороже).
   CsvPickOutcome loadDraft(String csv) {
     final List<List<String>> rows;
     try {
@@ -119,7 +120,7 @@ class CsvImportController extends Notifier {
     } on CsvImportException catch (error) {
       return CsvPickFailed(error.kind, line: error.line);
     }
-    if (rows.isEmpty) {
+    if (rows.isEmpty || rows.length == 1) {
       return const CsvPickFailed(CsvImportFailure.invalidFormat, line: 0);
     }
     return CsvPickLoaded(

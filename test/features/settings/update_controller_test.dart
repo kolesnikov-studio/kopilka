@@ -269,6 +269,21 @@ void main() {
       expect(await store.readOfferShown(), isTrue);
     });
 
+    test('битый JSON — чтение возвращает значения по умолчанию (T-2)',
+        () async {
+      final Directory directory = await tempDir();
+      final File file = File('${directory.path}/update-preferences.json');
+      await file.writeAsString('{oops');
+      final UpdatePreferencesStore store = UpdatePreferencesStore(
+        baseDirectory: directory,
+      );
+
+      // Тот же паттерн «молча выкл», что у rate-sync-персиста (D-43.г).
+      expect(await store.readEnabled(), isFalse);
+      expect(await store.readLastAutoCheck(), isNull);
+      expect(await store.readOfferShown(), isFalse);
+    });
+
     test('isAutoCheckDue: порог ровно 7 дней', () {
       expect(
         isAutoCheckDue(

@@ -251,4 +251,59 @@ void main() {
     // анимации — незавершённых таймеров в конце теста не остаётся.
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+      'настройки открыты в момент тихого автозапуска: кнопка disabled, снеков нет (Dz-3)',
+      (WidgetTester tester) async {
+    final AppLocalizations l10n =
+        await AppLocalizations.delegate.load(const Locale('ru'));
+    // Запрос «висит» — как сеть в момент автозапуска: пользователь
+    // открывает настройки, пока syncOnLaunch ещё не вернулся.
+    final (ProviderContainer container, AppDatabase db) = await _pump(
+      tester,
+      client: _client(() => Completer<http.Response>().future),
+    );
+
+    // Тихий автозапуск из main (fire-and-forget): включённость — по файлу
+    // настроек, результат никому не показывается. Пишем файл заранее —
+    // реальный I/O вне fake_async (см. грабли в шапке файла).
+    await tester.runAsync(
+      () => container
+          .read(rateSyncPreferencesStoreProvider)
+          .writeEnabled(true),
+    );
+
+    // Автозапуск: реальный I/O (файл настроек, база) доводим до сетевого
+    // запроса внутри runAsync — дальше запрос «висит» на фейковом клиенте,
+    // как сеть в момент автозапуска. Общий флаг syncing ставится
+    // синхронно до первого await.
+    await tester.runAsync(() async {
+      container.read(rateSyncControllerProvider.notifier).syncOnLaunch();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    expect(
+      container.read(rateSyncControllerProvider).syncing,
+      isTrue,
+      reason: 'автозапуск занял общий флаг идущего запроса',
+    );
+    await tester.pump();
+
+    // Кнопка погашена индикатором «Обновляем…», хотя пользователь кнопку
+    // не нажимал; снеков нет — автозапуск работает тихо (D-36, Dz-3).
+    expect(
+      tester.widget<FilledButton>(find.byKey(_buttonKey)).onPressed,
+      isNull,
+      reason: 'кнопка disabled, пока идёт тихий автозапуск',
+    );
+    expect(find.text(l10n.rateSyncing), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(find.text(l10n.rateSyncUpdated(1)), findsNothing);
+    expect(find.text(l10n.rateSyncFailed), findsNothing);
+    expect(find.text(l10n.rateSyncOffline), findsNothing);
+
+    // Данные не тронуты (проверка — реальный I/O, внутри runAsync).
+    await tester.runAsync(() async {
+      expect((await db.currenciesDao.findAlive('USD'))!.rateToBase, 90);
+    });
+  });
 }

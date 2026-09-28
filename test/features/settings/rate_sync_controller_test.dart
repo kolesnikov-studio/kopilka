@@ -234,6 +234,23 @@ void main() {
       await second.read(rateSyncEnabledProvider.notifier).load();
       expect(second.read(rateSyncEnabledProvider), isFalse);
     });
+
+    test('битый JSON — readEnabled() = false, исключение не наружу (T-2, D-43.г)',
+        () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final File file =
+          File('${directory.path}/rate-sync-preferences.json');
+      // Полусформированный/повреждённый файл настроек: например, запись
+      // оборвалась. D-43.г: настройка не критична для запуска — «молча выкл».
+      await file.writeAsString('{oops');
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+
+      // До правки (on IOException) FormatException отсюда вылетал наружу.
+      expect(await store.readEnabled(), isFalse);
+    });
   });
 
   group('автосинхронизация при запуске (M4-шаг 3, D-36)', () {

@@ -422,6 +422,12 @@ abstract class AppLocalizations {
   /// **'This file is not a valid CSV.'**
   String get errorCsvInvalidFormat;
 
+  /// CSV has a header but no data rows (or is empty): import stops before the mapping dialog (Dz-2)
+  ///
+  /// In en, this message translates to:
+  /// **'The file has no data rows.'**
+  String get errorCsvNoDataRows;
+
   /// CSV file could not be parsed; the failing line is known
   ///
   /// In en, this message translates to:
@@ -644,10 +650,10 @@ abstract class AppLocalizations {
   /// **'Update rates from the internet'**
   String get rateSyncEnabled;
 
-  /// Subtitle of the rate sync switch: opt-in reminder and offline fallback (D-36)
+  /// Subtitle of the rate sync switch: full opt-in scope — quiet launch sync, the manual button, and the offline fallback (D-36, Dz-1)
   ///
   /// In en, this message translates to:
-  /// **'Off by default; manual rate entry stays available offline'**
+  /// **'Rates update at app launch and via the button below; manual entry stays available offline'**
   String get rateSyncEnabledHint;
 
   /// Button starting a manual rate synchronization
