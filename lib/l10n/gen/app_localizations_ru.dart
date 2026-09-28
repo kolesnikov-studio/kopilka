@@ -28,6 +28,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get transactionsEmptyCta => 'Добавить операцию';
 
   @override
+  String get addAction => 'Добавить';
+
+  @override
   String get accountLabel => 'Счёт';
 
   @override

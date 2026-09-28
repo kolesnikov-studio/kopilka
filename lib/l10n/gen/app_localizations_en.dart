@@ -28,6 +28,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get transactionsEmptyCta => 'Add transaction';
 
   @override
+  String get addAction => 'Add';
+
+  @override
   String get accountLabel => 'Account';
 
   @override

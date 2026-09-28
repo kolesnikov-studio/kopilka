@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
@@ -12,6 +14,45 @@ import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/transactions/transaction_form_dialog.dart';
 import 'package:kopilka/features/transactions/transactions_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
+
+/// Лист выбора типа операции: расход / доход / перевод. Нейтральная точка
+/// входа для FAB без активного фильтра типа и пустого состояния списка —
+/// доход не должен прятаться за фильтром (замечание оператора 2026-09-28).
+Future<void> showTransactionTypePicker(BuildContext context) async {
+  final AppLocalizations l10n = AppLocalizations.of(context);
+  const List<(TransactionType, IconData)> options = <(
+    TransactionType,
+    IconData
+  )>[
+    (TransactionType.expense, Icons.south_west),
+    (TransactionType.income, Icons.north_east),
+    (TransactionType.transfer, Icons.swap_horiz),
+  ];
+  final TransactionType? picked = await showModalBottomSheet<TransactionType>(
+    context: context,
+    showDragHandle: true,
+    builder: (BuildContext sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          for (final (TransactionType type, IconData icon) in options)
+            ListTile(
+              leading: Icon(icon),
+              title: Text(switch (type) {
+                TransactionType.expense => l10n.expenseAction,
+                TransactionType.income => l10n.incomeAction,
+                TransactionType.transfer => l10n.transferAction,
+              }),
+              onTap: () => Navigator.of(sheetContext).pop(type),
+            ),
+        ],
+      ),
+    ),
+  );
+  if (picked != null && context.mounted) {
+    await showTransactionFormDialog(context, type: picked);
+  }
+}
 
 /// Экран «Транзакции»: поиск по заметке, фильтры (тип, счёт), список живых
 /// операций, быстрый ввод расхода/дохода/перевода.
@@ -77,14 +118,11 @@ class TransactionsScreen extends ConsumerWidget {
                       child: Text(l10n.transactionsEmptyFiltered),
                     );
                   }
-                  // U1: CTA на пустом списке — та же форма, что у FAB.
+                  // U1: CTA на пустом списке — тот же выбор типа, что у FAB.
                   return EmptyState(
                     text: l10n.transactionsEmpty,
                     ctaLabel: l10n.transactionsEmptyCta,
-                    onCta: () => showTransactionFormDialog(
-                      context,
-                      type: TransactionType.expense,
-                    ),
+                    onCta: () => showTransactionTypePicker(context),
                   );
                 }
                 return ListView.separated(
@@ -163,6 +201,7 @@ class TransactionsScreen extends ConsumerWidget {
 }
 
 class _QuickEntryFab extends ConsumerWidget {
+
   const _QuickEntryFab({required this.filter});
 
   final TransactionsFilterState filter;
@@ -170,10 +209,18 @@ class _QuickEntryFab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    // U10: FAB открывает форму активного типа фильтра (расход — без
-    // фильтра); подпись кнопки следует типу, чтобы обещать ровно то,
-    // что откроется.
-    final TransactionType type = filter.type ?? TransactionType.expense;
+    // U10: с активным фильтром типа FAB открывает форму этого типа и
+    // подписывается его типом — обещает ровно то, что откроется.
+    // Без фильтра — нейтральная кнопка «Добавить»: выбор типа в листе,
+    // иначе доход не находится (замечание оператора 2026-09-28).
+    final TransactionType? type = filter.type;
+    if (type == null) {
+      return FloatingActionButton.extended(
+        onPressed: () => unawaited(showTransactionTypePicker(context)),
+        label: Text(l10n.addAction),
+        icon: const Icon(Icons.add),
+      );
+    }
     final String label = switch (type) {
       TransactionType.expense => l10n.expenseAction,
       TransactionType.income => l10n.incomeAction,

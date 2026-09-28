@@ -23,6 +23,10 @@
   "@transactionsEmptyCta": {
     "description": "Call-to-action button on the empty transactions list (U1)"
   },
+  "addAction": "Add",
+  "@addAction": {
+    "description": "Neutral quick-add button on the transactions list; opens a type picker (expense/income/transfer) when no type filter is active"
+  },
   "accountLabel": "Account",
   "@accountLabel": {
     "description": "Field label for the account picker in the transaction form (U8)"

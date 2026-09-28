@@ -131,8 +131,29 @@ void main() {
       await tester.tap(find.text(app.l10n.navTransactions).last);
       await tester.pumpAndSettle();
 
-      // Без фильтра FAB — «Расход» (как раньше).
+      // Без фильтра FAB — нейтральная «Добавить»: выбор типа в листе
+      // (доход должен быть доступен без фильтра).
+      expect(find.text(app.l10n.addAction), findsOneWidget);
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
       expect(find.text(app.l10n.expenseAction), findsOneWidget);
+      expect(find.text(app.l10n.incomeAction), findsOneWidget);
+      expect(find.text(app.l10n.transferAction), findsOneWidget);
+
+      // Выбор «Доход» в листе открывает форму дохода.
+      await tester.tap(find.text(app.l10n.incomeAction));
+      await tester.pumpAndSettle();
+      expect(find.text(app.l10n.newIncomeTitle), findsOneWidget);
+      await tester.tap(find.widgetWithText(TextButton, app.l10n.cancelAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      // Лист закрывается без выбора — форма не открывается.
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.byType(FloatingActionButton)) - const Offset(0, 200));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
 
       // С фильтром «Доходы» подпись FAB меняется на «Доход» и форма
       // открывается доходом: тип операции виден по заголовку диалога.
@@ -167,6 +188,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.expenseAction));
+      await tester.pumpAndSettle();
 
       // Пытаемся сохранить: валидация счёта видна, диалог живой.
       await tester.enterText(
@@ -199,6 +222,8 @@ void main() {
       await tester.tap(find.text(app.l10n.navTransactions).last);
       await tester.pumpAndSettle();
       await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.expenseAction));
       await tester.pumpAndSettle();
 
       // Выбираем счёт в иенах: единственный живой счёт — выбран по умолчанию.
@@ -259,6 +284,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.expenseAction));
+      await tester.pumpAndSettle();
 
       // Три знака принимаются (форматтер пропускает, парсер разбирает).
       await tester.enterText(
@@ -314,6 +341,8 @@ void main() {
       await tester.tap(find.text(app.l10n.navTransactions).last);
       await tester.pumpAndSettle();
       await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.expenseAction));
       await tester.pumpAndSettle();
 
       await tester.enterText(

@@ -134,6 +134,12 @@ abstract class AppLocalizations {
   /// **'Add transaction'**
   String get transactionsEmptyCta;
 
+  /// Neutral quick-add button on the transactions list; opens a type picker (expense/income/transfer) when no type filter is active
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get addAction;
+
   /// Field label for the account picker in the transaction form (U8)
   ///
   /// In en, this message translates to:

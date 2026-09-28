@@ -7,6 +7,7 @@
   "retryAction": "Повторить",
   "accountsEmptyCta": "Добавить счёт",
   "transactionsEmptyCta": "Добавить операцию",
+  "addAction": "Добавить",
   "accountLabel": "Счёт",
   "selectAccountValidator": "Выберите счёт.",
   "budgetMonthlyHint": "Лимит действует каждый месяц",
