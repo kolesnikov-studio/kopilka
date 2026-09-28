@@ -1,8 +1,9 @@
 // Тесты контроллера синхронизации курсов (M4-шаг 1): исходы syncNow,
-// opt-in галочка (D-36), шов applyRates. Сеть фейковая (MockClient),
-// БД — in-memory, подменённая в провайдерах. С шага 2 (UI) галочка
-// персистится в файл настроек — тесты persистта ниже (реальный файловый
-// I/O только в обычных тестах, не testWidgets).
+// opt-in галочка (D-36), шов applyRates; с шага 3 — автосинхронизация
+// при запуске (syncOnLaunch). Сеть фейковая (MockClient), БД — in-memory,
+// подменённая в провайдерах. С шага 2 (UI) галочка персистится в файл
+// настроек — тесты персиста ниже (реальный файловый I/O только в
+// обычных тестах, не testWidgets).
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -232,6 +233,134 @@ void main() {
       expect(await store.readEnabled(), isFalse);
       await second.read(rateSyncEnabledProvider.notifier).load();
       expect(second.read(rateSyncEnabledProvider), isFalse);
+    });
+  });
+
+  group('автосинхронизация при запуске (M4-шаг 3, D-36)', () {
+    test('выключена — syncOnLaunch без сетевых вызовов, стейт галочки не тронут',
+        () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+      int calls = 0;
+      final ProviderContainer container = _container(
+        db: db,
+        client: MockClient((http.Request request) async {
+          calls++;
+          return _ratesResponse(<String, Object?>{'USD': 0.0125});
+        }),
+        preferencesStore: store,
+      );
+
+      // Свежий запуск: load() из main мог ещё не выполниться — стейт
+      // провайдера по умолчанию false; включённость читается из файла.
+      final RateSyncResult result = await container
+          .read(rateSyncControllerProvider.notifier)
+          .syncOnLaunch();
+
+      expect(result, isA<RateSyncDisabled>());
+      expect(calls, 0);
+      expect(container.read(rateSyncEnabledProvider), isFalse);
+      expect((await dao.findAlive('USD'))!.rateToBase, 90);
+    });
+
+    test('включена — ровно один сетевой вызов за базовой, курсы записаны',
+        () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+      await store.writeEnabled(true);
+      final List<String> paths = <String>[];
+      final ProviderContainer container = _container(
+        db: db,
+        client: MockClient((http.Request request) async {
+          paths.add(request.url.path);
+          // Единицы источника — «CODE за единицу базы» (D-42).
+          return _ratesResponse(<String, Object?>{'USD': 0.0125, 'EUR': 0.01});
+        }),
+        preferencesStore: store,
+      );
+
+      final RateSyncResult result = await container
+          .read(rateSyncControllerProvider.notifier)
+          .syncOnLaunch();
+
+      expect(result, isA<RateSyncUpdated>());
+      expect((result as RateSyncUpdated).updatedCount, 2);
+      expect(paths, <String>['/v6/latest/RUB'],
+          reason: 'один запрос с базовой из справочника');
+      expect((await dao.findAlive('USD'))!.rateToBase, closeTo(80, 1e-9));
+      expect((await dao.findAlive('EUR'))!.rateToBase, closeTo(100, 1e-9));
+      expect(container.read(rateSyncControllerProvider).syncing, isFalse);
+    });
+
+    test('включена, сеть недоступна — тихий отказ, курсы целы', () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+      await store.writeEnabled(true);
+      int calls = 0;
+      final ProviderContainer container = _container(
+        db: db,
+        client: MockClient((http.Request request) async {
+          calls++;
+          throw http.ClientException('нет');
+        }),
+        preferencesStore: store,
+      );
+
+      final RateSyncResult result = await container
+          .read(rateSyncControllerProvider.notifier)
+          .syncOnLaunch();
+
+      // Запуск не падает: исход машиночитаемый, курсы не тронуты (D-36).
+      expect(result, isA<RateSyncOffline>());
+      expect(calls, 1);
+      expect((await dao.findAlive('USD'))!.rateToBase, 90);
+    });
+
+    test('идёт ручная синхронизация — запуск возвращает AlreadyRunning, второй запрос не стартует',
+        () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+      await store.writeEnabled(true);
+      int calls = 0;
+      final Completer<http.Response> gate = Completer<http.Response>();
+      final ProviderContainer container = _container(
+        db: db,
+        client: MockClient((http.Request request) async {
+          calls++;
+          return gate.future;
+        }),
+        preferencesStore: store,
+      );
+      // Ручная синхронизация смотрит на стейт галочки, а не в файл: грузим.
+      await container.read(rateSyncEnabledProvider.notifier).setEnabled(true);
+      final RateSyncController notifier =
+          container.read(rateSyncControllerProvider.notifier);
+
+      final Future<RateSyncResult> manual = notifier.syncNow();
+      expect(container.read(rateSyncControllerProvider).syncing, isTrue);
+
+      final RateSyncResult launch = await notifier.syncOnLaunch();
+      expect(launch, isA<RateSyncAlreadyRunning>());
+
+      gate.complete(_ratesResponse(<String, Object?>{'USD': 0.0125}));
+      expect(await manual, isA<RateSyncUpdated>());
+      // Запуск во время ручной синхронизации не дошёл до сети: после
+      // завершения единственного (ручного) прогона счётчик — 1.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(calls, 1, reason: 'второй сетевой запрос не стартовал');
+      expect(container.read(rateSyncControllerProvider).syncing, isFalse);
     });
   });
 }
