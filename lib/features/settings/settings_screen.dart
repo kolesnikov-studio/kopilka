@@ -198,6 +198,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         await showSnack(context, l10n.rateSyncFailed);
       case RateSyncDisabled():
         await showSnack(context, l10n.rateSyncDisabled);
+      case RateSyncAlreadyRunning():
+        await showSnack(context, l10n.rateSyncAlreadyRunning);
     }
   }
 

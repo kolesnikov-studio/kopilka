@@ -334,7 +334,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String rateSyncUpdated(int count) {
-    return 'Обновлено $count валют';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Обновлено $count валюты',
+      many: 'Обновлено $count валют',
+      few: 'Обновлено $count валюты',
+      one: 'Обновлена $count валюта',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -349,6 +357,9 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get rateSyncFailed =>
       'Источник курсов не отвечает — остались прежние курсы';
+
+  @override
+  String get rateSyncAlreadyRunning => 'Обновление уже выполняется';
 
   @override
   String get saveAction => 'Сохранить';

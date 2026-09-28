@@ -418,9 +418,9 @@
   "@rateSyncing": {
     "description": "Progress label while a rate synchronization is running"
   },
-  "rateSyncUpdated": "Updated {count} currencies",
+  "rateSyncUpdated": "{count, plural, =1{Updated {count} currency} other{Updated {count} currencies}}",
   "@rateSyncUpdated": {
-    "description": "Snack after a successful sync: how many non-base currencies got a new rate",
+    "description": "Snack after a successful sync: how many non-base currencies got a new rate; zero never reaches this key (the screen shows rateSyncUnchanged instead)",
     "placeholders": {
       "count": { "type": "int" }
     }
@@ -440,6 +440,10 @@
   "rateSyncFailed": "Rate source failed — keeping current rates",
   "@rateSyncFailed": {
     "description": "Snack when the source answered with an unexpected format: old rates stay (D-36)"
+  },
+  "rateSyncAlreadyRunning": "An update is already running",
+  "@rateSyncAlreadyRunning": {
+    "description": "Snack when a sync is requested while another one is still running (D-42: separate outcome, not 'feature off')"
   },
 
   "saveAction": "Save",

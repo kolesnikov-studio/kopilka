@@ -62,6 +62,13 @@ class RateSyncDisabled extends RateSyncResult {
   const RateSyncDisabled();
 }
 
+/// Повторный запуск во время идущего запроса (D-42.в): сети и DAO нет.
+/// UI-кнопка на время запроса неактивна — исход ловит гонку двойного
+/// вызова, не смешивая её с «фича выключена».
+class RateSyncAlreadyRunning extends RateSyncResult {
+  const RateSyncAlreadyRunning();
+}
+
 /// Разбирает ответ источника в словарь «код → курс источника».
 ///
 /// Единицы — сырые единицы источника: «сколько валюты CODE за единицу

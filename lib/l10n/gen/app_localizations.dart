@@ -662,10 +662,10 @@ abstract class AppLocalizations {
   /// **'Updating…'**
   String get rateSyncing;
 
-  /// Snack after a successful sync: how many non-base currencies got a new rate
+  /// Snack after a successful sync: how many non-base currencies got a new rate; zero never reaches this key (the screen shows rateSyncUnchanged instead)
   ///
   /// In en, this message translates to:
-  /// **'Updated {count} currencies'**
+  /// **'{count, plural, =1{Updated {count} currency} other{Updated {count} currencies}}'**
   String rateSyncUpdated(int count);
 
   /// Snack when the source returned the same rates and none were rewritten
@@ -691,6 +691,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rate source failed — keeping current rates'**
   String get rateSyncFailed;
+
+  /// Snack when a sync is requested while another one is still running (D-42: separate outcome, not 'feature off')
+  ///
+  /// In en, this message translates to:
+  /// **'An update is already running'**
+  String get rateSyncAlreadyRunning;
 
   /// Button that confirms a form
   ///

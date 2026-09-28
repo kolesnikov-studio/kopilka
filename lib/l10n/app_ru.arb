@@ -99,11 +99,12 @@
   "rateSyncEnabledHint": "Выключено по умолчанию; ручной ввод курса остаётся без сети",
   "rateSyncNow": "Обновить сейчас",
   "rateSyncing": "Обновляем…",
-  "rateSyncUpdated": "Обновлено {count} валют",
+  "rateSyncUpdated": "{count, plural, =1{Обновлена {count} валюта} few{Обновлено {count} валюты} many{Обновлено {count} валют} other{Обновлено {count} валюты}}",
   "rateSyncUnchanged": "Курсы не изменились",
   "rateSyncOffline": "Сеть недоступна — остались прежние курсы",
   "rateSyncDisabled": "Синхронизация курсов выключена",
   "rateSyncFailed": "Источник курсов не отвечает — остались прежние курсы",
+  "rateSyncAlreadyRunning": "Обновление уже выполняется",
 
   "saveAction": "Сохранить",
   "cancelAction": "Отмена",

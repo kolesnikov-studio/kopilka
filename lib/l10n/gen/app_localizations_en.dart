@@ -333,7 +333,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String rateSyncUpdated(int count) {
-    return 'Updated $count currencies';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Updated $count currencies',
+      one: 'Updated $count currency',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -347,6 +353,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get rateSyncFailed => 'Rate source failed — keeping current rates';
+
+  @override
+  String get rateSyncAlreadyRunning => 'An update is already running';
 
   @override
   String get saveAction => 'Save';

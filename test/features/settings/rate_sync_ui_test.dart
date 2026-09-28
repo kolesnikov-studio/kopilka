@@ -7,6 +7,7 @@
 // контроллером внутри tester.runAsync (персист файла покрыт обычными
 // тестами rate_sync_controller_test.dart), создание временного каталога —
 // тоже через runAsync. Сеть фейковая (MockClient), БД — in-memory с посевом.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -218,5 +219,36 @@ void main() {
     expect(find.text(l10n.rateSyncFailed), findsOneWidget);
     final Currency? usd = await db.currenciesDao.findAlive('USD');
     expect(usd!.rateToBase, 90);
+  });
+
+  testWidgets('второй вызов во время запроса — снек «уже выполняется» (D-42.в)',
+      (WidgetTester tester) async {
+    final AppLocalizations l10n =
+        await AppLocalizations.delegate.load(const Locale('ru'));
+    // Первый запрос «висит» (ответ не приходит): снек второго вызова
+    // остаётся видимым и не вытесняется успехом первого.
+    final (ProviderContainer container, _) = await _pump(
+      tester,
+      client: _client(() => Completer<http.Response>().future),
+    );
+
+    await _enableByTap(tester);
+    // Кнопка неактивна во время запроса — двойной тап невозможен, но гонка
+    // (повторный вызов до простановки неактивности) не должна показывать
+    // снек «фича выключена». Часы в testWidgets фейковые: pumpAndSettle
+    // прокрутил бы время мимо таймаута сервиса (10 с, Offline), поэтому
+    // снек второго вызова проверяем до settle.
+    await tester.tap(find.byKey(_buttonKey));
+    await tester.tap(find.byKey(_buttonKey));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(l10n.rateSyncAlreadyRunning), findsOneWidget);
+    expect(find.text(l10n.rateSyncDisabled), findsNothing);
+    expect(container.read(rateSyncControllerProvider).syncing, isTrue);
+
+    // Зачистка: фейковое время доводит первый запрос до таймаута, снеки гасят
+    // анимации — незавершённых таймеров в конце теста не остаётся.
+    await tester.pumpAndSettle();
   });
 }

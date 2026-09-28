@@ -58,14 +58,15 @@ class RateSyncController extends Notifier<RateSyncState> {
   /// Запуск синхронизации из UI (кнопка «Обновить сейчас», шаг 2).
   ///
   /// Фича выключена — [RateSyncDisabled] без сетевых вызовов (opt-in, D-36).
-  /// Повторный вызов во время идущего запроса игнорируется с обычным
-  /// исходом отключённого состояния: UI-кнопка в этот момент неактивна.
+  /// Повторный вызов во время идущего запроса — [RateSyncAlreadyRunning]
+  /// (D-42.в): UI-кнопка в этот момент неактивна, исход различает
+  /// «уже идёт» и «фича выключена» вместо ложного снека об отключённой фиче.
   Future<RateSyncResult> syncNow() async {
     if (!ref.read(rateSyncEnabledProvider)) {
       return const RateSyncDisabled();
     }
     if (state.syncing) {
-      return const RateSyncDisabled();
+      return const RateSyncAlreadyRunning();
     }
     state = const RateSyncState(syncing: true);
     try {

@@ -3,6 +3,7 @@
 // БД — in-memory, подменённая в провайдерах. С шага 2 (UI) галочка
 // персистится в файл настроек — тесты persистта ниже (реальный файловый
 // I/O только в обычных тестах, не testWidgets).
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -125,6 +126,33 @@ void main() {
 
     expect(result, isA<RateSyncOffline>());
     expect((await dao.findAlive('USD'))!.rateToBase, 90);
+  });
+
+  test('повторный вызов во время запроса — AlreadyRunning, не «выключено» (D-42.в)', () async {
+    final Completer<http.Response> gate = Completer<http.Response>();
+    final ProviderContainer container = _container(
+      db: db,
+      client: MockClient(
+        (http.Request request) async => gate.future,
+      ),
+    );
+    await container.read(rateSyncEnabledProvider.notifier).setEnabled(true);
+    final RateSyncController notifier =
+        container.read(rateSyncControllerProvider.notifier);
+
+    // Состояние syncing ставится синхронно до первого await: сразу после
+    // вызова запрос «идёт», второй вызов обязан попасть в ту же ветку.
+    final Future<RateSyncResult> first = notifier.syncNow();
+    expect(container.read(rateSyncControllerProvider).syncing, isTrue,
+        reason: 'первый запрос ещё идёт');
+
+    final RateSyncResult second = await notifier.syncNow();
+    expect(second, isA<RateSyncAlreadyRunning>());
+
+    gate.complete(_ratesResponse(<String, Object?>{'USD': 0.0125}));
+    final RateSyncResult result = await first;
+    expect(result, isA<RateSyncUpdated>());
+    expect(container.read(rateSyncControllerProvider).syncing, isFalse);
   });
 
   test('applyRates — шов без сети: словарь применяется через DAO', () async {
