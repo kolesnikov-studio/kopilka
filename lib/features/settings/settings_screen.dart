@@ -5,9 +5,11 @@ import 'package:kopilka/app/routes.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/data/export/backup_codec.dart';
 import 'package:kopilka/data/export/backup_service.dart';
+import 'package:kopilka/data/rates/rate_sync_service.dart';
 import 'package:kopilka/data/update/update_service.dart';
 import 'package:kopilka/features/settings/csv_import_flow.dart';
 import 'package:kopilka/features/settings/currencies_controller.dart';
+import 'package:kopilka/features/settings/rate_sync_controller.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/update_controller.dart';
 import 'package:kopilka/features/settings/update_offer_dialog.dart';
@@ -172,6 +174,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
+  /// Ручная синхронизация курсов (кнопка «Обновить сейчас», D-36):
+  /// исход [RateSyncResult] машиночитаемый — текст подбирает экран.
+  Future<void> _syncRatesNow() async {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final RateSyncResult outcome = await ref
+        .read(rateSyncControllerProvider.notifier)
+        .syncNow();
+    if (!mounted) {
+      return;
+    }
+    switch (outcome) {
+      case RateSyncUpdated(:final updatedCount):
+        await showSnack(
+          context,
+          updatedCount > 0
+              ? l10n.rateSyncUpdated(updatedCount)
+              : l10n.rateSyncUnchanged,
+        );
+      case RateSyncOffline():
+        await showSnack(context, l10n.rateSyncOffline);
+      case RateSyncFailed():
+        await showSnack(context, l10n.rateSyncFailed);
+      case RateSyncDisabled():
+        await showSnack(context, l10n.rateSyncDisabled);
+    }
+  }
+
   /// Предложение первого запуска (§5): показать один раз, до выбора.
   Future<void> _maybeShowUpdateOffer() async {
     if (!ref.read(updateOfferControllerProvider)) {
@@ -194,6 +223,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final String backupDirectory = ref.watch(autoBackupDirectoryProvider);
     final bool autoCheckEnabled = ref.watch(autoUpdateCheckEnabledProvider);
+    final bool rateSyncEnabled = ref.watch(rateSyncEnabledProvider);
+    final bool rateSyncing = ref.watch(
+      rateSyncControllerProvider.select((RateSyncState state) => state.syncing),
+    );
     final bool checking = ref.watch(
       updateControllerProvider.select((UpdateCheckState state) => state.checking),
     );
@@ -224,7 +257,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             onTap: () => context.push(AppRoutes.currencies),
           ),
-          _SectionHeader(title: l10n.backupSectionTitle),
+          // Синхронизация курсов (D-36): opt-in галочка и ручная кнопка —
+          // рядом с пунктом «Валюты», до секции бэкапа. Кнопка активна
+          // только при включённой галочке и без идущего запроса (повторный
+          // вызов во время запроса отклонён контроллером, §2).
+          _SectionHeader(title: l10n.rateSyncSectionTitle),
+          SwitchListTile(
+            key: const ValueKey<String>('rateSyncEnabledTile'),
+            secondary: const Icon(Icons.sync_outlined),
+            title: Text(l10n.rateSyncEnabled),
+            subtitle: Text(l10n.rateSyncEnabledHint),
+            value: rateSyncEnabled,
+            onChanged: (bool value) async {
+              await ref.read(rateSyncEnabledProvider.notifier).setEnabled(value);
+              setState(() {});
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey<String>('rateSyncNowButton'),
+                onPressed:
+                    (rateSyncEnabled && !rateSyncing) ? _syncRatesNow : null,
+                icon: rateSyncing
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: Text(rateSyncing ? l10n.rateSyncing : l10n.rateSyncNow),
+              ),
+            ),
+          ),
+          const Divider(),
           ListTile(
             leading: const Icon(Icons.upload_file_outlined),
             title: Text(l10n.exportJsonAction),
@@ -250,6 +317,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => runCsvImportFlow(context, ref),
           ),
           const Divider(),
+          _SectionHeader(
+            key: const ValueKey<String>('backupSection'),
+            title: l10n.backupSectionTitle,
+          ),
           ListTile(
             leading: const Icon(Icons.folder_copy_outlined),
             title: Text(l10n.autoBackupTitle),
@@ -320,7 +391,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 }
 
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+  const _SectionHeader({super.key, required this.title});
 
   final String title;
 

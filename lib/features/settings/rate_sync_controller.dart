@@ -2,11 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/data/rates/rate_sync_service.dart';
+import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 
 // Контроллер синхронизации курсов (D-36, M4-шаг 1 — слой данных).
 //
-// Исходы — машиночитаемые [RateSyncResult]; UI-вызова ещё нет: шов для
-// шага 2 (галочка opt-in и кнопка «Обновить сейчас» в настройках).
+// Исходы — машиночитаемые [RateSyncResult]; тексты подбирает экран (шаг 2).
 // UI не ловит try/catch (§2): все отказы сети и источника уже переведены
 // сервисом в исходы.
 
@@ -18,9 +18,10 @@ final rateSyncServiceProvider = Provider<RateSyncService>(
 
 /// Настройка «синхронизировать курсы» (opt-in, D-36: по умолчанию выкл).
 ///
-/// Шаг 1 держит состояние в памяти: персист в файл настроек добавит шаг 2
-/// вместе с галочкой (так же появился `UpdatePreferencesStore`). До UI
-/// переключать настройку нечем — [syncNow] вернёт [RateSyncDisabled].
+/// Персист в файл настроек — [RateSyncPreferencesStore] из
+/// `rate_sync_preferences.dart` (по образцу `UpdatePreferencesStore`):
+/// [load] читает файл (вызывается экраном при старте), [setEnabled] пишет.
+/// До загрузки и до переключения состояние — выкл (D-36).
 final rateSyncEnabledProvider = NotifierProvider<RateSyncEnabledController, bool>(
   RateSyncEnabledController.new,
 );
@@ -29,9 +30,18 @@ class RateSyncEnabledController extends Notifier<bool> {
   @override
   bool build() => false;
 
-  /// Устанавливает настройку (шаг 2 подключит персист и вызов из UI).
+  /// Устанавливает настройку и сохраняет её в файл настроек.
   Future<void> setEnabled(bool enabled) async {
     state = enabled;
+    await ref.read(rateSyncPreferencesStoreProvider).writeEnabled(enabled);
+  }
+
+  /// Загружает настройку из хранилища — один раз при старте приложения
+  /// из `main` (хранилище там создано; экран настройки только показывает
+  /// и меняет состояние, D-36: будущая автосинхронизация «при запуске»
+  /// тоже будет читать этот стейт на старте).
+  Future<void> load() async {
+    state = await ref.read(rateSyncPreferencesStoreProvider).readEnabled();
   }
 }
 

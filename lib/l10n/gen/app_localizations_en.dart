@@ -316,6 +316,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateOpenFailed => 'Could not open the release page';
 
   @override
+  String get rateSyncSectionTitle => 'Currency rates';
+
+  @override
+  String get rateSyncEnabled => 'Update rates from the internet';
+
+  @override
+  String get rateSyncEnabledHint =>
+      'Off by default; manual rate entry stays available offline';
+
+  @override
+  String get rateSyncNow => 'Update now';
+
+  @override
+  String get rateSyncing => 'Updating…';
+
+  @override
+  String rateSyncUpdated(int count) {
+    return 'Updated $count currencies';
+  }
+
+  @override
+  String get rateSyncUnchanged => 'Rates are already up to date';
+
+  @override
+  String get rateSyncOffline => 'Network unavailable — keeping current rates';
+
+  @override
+  String get rateSyncDisabled => 'Rate synchronization is turned off';
+
+  @override
+  String get rateSyncFailed => 'Rate source failed — keeping current rates';
+
+  @override
   String get saveAction => 'Save';
 
   @override

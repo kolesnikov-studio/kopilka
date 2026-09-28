@@ -94,6 +94,17 @@
   "updateOfferLater": "Не сейчас",
   "updateOpenFailed": "Не удалось открыть страницу релиза",
 
+  "rateSyncSectionTitle": "Курсы валют",
+  "rateSyncEnabled": "Обновлять курсы из интернета",
+  "rateSyncEnabledHint": "Выключено по умолчанию; ручной ввод курса остаётся без сети",
+  "rateSyncNow": "Обновить сейчас",
+  "rateSyncing": "Обновляем…",
+  "rateSyncUpdated": "Обновлено {count} валют",
+  "rateSyncUnchanged": "Курсы не изменились",
+  "rateSyncOffline": "Сеть недоступна — остались прежние курсы",
+  "rateSyncDisabled": "Синхронизация курсов выключена",
+  "rateSyncFailed": "Источник курсов не отвечает — остались прежние курсы",
+
   "saveAction": "Сохранить",
   "cancelAction": "Отмена",
   "deleteAction": "Удалить",

@@ -317,6 +317,40 @@ class AppLocalizationsRu extends AppLocalizations {
   String get updateOpenFailed => 'Не удалось открыть страницу релиза';
 
   @override
+  String get rateSyncSectionTitle => 'Курсы валют';
+
+  @override
+  String get rateSyncEnabled => 'Обновлять курсы из интернета';
+
+  @override
+  String get rateSyncEnabledHint =>
+      'Выключено по умолчанию; ручной ввод курса остаётся без сети';
+
+  @override
+  String get rateSyncNow => 'Обновить сейчас';
+
+  @override
+  String get rateSyncing => 'Обновляем…';
+
+  @override
+  String rateSyncUpdated(int count) {
+    return 'Обновлено $count валют';
+  }
+
+  @override
+  String get rateSyncUnchanged => 'Курсы не изменились';
+
+  @override
+  String get rateSyncOffline => 'Сеть недоступна — остались прежние курсы';
+
+  @override
+  String get rateSyncDisabled => 'Синхронизация курсов выключена';
+
+  @override
+  String get rateSyncFailed =>
+      'Источник курсов не отвечает — остались прежние курсы';
+
+  @override
   String get saveAction => 'Сохранить';
 
   @override

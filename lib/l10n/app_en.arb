@@ -398,6 +398,50 @@
     "description": "Snack when the browser could not be opened"
   },
 
+  "rateSyncSectionTitle": "Currency rates",
+  "@rateSyncSectionTitle": {
+    "description": "Section header for online rate synchronization in Settings (M4, D-36)"
+  },
+  "rateSyncEnabled": "Update rates from the internet",
+  "@rateSyncEnabled": {
+    "description": "Opt-in switch tile enabling online rate synchronization (D-36: off by default)"
+  },
+  "rateSyncEnabledHint": "Off by default; manual rate entry stays available offline",
+  "@rateSyncEnabledHint": {
+    "description": "Subtitle of the rate sync switch: opt-in reminder and offline fallback (D-36)"
+  },
+  "rateSyncNow": "Update now",
+  "@rateSyncNow": {
+    "description": "Button starting a manual rate synchronization"
+  },
+  "rateSyncing": "Updating…",
+  "@rateSyncing": {
+    "description": "Progress label while a rate synchronization is running"
+  },
+  "rateSyncUpdated": "Updated {count} currencies",
+  "@rateSyncUpdated": {
+    "description": "Snack after a successful sync: how many non-base currencies got a new rate",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "rateSyncUnchanged": "Rates are already up to date",
+  "@rateSyncUnchanged": {
+    "description": "Snack when the source returned the same rates and none were rewritten"
+  },
+  "rateSyncOffline": "Network unavailable — keeping current rates",
+  "@rateSyncOffline": {
+    "description": "Snack when the network or the source is unreachable: old rates stay (D-36)"
+  },
+  "rateSyncDisabled": "Rate synchronization is turned off",
+  "@rateSyncDisabled": {
+    "description": "Snack when sync is refused because the opt-in switch is off (D-36)"
+  },
+  "rateSyncFailed": "Rate source failed — keeping current rates",
+  "@rateSyncFailed": {
+    "description": "Snack when the source answered with an unexpected format: old rates stay (D-36)"
+  },
+
   "saveAction": "Save",
   "@saveAction": { "description": "Button that confirms a form" },
   "cancelAction": "Cancel",

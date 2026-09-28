@@ -1,7 +1,10 @@
 // Тесты контроллера синхронизации курсов (M4-шаг 1): исходы syncNow,
 // opt-in галочка (D-36), шов applyRates. Сеть фейковая (MockClient),
-// БД — in-memory, подменённая в провайдерах.
+// БД — in-memory, подменённая в провайдерах. С шага 2 (UI) галочка
+// персистится в файл настроек — тесты persистта ниже (реальный файловый
+// I/O только в обычных тестах, не testWidgets).
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +16,7 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/data/rates/rate_sync_service.dart';
 import 'package:kopilka/features/settings/rate_sync_controller.dart';
+import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 
 http.Response _ratesResponse(Map<String, Object?> rates) => http.Response(
       jsonEncode(<String, dynamic>{'result': 'success', 'rates': rates}),
@@ -22,13 +26,25 @@ http.Response _ratesResponse(Map<String, Object?> rates) => http.Response(
 ProviderContainer _container({
   required AppDatabase db,
   required http.Client client,
+  RateSyncPreferencesStore? preferencesStore,
 }) {
+  // С шага 2 setEnabled пишет в файл настроек: без явного хранилища —
+  // временный каталог, чтобы тесты шага 1 не трогали реальные файлы.
+  RateSyncPreferencesStore? store = preferencesStore;
+  Directory? tempDirectory;
+  if (store == null) {
+    tempDirectory = Directory.systemTemp
+        .createTempSync('kopilka_ratesync_default');
+    addTearDown(() => tempDirectory!.delete(recursive: true));
+    store = RateSyncPreferencesStore(baseDirectory: tempDirectory);
+  }
   final ProviderContainer container = ProviderContainer(
     overrides: [
       appDatabaseProvider.overrideWithValue(db),
       rateSyncServiceProvider.overrideWithValue(
         RateSyncService(client: client),
       ),
+      rateSyncPreferencesStoreProvider.overrideWithValue(store),
     ],
   );
   addTearDown(container.dispose);
@@ -128,5 +144,66 @@ void main() {
     expect((result as RateSyncUpdated).updatedCount, 1);
     expect((await dao.findAlive('USD'))!.rateToBase, 77.5);
     expect((await dao.findAlive('EUR'))!.rateToBase, 100);
+  });
+
+  group('персист галочки (M4-шаг 2, D-36)', () {
+    test('по умолчанию выключена и в файле ничего нет', () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+      final ProviderContainer container = _container(
+        db: db,
+        client: MockClient(
+          (http.Request request) async => fail('сеть не нужна'),
+        ),
+        preferencesStore: store,
+      );
+
+      await container.read(rateSyncEnabledProvider.notifier).load();
+
+      expect(container.read(rateSyncEnabledProvider), isFalse);
+      expect(await store.readEnabled(), isFalse);
+      expect(
+        File('${directory.path}/rate-sync-preferences.json').existsSync(),
+        isFalse,
+      );
+    });
+
+    test('setEnabled пишет в файл; новый контейнер load читает', () async {
+      final Directory directory = await Directory.systemTemp
+          .createTemp('kopilka_ratesync_test');
+      addTearDown(() => directory.delete(recursive: true));
+      final RateSyncPreferencesStore store =
+          RateSyncPreferencesStore(baseDirectory: directory);
+      final ProviderContainer first = _container(
+        db: db,
+        client: MockClient(
+          (http.Request request) async => fail('сеть не нужна'),
+        ),
+        preferencesStore: store,
+      );
+
+      await first.read(rateSyncEnabledProvider.notifier).setEnabled(true);
+      expect(await store.readEnabled(), isTrue);
+
+      // «Перезапуск»: свежий контейнер с тем же каталогом настроек.
+      final ProviderContainer second = _container(
+        db: db,
+        client: MockClient(
+          (http.Request request) async => fail('сеть не нужна'),
+        ),
+        preferencesStore: store,
+      );
+      expect(second.read(rateSyncEnabledProvider), isFalse);
+      await second.read(rateSyncEnabledProvider.notifier).load();
+      expect(second.read(rateSyncEnabledProvider), isTrue);
+
+      await second.read(rateSyncEnabledProvider.notifier).setEnabled(false);
+      expect(await store.readEnabled(), isFalse);
+      await second.read(rateSyncEnabledProvider.notifier).load();
+      expect(second.read(rateSyncEnabledProvider), isFalse);
+    });
   });
 }

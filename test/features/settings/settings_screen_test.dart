@@ -67,7 +67,20 @@ void main() {
 
     final AppLocalizations l10n =
         await AppLocalizations.delegate.load(const Locale('ru'));
-    expect(find.text(l10n.backupSectionTitle), findsOneWidget);
+    // Секция синхронизации курсов (D-36, M4-шаг 2) — сразу после «Валюты».
+    expect(find.text(l10n.rateSyncSectionTitle), findsOneWidget);
+    expect(find.text(l10n.rateSyncEnabled), findsOneWidget);
+    expect(find.text(l10n.rateSyncNow), findsOneWidget);
+    // Список вырос (импорт CSV + секция курсов): секция бэкапов ниже сгиба.
+    // Заголовок проверяем по ключу (finder.text нашёл бы и на экране, и
+    // вне её — проверка наличия в дереве), пункты бэкапа — после прокрутки.
+    expect(find.byKey(const ValueKey<String>('backupSection')), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text(l10n.exportJsonAction),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text(l10n.exportJsonAction), findsOneWidget);
     expect(find.text(l10n.importJsonAction), findsOneWidget);
     expect(find.text(l10n.exportCsvAction), findsOneWidget);
@@ -76,8 +89,9 @@ void main() {
     // Каталог не выбран (реальное чтение файла в fake_async не выполняется):
     // показывается состояние «не выбран».
     expect(find.text(l10n.autoBackupDisabled), findsOneWidget);
-    // Секция обновлений ниже сгиба (список вырос с пунктом импорта CSV):
-    // прокручиваем до кнопки ручной проверки.
+    // Секция обновлений ниже сгиба (список вырос с пунктом импорта CSV
+    // и секцией синхронизации курсов): прокручиваем до кнопки ручной
+    // проверки.
     await tester.scrollUntilVisible(
       find.text(l10n.updateCheckNow),
       120,

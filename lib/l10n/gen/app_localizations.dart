@@ -632,6 +632,66 @@ abstract class AppLocalizations {
   /// **'Could not open the release page'**
   String get updateOpenFailed;
 
+  /// Section header for online rate synchronization in Settings (M4, D-36)
+  ///
+  /// In en, this message translates to:
+  /// **'Currency rates'**
+  String get rateSyncSectionTitle;
+
+  /// Opt-in switch tile enabling online rate synchronization (D-36: off by default)
+  ///
+  /// In en, this message translates to:
+  /// **'Update rates from the internet'**
+  String get rateSyncEnabled;
+
+  /// Subtitle of the rate sync switch: opt-in reminder and offline fallback (D-36)
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default; manual rate entry stays available offline'**
+  String get rateSyncEnabledHint;
+
+  /// Button starting a manual rate synchronization
+  ///
+  /// In en, this message translates to:
+  /// **'Update now'**
+  String get rateSyncNow;
+
+  /// Progress label while a rate synchronization is running
+  ///
+  /// In en, this message translates to:
+  /// **'Updating…'**
+  String get rateSyncing;
+
+  /// Snack after a successful sync: how many non-base currencies got a new rate
+  ///
+  /// In en, this message translates to:
+  /// **'Updated {count} currencies'**
+  String rateSyncUpdated(int count);
+
+  /// Snack when the source returned the same rates and none were rewritten
+  ///
+  /// In en, this message translates to:
+  /// **'Rates are already up to date'**
+  String get rateSyncUnchanged;
+
+  /// Snack when the network or the source is unreachable: old rates stay (D-36)
+  ///
+  /// In en, this message translates to:
+  /// **'Network unavailable — keeping current rates'**
+  String get rateSyncOffline;
+
+  /// Snack when sync is refused because the opt-in switch is off (D-36)
+  ///
+  /// In en, this message translates to:
+  /// **'Rate synchronization is turned off'**
+  String get rateSyncDisabled;
+
+  /// Snack when the source answered with an unexpected format: old rates stay (D-36)
+  ///
+  /// In en, this message translates to:
+  /// **'Rate source failed — keeping current rates'**
+  String get rateSyncFailed;
+
   /// Button that confirms a form
   ///
   /// In en, this message translates to:
