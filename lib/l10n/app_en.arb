@@ -128,6 +128,139 @@
   "@exportCsvAction": {
     "description": "Action exporting live transactions to CSV"
   },
+  "importCsvAction": "Import transactions (CSV)",
+  "@importCsvAction": {
+    "description": "Action opening the CSV import flow (M4 step 3)"
+  },
+  "csvImportMappingTitle": "Map CSV columns",
+  "@csvImportMappingTitle": {
+    "description": "Title of the dialog that maps CSV file columns to import fields"
+  },
+  "csvMappingHint": "For each file column choose what it contains. “Not used” columns are skipped.",
+  "@csvMappingHint": {
+    "description": "Hint at the top of the column mapping dialog"
+  },
+  "csvImportRowCount": "The file contains {count} operations.",
+  "@csvImportRowCount": {
+    "description": "Line of the mapping dialog showing how many data rows the file has",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "csvImportColumnName": "Column {number}",
+  "@csvImportColumnName": {
+    "description": "Fallback label of a file column whose header cell is empty",
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "csvColumnUnused": "Not used",
+  "@csvColumnUnused": {
+    "description": "Mapping option meaning the column is not imported"
+  },
+  "csvFieldDate": "Date",
+  "@csvFieldDate": {
+    "description": "CSV import field label: transaction moment"
+  },
+  "csvFieldType": "Type",
+  "@csvFieldType": {
+    "description": "CSV import field label: income/expense/transfer"
+  },
+  "csvFieldAccount": "Account (source)",
+  "@csvFieldAccount": {
+    "description": "CSV import field label: debited account name"
+  },
+  "csvFieldAmount": "Amount",
+  "@csvFieldAmount": {
+    "description": "CSV import field label: outflow amount"
+  },
+  "csvFieldCurrency": "Currency",
+  "@csvFieldCurrency": {
+    "description": "CSV import field label: ISO currency code"
+  },
+  "csvFieldTargetAccount": "Account (target)",
+  "@csvFieldTargetAccount": {
+    "description": "CSV import field label: credited account name of a transfer"
+  },
+  "csvFieldTargetAmount": "Amount (credited)",
+  "@csvFieldTargetAmount": {
+    "description": "CSV import field label: credited amount of a cross-currency transfer"
+  },
+  "csvFieldCategory": "Category",
+  "@csvFieldCategory": {
+    "description": "CSV import field label: category name"
+  },
+  "csvFieldNote": "Note",
+  "@csvFieldNote": {
+    "description": "CSV import field label: free-text note"
+  },
+  "csvMappingNextAction": "Continue",
+  "@csvMappingNextAction": {
+    "description": "Button confirming the column mapping and moving to the import confirmation"
+  },
+  "csvMappingDuplicateField": "Two columns are mapped to the same field.",
+  "@csvMappingDuplicateField": {
+    "description": "Mapping validation error: one import field is used by two columns"
+  },
+  "csvMappingMissingRequired": "Required fields are not mapped: {fields}.",
+  "@csvMappingMissingRequired": {
+    "description": "Mapping validation error: required fields date, type, account, amount, currency are not all mapped",
+    "placeholders": {
+      "fields": { "type": "String" }
+    }
+  },
+  "csvMappingColumnMissing": "Column {number} is mapped but the file rows are shorter.",
+  "@csvMappingColumnMissing": {
+    "description": "Mapping validation error: a mapped column index does not exist in the file rows",
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "csvImportConfirmTitle": "Import operations?",
+  "@csvImportConfirmTitle": {
+    "description": "Title of the confirmation before writing CSV rows to the database"
+  },
+  "csvImportConfirmAction": "Import",
+  "@csvImportConfirmAction": {
+    "description": "Confirm button that writes CSV rows to the database"
+  },
+  "csvImportMergeWarning": "{count} operations will be ADDED to the existing ones. Duplicates are not detected: importing the same file twice creates each operation twice.",
+  "@csvImportMergeWarning": {
+    "description": "Body of the merge warning before the CSV import is written (merge, not replace; no duplicate tracking)",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "csvImportDone": "Added {count} operations.",
+  "@csvImportDone": {
+    "description": "Message after a successful CSV import"
+  },
+  "errorCsvInvalidFormat": "This file is not a valid CSV.",
+  "@errorCsvInvalidFormat": {
+    "description": "CSV file could not be parsed (quotes, structure) — no line known"
+  },
+  "errorCsvInvalidFormatLine": "This file is not a valid CSV (line {line}).",
+  "@errorCsvInvalidFormatLine": {
+    "description": "CSV file could not be parsed; the failing line is known",
+    "placeholders": {
+      "line": { "type": "int" }
+    }
+  },
+  "errorCsvInvalidMapping": "Column mapping is invalid: check for duplicates and required fields.",
+  "@errorCsvInvalidMapping": {
+    "description": "Data layer rejected the column mapping (defense in depth behind the dialog validation)"
+  },
+  "errorCsvInvalidData": "File content does not match the accounts and categories of the database.",
+  "@errorCsvInvalidData": {
+    "description": "CSV rows failed validation with no specific line (e.g. duplicate account names, D-40)"
+  },
+  "errorCsvInvalidDataLine": "Line {line}: the value does not match the accounts, categories or formats of the database. Nothing was imported.",
+  "@errorCsvInvalidDataLine": {
+    "description": "CSV row failed validation; the failing line is known and nothing was imported (D-25)",
+    "placeholders": {
+      "line": { "type": "int" }
+    }
+  },
   "autoBackupTitle": "Auto-backup on launch",
   "@autoBackupTitle": {
     "description": "Setting title for the launch auto-backup directory"

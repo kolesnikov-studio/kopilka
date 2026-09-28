@@ -105,6 +105,110 @@ class AppLocalizationsRu extends AppLocalizations {
   String get exportCsvAction => 'Экспорт операций (CSV)';
 
   @override
+  String get importCsvAction => 'Импорт операций (CSV)';
+
+  @override
+  String get csvImportMappingTitle => 'Сопоставление колонок';
+
+  @override
+  String get csvMappingHint =>
+      'Для каждой колонки файла выберите, что в ней находится. Колонки «не используется» пропускаются.';
+
+  @override
+  String csvImportRowCount(int count) {
+    return 'В файле операций: $count.';
+  }
+
+  @override
+  String csvImportColumnName(int number) {
+    return 'Колонка $number';
+  }
+
+  @override
+  String get csvColumnUnused => 'Не используется';
+
+  @override
+  String get csvFieldDate => 'Дата';
+
+  @override
+  String get csvFieldType => 'Тип';
+
+  @override
+  String get csvFieldAccount => 'Счёт (списания)';
+
+  @override
+  String get csvFieldAmount => 'Сумма';
+
+  @override
+  String get csvFieldCurrency => 'Валюта';
+
+  @override
+  String get csvFieldTargetAccount => 'Счёт (зачисления)';
+
+  @override
+  String get csvFieldTargetAmount => 'Сумма (зачисления)';
+
+  @override
+  String get csvFieldCategory => 'Категория';
+
+  @override
+  String get csvFieldNote => 'Заметка';
+
+  @override
+  String get csvMappingNextAction => 'Продолжить';
+
+  @override
+  String get csvMappingDuplicateField => 'Две колонки привязаны к одному полю.';
+
+  @override
+  String csvMappingMissingRequired(String fields) {
+    return 'Не привязаны обязательные поля: $fields.';
+  }
+
+  @override
+  String csvMappingColumnMissing(int number) {
+    return 'Колонка $number привязана, но в строках файла её нет.';
+  }
+
+  @override
+  String get csvImportConfirmTitle => 'Импортировать операции?';
+
+  @override
+  String get csvImportConfirmAction => 'Импортировать';
+
+  @override
+  String csvImportMergeWarning(int count) {
+    return 'Операции ($count) будут ДОБАВЛЕНЫ к существующим. Дубли не отслеживаются: повторный импорт того же файла создаст каждую операцию заново.';
+  }
+
+  @override
+  String csvImportDone(Object count) {
+    return 'Добавлено операций: $count.';
+  }
+
+  @override
+  String get errorCsvInvalidFormat =>
+      'Не удалось разобрать файл: это не корректный CSV.';
+
+  @override
+  String errorCsvInvalidFormatLine(int line) {
+    return 'Не удалось разобрать файл: это не корректный CSV (строка $line).';
+  }
+
+  @override
+  String get errorCsvInvalidMapping =>
+      'Маппинг колонок неверен: проверьте дубли и обязательные поля.';
+
+  @override
+  String get errorCsvInvalidData =>
+      'Содержимое файла не соответствует счетам и категориям базы.';
+
+  @override
+  String errorCsvInvalidDataLine(int line) {
+    return 'Строка $line: значение не соответствует счетам, категориям или форматам базы. Ничего не импортировано.';
+  }
+
+  @override
   String get autoBackupTitle => 'Автобэкап при запуске';
 
   @override

@@ -105,6 +105,110 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportCsvAction => 'Export transactions (CSV)';
 
   @override
+  String get importCsvAction => 'Import transactions (CSV)';
+
+  @override
+  String get csvImportMappingTitle => 'Map CSV columns';
+
+  @override
+  String get csvMappingHint =>
+      'For each file column choose what it contains. “Not used” columns are skipped.';
+
+  @override
+  String csvImportRowCount(int count) {
+    return 'The file contains $count operations.';
+  }
+
+  @override
+  String csvImportColumnName(int number) {
+    return 'Column $number';
+  }
+
+  @override
+  String get csvColumnUnused => 'Not used';
+
+  @override
+  String get csvFieldDate => 'Date';
+
+  @override
+  String get csvFieldType => 'Type';
+
+  @override
+  String get csvFieldAccount => 'Account (source)';
+
+  @override
+  String get csvFieldAmount => 'Amount';
+
+  @override
+  String get csvFieldCurrency => 'Currency';
+
+  @override
+  String get csvFieldTargetAccount => 'Account (target)';
+
+  @override
+  String get csvFieldTargetAmount => 'Amount (credited)';
+
+  @override
+  String get csvFieldCategory => 'Category';
+
+  @override
+  String get csvFieldNote => 'Note';
+
+  @override
+  String get csvMappingNextAction => 'Continue';
+
+  @override
+  String get csvMappingDuplicateField =>
+      'Two columns are mapped to the same field.';
+
+  @override
+  String csvMappingMissingRequired(String fields) {
+    return 'Required fields are not mapped: $fields.';
+  }
+
+  @override
+  String csvMappingColumnMissing(int number) {
+    return 'Column $number is mapped but the file rows are shorter.';
+  }
+
+  @override
+  String get csvImportConfirmTitle => 'Import operations?';
+
+  @override
+  String get csvImportConfirmAction => 'Import';
+
+  @override
+  String csvImportMergeWarning(int count) {
+    return '$count operations will be ADDED to the existing ones. Duplicates are not detected: importing the same file twice creates each operation twice.';
+  }
+
+  @override
+  String csvImportDone(Object count) {
+    return 'Added $count operations.';
+  }
+
+  @override
+  String get errorCsvInvalidFormat => 'This file is not a valid CSV.';
+
+  @override
+  String errorCsvInvalidFormatLine(int line) {
+    return 'This file is not a valid CSV (line $line).';
+  }
+
+  @override
+  String get errorCsvInvalidMapping =>
+      'Column mapping is invalid: check for duplicates and required fields.';
+
+  @override
+  String get errorCsvInvalidData =>
+      'File content does not match the accounts and categories of the database.';
+
+  @override
+  String errorCsvInvalidDataLine(int line) {
+    return 'Line $line: the value does not match the accounts, categories or formats of the database. Nothing was imported.';
+  }
+
+  @override
   String get autoBackupTitle => 'Auto-backup on launch';
 
   @override

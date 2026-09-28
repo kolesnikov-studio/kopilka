@@ -278,6 +278,174 @@ abstract class AppLocalizations {
   /// **'Export transactions (CSV)'**
   String get exportCsvAction;
 
+  /// Action opening the CSV import flow (M4 step 3)
+  ///
+  /// In en, this message translates to:
+  /// **'Import transactions (CSV)'**
+  String get importCsvAction;
+
+  /// Title of the dialog that maps CSV file columns to import fields
+  ///
+  /// In en, this message translates to:
+  /// **'Map CSV columns'**
+  String get csvImportMappingTitle;
+
+  /// Hint at the top of the column mapping dialog
+  ///
+  /// In en, this message translates to:
+  /// **'For each file column choose what it contains. “Not used” columns are skipped.'**
+  String get csvMappingHint;
+
+  /// Line of the mapping dialog showing how many data rows the file has
+  ///
+  /// In en, this message translates to:
+  /// **'The file contains {count} operations.'**
+  String csvImportRowCount(int count);
+
+  /// Fallback label of a file column whose header cell is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Column {number}'**
+  String csvImportColumnName(int number);
+
+  /// Mapping option meaning the column is not imported
+  ///
+  /// In en, this message translates to:
+  /// **'Not used'**
+  String get csvColumnUnused;
+
+  /// CSV import field label: transaction moment
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get csvFieldDate;
+
+  /// CSV import field label: income/expense/transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get csvFieldType;
+
+  /// CSV import field label: debited account name
+  ///
+  /// In en, this message translates to:
+  /// **'Account (source)'**
+  String get csvFieldAccount;
+
+  /// CSV import field label: outflow amount
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get csvFieldAmount;
+
+  /// CSV import field label: ISO currency code
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get csvFieldCurrency;
+
+  /// CSV import field label: credited account name of a transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Account (target)'**
+  String get csvFieldTargetAccount;
+
+  /// CSV import field label: credited amount of a cross-currency transfer
+  ///
+  /// In en, this message translates to:
+  /// **'Amount (credited)'**
+  String get csvFieldTargetAmount;
+
+  /// CSV import field label: category name
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get csvFieldCategory;
+
+  /// CSV import field label: free-text note
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get csvFieldNote;
+
+  /// Button confirming the column mapping and moving to the import confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get csvMappingNextAction;
+
+  /// Mapping validation error: one import field is used by two columns
+  ///
+  /// In en, this message translates to:
+  /// **'Two columns are mapped to the same field.'**
+  String get csvMappingDuplicateField;
+
+  /// Mapping validation error: required fields date, type, account, amount, currency are not all mapped
+  ///
+  /// In en, this message translates to:
+  /// **'Required fields are not mapped: {fields}.'**
+  String csvMappingMissingRequired(String fields);
+
+  /// Mapping validation error: a mapped column index does not exist in the file rows
+  ///
+  /// In en, this message translates to:
+  /// **'Column {number} is mapped but the file rows are shorter.'**
+  String csvMappingColumnMissing(int number);
+
+  /// Title of the confirmation before writing CSV rows to the database
+  ///
+  /// In en, this message translates to:
+  /// **'Import operations?'**
+  String get csvImportConfirmTitle;
+
+  /// Confirm button that writes CSV rows to the database
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get csvImportConfirmAction;
+
+  /// Body of the merge warning before the CSV import is written (merge, not replace; no duplicate tracking)
+  ///
+  /// In en, this message translates to:
+  /// **'{count} operations will be ADDED to the existing ones. Duplicates are not detected: importing the same file twice creates each operation twice.'**
+  String csvImportMergeWarning(int count);
+
+  /// Message after a successful CSV import
+  ///
+  /// In en, this message translates to:
+  /// **'Added {count} operations.'**
+  String csvImportDone(Object count);
+
+  /// CSV file could not be parsed (quotes, structure) — no line known
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not a valid CSV.'**
+  String get errorCsvInvalidFormat;
+
+  /// CSV file could not be parsed; the failing line is known
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not a valid CSV (line {line}).'**
+  String errorCsvInvalidFormatLine(int line);
+
+  /// Data layer rejected the column mapping (defense in depth behind the dialog validation)
+  ///
+  /// In en, this message translates to:
+  /// **'Column mapping is invalid: check for duplicates and required fields.'**
+  String get errorCsvInvalidMapping;
+
+  /// CSV rows failed validation with no specific line (e.g. duplicate account names, D-40)
+  ///
+  /// In en, this message translates to:
+  /// **'File content does not match the accounts and categories of the database.'**
+  String get errorCsvInvalidData;
+
+  /// CSV row failed validation; the failing line is known and nothing was imported (D-25)
+  ///
+  /// In en, this message translates to:
+  /// **'Line {line}: the value does not match the accounts, categories or formats of the database. Nothing was imported.'**
+  String errorCsvInvalidDataLine(int line);
+
   /// Setting title for the launch auto-backup directory
   ///
   /// In en, this message translates to:

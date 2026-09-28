@@ -6,6 +6,7 @@ import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/data/export/backup_codec.dart';
 import 'package:kopilka/data/export/backup_service.dart';
 import 'package:kopilka/data/update/update_service.dart';
+import 'package:kopilka/features/settings/csv_import_flow.dart';
 import 'package:kopilka/features/settings/currencies_controller.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/update_controller.dart';
@@ -242,6 +243,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => _handle(
               ref.read(settingsControllerProvider.notifier).exportCsv(),
             ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_open_outlined),
+            title: Text(l10n.importCsvAction),
+            onTap: () => runCsvImportFlow(context, ref),
           ),
           const Divider(),
           ListTile(

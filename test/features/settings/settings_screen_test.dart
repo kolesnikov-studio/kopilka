@@ -71,10 +71,19 @@ void main() {
     expect(find.text(l10n.exportJsonAction), findsOneWidget);
     expect(find.text(l10n.importJsonAction), findsOneWidget);
     expect(find.text(l10n.exportCsvAction), findsOneWidget);
+    expect(find.text(l10n.importCsvAction), findsOneWidget);
     expect(find.text(l10n.autoBackupTitle), findsOneWidget);
     // Каталог не выбран (реальное чтение файла в fake_async не выполняется):
     // показывается состояние «не выбран».
     expect(find.text(l10n.autoBackupDisabled), findsOneWidget);
+    // Секция обновлений ниже сгиба (список вырос с пунктом импорта CSV):
+    // прокручиваем до кнопки ручной проверки.
+    await tester.scrollUntilVisible(
+      find.text(l10n.updateCheckNow),
+      120,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     // Секция обновлений: переключатель автопроверки
     // (по умолчанию выкл) и ручная проверка. Сеть в тест не ходит:
     // updateServiceProvider не вызывается без нажатия кнопки.
