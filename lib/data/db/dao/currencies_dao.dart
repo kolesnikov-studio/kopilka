@@ -215,6 +215,23 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
+  /// Точечное обновление курса к базовой валюте (M4: синхронизация курсов,
+  /// D-36): запись внешнего курса, полученного сервисом синхронизации, без
+  /// смены базовой валюты. Ручной ввод курса (B1.1) идёт через
+  /// [updateCurrency]; здесь — отдельный вход для сетевого слоя, чтобы его
+  /// отказы не смешивались с правкой реквизитов. Курс обязан быть
+  /// положительным (`_requirePositiveRate`); валюта обязана быть живой.
+  Future<void> updateRateToBase(String code, double rateToBase) async {
+    await _requireAlive(code);
+    _requirePositiveRate(rateToBase);
+    await (update(currencies)..where((t) => t.code.equals(code))).write(
+      CurrenciesCompanion(
+        rateToBase: Value(rateToBase),
+        updatedAt: Value(clock()),
+      ),
+    );
+  }
+
   /// Сколько живых счетов используют валюту (B1.4: экран «Валюты» объясняет
   /// отказ удаления до попытки — счётчиком счетов, без списка).
   Future<int> aliveAccountsUsing(String code) => _aliveAccountsUsing(code);
