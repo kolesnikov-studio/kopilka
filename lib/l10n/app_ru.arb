@@ -59,7 +59,7 @@
   "csvImportDone": "Добавлено операций: {count}.",
   "errorCsvInvalidFormat": "Не удалось разобрать файл: это не корректный CSV.",
   "errorCsvNoDataRows": "В файле нет строк данных.",
-  "errorCsvInvalidFormatLine": "Не удалось разобрать файл: это не корректный CSV (строка {line}).",
+  "errorCsvInvalidFormatLine": "Файл не является корректным CSV (строка {line}).",
   "errorCsvInvalidMapping": "Маппинг колонок неверен: проверьте дубли и обязательные поля.",
   "errorCsvInvalidData": "Содержимое файла не соответствует счетам и категориям базы.",
   "errorCsvInvalidDataLine": "Строка {line}: значение не соответствует счетам, категориям или форматам базы. Ничего не импортировано.",

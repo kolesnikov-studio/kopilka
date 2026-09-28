@@ -195,7 +195,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String errorCsvInvalidFormatLine(int line) {
-    return 'Не удалось разобрать файл: это не корректный CSV (строка $line).';
+    return 'Файл не является корректным CSV (строка $line).';
   }
 
   @override
