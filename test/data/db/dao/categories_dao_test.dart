@@ -248,6 +248,72 @@ void main() {
     expect(await f.categories.getAlive(), isEmpty);
   });
 
+  test('create/updateCategory: iconCode сохраняется, NULL валиден (v4)', () async {
+    final Category created = await f.seedCategory();
+    expect(created.iconCode, isNull, reason: 'иконка не выбрана — NULL');
+
+    f.clock.advance(const Duration(hours: 1));
+    final Category withIcon = await f.categories.create(
+      name: 'Транспорт',
+      kind: CategoryKind.expense,
+      iconCode: 'transport',
+    );
+    expect(withIcon.iconCode, 'transport');
+
+    f.clock.advance(const Duration(hours: 1));
+    final Category renamed = await f.categories.updateCategory(
+      created.id,
+      iconCode: const Value<String?>('food'),
+    );
+    expect(renamed.iconCode, 'food');
+    expect(renamed.updatedAt.toUtc(), f.clock.read());
+
+    // Value(null) снимает иконку; Value.absent() не трогает её.
+    f.clock.advance(const Duration(hours: 1));
+    final Category cleared = await f.categories.updateCategory(
+      created.id,
+      iconCode: const Value<String?>(null),
+    );
+    expect(cleared.iconCode, isNull);
+
+    final Category untouched = await f.categories.updateCategory(created.id);
+    expect(untouched.iconCode, isNull);
+  });
+
+  test('create/updateCategory: неизвестный код иконки — отказ invalidInput', () async {
+    final Category created = await f.seedCategory();
+
+    await expectLater(
+      f.categories.create(
+        name: 'Еда',
+        kind: CategoryKind.expense,
+        iconCode: 'нет-такого',
+      ),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.invalidInput,
+        ),
+      ),
+    );
+    await expectLater(
+      f.categories.updateCategory(
+        created.id,
+        iconCode: const Value<String?>('нет-такого'),
+      ),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.invalidInput,
+        ),
+      ),
+    );
+    // После отказов категория осталась без иконки (отказ до записи).
+    expect((await f.categories.findById(created.id))?.iconCode, isNull);
+  });
+
   test('watchAlive отдаёт изменения дерева категорий', () async {
     final Stream<List<Category>> stream = f.categories.watchAlive();
     await f.seedCategory();

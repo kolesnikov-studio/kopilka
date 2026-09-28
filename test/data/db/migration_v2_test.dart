@@ -1,6 +1,9 @@
 // Тест миграции схемы v1 → v2 (первая миграция после релиза v0.1: у
 // пользователей реальный файл БД с данными, он обязан открыться без потерь).
 //
+// Замок миграции v1→v2 (правило §8: старые тесты не редактировать;
+// поднимается только ожидаемая «текущая версия» при новой схеме).
+//
 // Приём: файл базы со схемой v1 строится сырым sqlite3 API — тем же DDL,
 // который генерировала v0.1, с user_version = 1 и данными формата v0.1
 // (даты — unix-секунды). Затем файл открывается AppDatabase: drift видит
@@ -128,11 +131,11 @@ void main() {
     addTearDown(db.close);
 
     // beforeOpen после миграции: исполнена вся цепочка до текущей версии
-    // (v1 → v2 → v3, D-21: файл v0.1 открывается без потерь).
+    // (v1 → v2 → v3 → v4, D-21/D-54: файл v0.1 открывается без потерь).
     final int version =
         (await db.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version');
-    expect(version, 3, reason: 'после открытия база должна быть на текущей схеме');
+    expect(version, 4, reason: 'после открытия база должна быть на текущей схеме');
 
     // Данные v0.1 выжили дословно.
     final List<Currency> currencies = await db.select(db.currencies).get();
@@ -207,14 +210,14 @@ void main() {
     await first.close();
 
     // Повторное открытие: onUpgrade не выполняется (версия уже текущая,
-    // 3), данные живы.
+    // 4), данные живы.
     final AppDatabase second =
         AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(second.close);
     expect(
       (await second.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      3,
+      4,
     );
     final List<Budget> alive = await second.budgetsDao.getAlive();
     expect(alive.single.id, budget.id);

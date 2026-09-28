@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/ids.dart';
@@ -26,11 +27,16 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
   /// Создаёт категорию. Вложенная категория обязана быть того же вида, что
   /// и родительская: доходы не вкладываются в расходы.
+  ///
+  /// [iconCode] — код из справочника `core/category_icons.dart` (v4, D-54);
+  /// NULL = без иконки. Неизвестный код — отказ [DataFailure.invalidInput],
+  /// не тихий пропуск.
   Future<Category> create({
     required String name,
     required CategoryKind kind,
     String? parentId,
     String? icon,
+    String? iconCode,
     String? color,
     bool isSystem = false,
   }) async {
@@ -41,6 +47,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.invalidInput,
       );
     }
+    _requireKnownIconCode(iconCode);
     if (parentId != null) {
       await _requireValidParent(parentId: parentId, kind: kind);
     }
@@ -52,6 +59,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         kind: kind.dbValue,
         parentId: Value(parentId),
         icon: Value(optionalText(icon)),
+        iconCode: Value(optionalText(iconCode)),
         color: Value(optionalText(color)),
         isSystem: Value(isSystem),
         createdAt: now,
@@ -77,14 +85,21 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   /// были, `Value(null)` очищает необязательное поле.
   ///
   /// Вид категории (`kind`) не меняется: от него зависит смысл операций.
+  /// [iconCode] — код из справочника `core/category_icons.dart` (v4, D-54);
+  /// `Value(null)` снимает иконку. Неизвестный код — отказ
+  /// [DataFailure.invalidInput], не тихий пропуск.
   Future<Category> updateCategory(
     String id, {
     Value<String> name = const Value.absent(),
     Value<String?> parentId = const Value.absent(),
     Value<String?> icon = const Value.absent(),
+    Value<String?> iconCode = const Value.absent(),
     Value<String?> color = const Value.absent(),
   }) async {
     final Category current = await _requireAlive(id);
+    if (iconCode.present) {
+      _requireKnownIconCode(iconCode.value);
+    }
     Value<String>? newName;
     if (name.present) {
       final String trimmed = name.value.trim();
@@ -115,6 +130,9 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         parentId: parentId,
         icon: icon.present
             ? Value<String?>(optionalText(icon.value))
+            : const Value.absent(),
+        iconCode: iconCode.present
+            ? Value<String?>(optionalText(iconCode.value))
             : const Value.absent(),
         color: color.present
             ? Value<String?>(optionalText(color.value))
@@ -183,6 +201,17 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
             (t) => OrderingTerm.asc(t.name),
           ]);
     return query;
+  }
+
+  /// Код иконки обязан быть в справочнике (v4, D-54): NULL = без иконки —
+  /// валиден, неизвестная строка — отказ invalidInput, не тихий пропуск.
+  void _requireKnownIconCode(String? iconCode) {
+    if (iconCode != null && categoryIconByCode(iconCode) == null) {
+      throw DataValidationException(
+        'неизвестный код иконки: «$iconCode»',
+        kind: DataFailure.invalidInput,
+      );
+    }
   }
 
   Future<Category> _requireAlive(String id) async {

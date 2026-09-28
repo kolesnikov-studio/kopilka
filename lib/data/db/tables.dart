@@ -1,10 +1,11 @@
 import 'package:drift/drift.dart';
 
-// Схема v3. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
+// Схема v4. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
 // categories, transactions). v2 добавляет бюджеты (M2, D-14). v3 добавляет
 // nullable-колонку transactions.target_amount_minor — суммы зачисления
-// перевода между счетами в разных валютах (M3, D-17/D-21); см. миграцию
-// в database.dart.
+// перевода между счетами в разных валютах (M3, D-17/D-21). v4 добавляет
+// nullable-колонку categories.icon_code — код иконки категории из
+// константного справочника core (M5, D-54); см. миграцию в database.dart.
 //
 // Общие правила (нарушать нельзя):
 // - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа
@@ -81,6 +82,13 @@ class Categories extends Table {
   TextColumn get parentId => text().nullable().references(Categories, #id)();
 
   TextColumn get icon => text().nullable()();
+
+  /// Код иконки из справочника `core/category_icons.dart` (v4, M5/D-54):
+  /// стабильная snake_case-строка ("food"). NULL = иконка не выбрана;
+  /// значение обязано быть в справочнике — контролирует DAO и импорт
+  /// бэкапа (строгая валидация, по образцу D-25). Колонка `icon` выше —
+  /// старое свободное поле §3, не трогаем (§8).
+  TextColumn get iconCode => text().nullable()();
 
   TextColumn get color => text().nullable()();
 

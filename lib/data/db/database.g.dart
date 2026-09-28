@@ -1108,6 +1108,17 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _iconCodeMeta = const VerificationMeta(
+    'iconCode',
+  );
+  @override
+  late final GeneratedColumn<String> iconCode = GeneratedColumn<String>(
+    'icon_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _colorMeta = const VerificationMeta('color');
   @override
   late final GeneratedColumn<String> color = GeneratedColumn<String>(
@@ -1172,6 +1183,7 @@ class $CategoriesTable extends Categories
     kind,
     parentId,
     icon,
+    iconCode,
     color,
     isSystem,
     createdAt,
@@ -1221,6 +1233,12 @@ class $CategoriesTable extends Categories
       context.handle(
         _iconMeta,
         icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
+      );
+    }
+    if (data.containsKey('icon_code')) {
+      context.handle(
+        _iconCodeMeta,
+        iconCode.isAcceptableOrUnknown(data['icon_code']!, _iconCodeMeta),
       );
     }
     if (data.containsKey('color')) {
@@ -1286,6 +1304,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.string,
         data['${effectivePrefix}icon'],
       ),
+      iconCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_code'],
+      ),
       color: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}color'],
@@ -1325,6 +1347,13 @@ class Category extends DataClass implements Insertable<Category> {
   /// Родительская категория или NULL для корневой.
   final String? parentId;
   final String? icon;
+
+  /// Код иконки из справочника `core/category_icons.dart` (v4, M5/D-54):
+  /// стабильная snake_case-строка ("food"). NULL = иконка не выбрана;
+  /// значение обязано быть в справочнике — контролирует DAO и импорт
+  /// бэкапа (строгая валидация, по образцу D-25). Колонка `icon` выше —
+  /// старое свободное поле §3, не трогаем (§8).
+  final String? iconCode;
   final String? color;
 
   /// Предустановленная (системная) категория — нельзя удалить.
@@ -1338,6 +1367,7 @@ class Category extends DataClass implements Insertable<Category> {
     required this.kind,
     this.parentId,
     this.icon,
+    this.iconCode,
     this.color,
     required this.isSystem,
     required this.createdAt,
@@ -1355,6 +1385,9 @@ class Category extends DataClass implements Insertable<Category> {
     }
     if (!nullToAbsent || icon != null) {
       map['icon'] = Variable<String>(icon);
+    }
+    if (!nullToAbsent || iconCode != null) {
+      map['icon_code'] = Variable<String>(iconCode);
     }
     if (!nullToAbsent || color != null) {
       map['color'] = Variable<String>(color);
@@ -1377,6 +1410,9 @@ class Category extends DataClass implements Insertable<Category> {
           ? const Value.absent()
           : Value(parentId),
       icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
+      iconCode: iconCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(iconCode),
       color: color == null && nullToAbsent
           ? const Value.absent()
           : Value(color),
@@ -1400,6 +1436,7 @@ class Category extends DataClass implements Insertable<Category> {
       kind: serializer.fromJson<String>(json['kind']),
       parentId: serializer.fromJson<String?>(json['parentId']),
       icon: serializer.fromJson<String?>(json['icon']),
+      iconCode: serializer.fromJson<String?>(json['iconCode']),
       color: serializer.fromJson<String?>(json['color']),
       isSystem: serializer.fromJson<bool>(json['isSystem']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -1416,6 +1453,7 @@ class Category extends DataClass implements Insertable<Category> {
       'kind': serializer.toJson<String>(kind),
       'parentId': serializer.toJson<String?>(parentId),
       'icon': serializer.toJson<String?>(icon),
+      'iconCode': serializer.toJson<String?>(iconCode),
       'color': serializer.toJson<String?>(color),
       'isSystem': serializer.toJson<bool>(isSystem),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -1430,6 +1468,7 @@ class Category extends DataClass implements Insertable<Category> {
     String? kind,
     Value<String?> parentId = const Value.absent(),
     Value<String?> icon = const Value.absent(),
+    Value<String?> iconCode = const Value.absent(),
     Value<String?> color = const Value.absent(),
     bool? isSystem,
     DateTime? createdAt,
@@ -1441,6 +1480,7 @@ class Category extends DataClass implements Insertable<Category> {
     kind: kind ?? this.kind,
     parentId: parentId.present ? parentId.value : this.parentId,
     icon: icon.present ? icon.value : this.icon,
+    iconCode: iconCode.present ? iconCode.value : this.iconCode,
     color: color.present ? color.value : this.color,
     isSystem: isSystem ?? this.isSystem,
     createdAt: createdAt ?? this.createdAt,
@@ -1454,6 +1494,7 @@ class Category extends DataClass implements Insertable<Category> {
       kind: data.kind.present ? data.kind.value : this.kind,
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
       icon: data.icon.present ? data.icon.value : this.icon,
+      iconCode: data.iconCode.present ? data.iconCode.value : this.iconCode,
       color: data.color.present ? data.color.value : this.color,
       isSystem: data.isSystem.present ? data.isSystem.value : this.isSystem,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -1470,6 +1511,7 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('kind: $kind, ')
           ..write('parentId: $parentId, ')
           ..write('icon: $icon, ')
+          ..write('iconCode: $iconCode, ')
           ..write('color: $color, ')
           ..write('isSystem: $isSystem, ')
           ..write('createdAt: $createdAt, ')
@@ -1486,6 +1528,7 @@ class Category extends DataClass implements Insertable<Category> {
     kind,
     parentId,
     icon,
+    iconCode,
     color,
     isSystem,
     createdAt,
@@ -1501,6 +1544,7 @@ class Category extends DataClass implements Insertable<Category> {
           other.kind == this.kind &&
           other.parentId == this.parentId &&
           other.icon == this.icon &&
+          other.iconCode == this.iconCode &&
           other.color == this.color &&
           other.isSystem == this.isSystem &&
           other.createdAt == this.createdAt &&
@@ -1514,6 +1558,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<String> kind;
   final Value<String?> parentId;
   final Value<String?> icon;
+  final Value<String?> iconCode;
   final Value<String?> color;
   final Value<bool> isSystem;
   final Value<DateTime> createdAt;
@@ -1526,6 +1571,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.kind = const Value.absent(),
     this.parentId = const Value.absent(),
     this.icon = const Value.absent(),
+    this.iconCode = const Value.absent(),
     this.color = const Value.absent(),
     this.isSystem = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -1539,6 +1585,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     required String kind,
     this.parentId = const Value.absent(),
     this.icon = const Value.absent(),
+    this.iconCode = const Value.absent(),
     this.color = const Value.absent(),
     this.isSystem = const Value.absent(),
     required DateTime createdAt,
@@ -1556,6 +1603,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<String>? kind,
     Expression<String>? parentId,
     Expression<String>? icon,
+    Expression<String>? iconCode,
     Expression<String>? color,
     Expression<bool>? isSystem,
     Expression<DateTime>? createdAt,
@@ -1569,6 +1617,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       if (kind != null) 'kind': kind,
       if (parentId != null) 'parent_id': parentId,
       if (icon != null) 'icon': icon,
+      if (iconCode != null) 'icon_code': iconCode,
       if (color != null) 'color': color,
       if (isSystem != null) 'is_system': isSystem,
       if (createdAt != null) 'created_at': createdAt,
@@ -1584,6 +1633,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Value<String>? kind,
     Value<String?>? parentId,
     Value<String?>? icon,
+    Value<String?>? iconCode,
     Value<String?>? color,
     Value<bool>? isSystem,
     Value<DateTime>? createdAt,
@@ -1597,6 +1647,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       kind: kind ?? this.kind,
       parentId: parentId ?? this.parentId,
       icon: icon ?? this.icon,
+      iconCode: iconCode ?? this.iconCode,
       color: color ?? this.color,
       isSystem: isSystem ?? this.isSystem,
       createdAt: createdAt ?? this.createdAt,
@@ -1623,6 +1674,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     }
     if (icon.present) {
       map['icon'] = Variable<String>(icon.value);
+    }
+    if (iconCode.present) {
+      map['icon_code'] = Variable<String>(iconCode.value);
     }
     if (color.present) {
       map['color'] = Variable<String>(color.value);
@@ -1653,6 +1707,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('kind: $kind, ')
           ..write('parentId: $parentId, ')
           ..write('icon: $icon, ')
+          ..write('iconCode: $iconCode, ')
           ..write('color: $color, ')
           ..write('isSystem: $isSystem, ')
           ..write('createdAt: $createdAt, ')
@@ -3968,6 +4023,7 @@ typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
   required String kind,
   Value<String?> parentId,
   Value<String?> icon,
+  Value<String?> iconCode,
   Value<String?> color,
   Value<bool> isSystem,
   required DateTime createdAt,
@@ -3981,6 +4037,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<String> kind,
   Value<String?> parentId,
   Value<String?> icon,
+  Value<String?> iconCode,
   Value<String?> color,
   Value<bool> isSystem,
   Value<DateTime> createdAt,
@@ -4074,6 +4131,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get icon => $composableBuilder(
     column: $table.icon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconCode => $composableBuilder(
+    column: $table.iconCode,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4205,6 +4267,11 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get iconCode => $composableBuilder(
+    column: $table.iconCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get color => $composableBuilder(
     column: $table.color,
     builder: (column) => ColumnOrderings(column),
@@ -4274,6 +4341,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get icon =>
       $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get iconCode =>
+      $composableBuilder(column: $table.iconCode, builder: (column) => column);
 
   GeneratedColumn<String> get color =>
       $composableBuilder(column: $table.color, builder: (column) => column);
@@ -4401,6 +4471,7 @@ class $$CategoriesTableTableManager
                 Value<String> kind = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
+                Value<String?> iconCode = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<bool> isSystem = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -4413,6 +4484,7 @@ class $$CategoriesTableTableManager
                 kind: kind,
                 parentId: parentId,
                 icon: icon,
+                iconCode: iconCode,
                 color: color,
                 isSystem: isSystem,
                 createdAt: createdAt,
@@ -4427,6 +4499,7 @@ class $$CategoriesTableTableManager
                 required String kind,
                 Value<String?> parentId = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
+                Value<String?> iconCode = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<bool> isSystem = const Value.absent(),
                 required DateTime createdAt,
@@ -4439,6 +4512,7 @@ class $$CategoriesTableTableManager
                 kind: kind,
                 parentId: parentId,
                 icon: icon,
+                iconCode: iconCode,
                 color: color,
                 isSystem: isSystem,
                 createdAt: createdAt,
