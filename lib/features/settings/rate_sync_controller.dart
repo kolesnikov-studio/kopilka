@@ -67,10 +67,11 @@ class RateSyncController extends Notifier<RateSyncState> {
     }
   }
 
-  /// Применить готовый словарь курсов (шов для тестов и возможного
-  /// альтернативного источника): сеть не трогается, DAO — да. Базовая
-  /// берётся из справочника; пустой справочник (до посева) — тихий отказ
-  /// сети, как в [RateSyncService.syncNow].
+  /// Применить готовый словарь курсов в единицах rate_to_base — «база за
+  /// единицу валюты» (USD: 90 при базе RUB; НЕ единицы источника — их
+  /// разворачивает сервис на сетевой границе, D-42): сеть не трогается,
+  /// DAO — да. Базовая берётся из справочника; пустой справочник (до
+  /// посева) — тихий отказ сети, как в [RateSyncService.syncNow].
   Future<RateSyncResult> applyRates(Map<String, double> rates) async {
     final Currency? base =
         await ref.read(currenciesDaoProvider).baseCurrency();

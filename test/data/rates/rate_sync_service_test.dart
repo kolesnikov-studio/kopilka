@@ -187,9 +187,9 @@ void main() {
         client: MockClient((http.Request request) async {
           requestedUrl = request.url;
           return ratesResponse(<String, Object?>{
-            'USD': 80.5,
-            'EUR': 95.25,
-            'JPY': 0.55,
+            'USD': 0.0125,
+            'EUR': 0.0105,
+            'RUB': 1,
           });
         }),
       ).syncNow(f.dao);
@@ -197,10 +197,14 @@ void main() {
       expect(requestedUrl.host, 'open.er-api.com');
       expect(requestedUrl.path, '/v6/latest/RUB');
       expect(result, isA<RateSyncUpdated>());
+      // Единицы источника — «CODE за единицу базы» (реальный ответ
+      // open.er-api.com /latest/RUB: USD ≈ 0.0111 — долларов за рубль);
+      // в справочник пишется обратная величина (D-42).
       expect((result as RateSyncUpdated).updatedCount, 2);
-      expect(await f.rateOf('USD'), 80.5);
-      expect(await f.rateOf('EUR'), 95.25);
-      expect(await f.dao.findAlive('JPY'), isNull);
+      expect(await f.rateOf('USD'), closeTo(80, 1e-9));
+      expect(await f.rateOf('EUR'), closeTo(95.238095238, 1e-8));
+      expect(await f.dao.findAlive('RUB'), isNotNull,
+          reason: 'RUB есть в базе пользователя, но базовая — не трогается');
       expect(await f.rateOf('RUB'), 1);
     });
 
@@ -210,7 +214,7 @@ void main() {
         timeout: const Duration(milliseconds: 20),
         client: MockClient((http.Request request) async {
           await Future<void>.delayed(const Duration(seconds: 5));
-          return ratesResponse(<String, Object?>{'USD': 1});
+          return ratesResponse(<String, Object?>{'USD': 1.0});
         }),
       ).syncNow(f.dao);
 
@@ -253,7 +257,7 @@ void main() {
 
       final RateSyncService service2 = RateSyncService(
         client: clientAnswering(
-          () async => ratesResponse(<String, Object?>{'USD': 0}),
+          () async => ratesResponse(<String, Object?>{'USD': 0.0}),
         ),
       );
       expect(await service2.syncNow(f.dao), isA<RateSyncFailed>());
@@ -265,7 +269,7 @@ void main() {
       final RateSyncResult result = await RateSyncService(
         client: MockClient((http.Request request) async {
           calls++;
-          return ratesResponse(<String, Object?>{});
+          return ratesResponse(<String, Object?>{'RUB': 1.0});
         }),
       ).syncNow(f.dao);
 
@@ -284,12 +288,14 @@ void main() {
       await f.seed();
       final RateSyncResult result = await RateSyncService(
         client: clientAnswering(
-          () async => ratesResponse(<String, Object?>{'USD': 80.5}),
+          () async => ratesResponse(<String, Object?>{'USD': 0.0125}),
         ),
       ).syncForBase(f.dao, 'RUB');
 
       expect(result, isA<RateSyncUpdated>());
-      expect(await f.rateOf('USD'), 80.5);
+      // Обратная величина: источник отдал 0.0125 доллара за рубль —
+      // в справочнике 80 рублей за доллар (D-42).
+      expect(await f.rateOf('USD'), closeTo(80, 1e-9));
     });
   });
 }

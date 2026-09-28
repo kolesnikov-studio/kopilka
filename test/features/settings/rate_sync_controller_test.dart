@@ -73,7 +73,9 @@ void main() {
       db: db,
       client: MockClient(
         (http.Request request) async =>
-            _ratesResponse(<String, Object?>{'USD': 80, 'EUR': 95}),
+            // Единицы источника — «CODE за единицу базы» (D-42): сервис
+            // разворачивает их в «база за единицу CODE».
+            _ratesResponse(<String, Object?>{'USD': 0.0125, 'EUR': 0.01}),
       ),
     );
     await container.read(rateSyncEnabledProvider.notifier).setEnabled(true);
@@ -83,7 +85,8 @@ void main() {
 
     expect(result, isA<RateSyncUpdated>());
     expect((result as RateSyncUpdated).updatedCount, 2);
-    expect((await dao.findAlive('USD'))!.rateToBase, 80);
+    expect((await dao.findAlive('USD'))!.rateToBase, closeTo(80, 1e-9));
+    expect((await dao.findAlive('EUR'))!.rateToBase, closeTo(100, 1e-9));
     expect(
       container.read(rateSyncControllerProvider).syncing,
       isFalse,

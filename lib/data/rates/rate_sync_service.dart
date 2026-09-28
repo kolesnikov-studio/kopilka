@@ -20,7 +20,10 @@ import 'package:kopilka/data/db/dao/currencies_dao.dart';
 /// Выбор против frankfurter.dev: у frankfurter нет RUB и экзотических валют
 /// (у нашего справочника 157 записей ISO, включая RUB — посев по умолчанию);
 /// open.er-api.com отдаёт курсы ~160 валют к любой базовой одним запросом
-/// без ключа. Схема ответа `{ "result": "success", "rates": { "CODE": 90.5 } }`.
+/// без ключа. Схема ответа `{ "result": "success", "rates": { "CODE": ... } }`,
+/// где значение — «сколько CODE за единицу базовой» (запрос /latest/RUB:
+/// USD: 0.0111 — долларов за рубль); в rate_to_base хранится обратная
+/// величина, конверсия — в [_sync] (D-42).
 ///
 /// Если источник переедет или поменяет схему — правки только здесь.
 const String rateSyncApiUrl = 'https://open.er-api.com/v6/latest';
@@ -59,7 +62,11 @@ class RateSyncDisabled extends RateSyncResult {
   const RateSyncDisabled();
 }
 
-/// Разбирает ответ источника в словарь «код → курс».
+/// Разбирает ответ источника в словарь «код → курс источника».
+///
+/// Единицы — сырые единицы источника: «сколько валюты CODE за единицу
+/// базовой» (запрос /latest/RUB отдаёт USD: 0.0111 — долларов за рубль);
+/// разворот в единицы справочника («база за единицу CODE») делает [_sync].
 ///
 /// Возвращает null, если формат неожиданный: не `result: "success"`,
 /// `rates` — не словарь конечных чисел или словарь пуст. Пустой `rates`
@@ -136,21 +143,32 @@ class RateSyncService {
     if (response.statusCode != 200) {
       return const RateSyncOffline();
     }
-    final Map<String, double>? rates;
+    final Map<String, double>? parsed;
     try {
-      rates = parseRatesResponse(jsonDecode(utf8.decode(response.bodyBytes)));
+      parsed = parseRatesResponse(jsonDecode(utf8.decode(response.bodyBytes)));
     } on FormatException {
       return const RateSyncFailed();
     }
-    if (rates == null) {
+    if (parsed == null) {
       return const RateSyncFailed();
     }
+    // Единицы источника и справочника взаимно обратны (D-42): источник
+    // отдаёт «CODE за единицу базы» (USD: 0.0111 при базе RUB), справочник
+    // хранит «база за единицу CODE» (USD: 90). Конверсия — на сетевой
+    // границе, до применения; нулей и отрицательных в словаре нет
+    // (parseRatesResponse отбраковывает весь ответ), деления на ноль нет.
+    final Map<String, double> rates = <String, double>{
+      for (final MapEntry<String, double> entry in parsed.entries)
+        entry.key: 1 / entry.value,
+    };
     return applyRates(dao, rates, baseCode: baseCode);
   }
 
-  /// Записывает курсы [rates] («код источника → курс за единицу [baseCode]»)
-  /// в справочник: каждая живая небазовая валюта, присутствующая в словаре,
-  /// получает rate_to_base из источника; база и валюты вне словаря не трогаются.
+  /// Записывает курсы [rates] в справочник в единицах rate_to_base —
+  /// «база [baseCode] за единицу валюты» (USD: 90 при базе RUB; это НЕ
+  /// единицы источника — их разворачивает [_sync], D-42): каждая живая
+  /// небазовая валюта, присутствующая в словаре, получает rate_to_base;
+  /// база и валюты вне словаря не трогаются.
   ///
   /// Отдельный от сети метод: шаг 2 (UI) и тесты могут гонять применение
   /// без фейкового клиента.
