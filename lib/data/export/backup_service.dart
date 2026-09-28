@@ -21,7 +21,7 @@ class BackupService {
   final AppDatabase db;
   final Clock clock;
 
-  /// Экспорт полного дампа в JSON-строку (формат v3, см. кодек).
+  /// Экспорт полного дампа в JSON-строку (формат v4, см. кодек).
   Future<String> exportJson() async =>
       jsonEncode(await exportToJson(db));
 
@@ -98,6 +98,7 @@ class BackupService {
                   kind: row.kind.dbValue,
                   parentId: Value(row.parentId),
                   icon: Value(row.icon),
+                  iconCode: Value(row.iconCode),
                   color: Value(row.color),
                   isSystem: Value(row.isSystem),
                   createdAt: row.createdAt,

@@ -334,6 +334,133 @@ void main() {
     expect(backup.transactions.single.targetAmountMinor, isNull);
   });
 
+  test('v4: строка категории с icon_code читается типизированно (D-54)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 4,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[
+          <String, dynamic>{
+            'id': 'cat-1',
+            'name': 'Продукты',
+            'kind': 'expense',
+            'is_system': true,
+            'icon_code': 'groceries',
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+          <String, dynamic>{
+            'id': 'cat-2',
+            'name': 'Кафе',
+            'kind': 'expense',
+            'is_system': true,
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.categories, hasLength(2));
+    expect(backup.categories.first.iconCode, 'groceries');
+    // Нет поля = NULL: категория без иконки — валидное состояние.
+    expect(backup.categories.last.iconCode, isNull);
+  });
+
+  test('v1/v2/v3 без поля icon_code: категории читаются как NULL (D-54)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 3,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[
+          <String, dynamic>{
+            'id': 'cat-1',
+            'name': 'Продукты',
+            'kind': 'expense',
+            'is_system': true,
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.schemaVersion, 3);
+    expect(backup.categories.single.iconCode, isNull);
+  });
+
+  test('неизвестный справочнику icon_code — отказ импорта (D-54/D-25)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 4,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[
+          <String, dynamic>{
+            'id': 'cat-1',
+            'name': 'Продукты',
+            'kind': 'expense',
+            'is_system': true,
+            'icon_code': 'нет-такого',
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('битый icon_code (не строка) — отказ invalidData', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 4,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[
+          <String, dynamic>{
+            'id': 'cat-1',
+            'name': 'Продукты',
+            'kind': 'expense',
+            'is_system': true,
+            'icon_code': 42,
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
   test('битый target_amount_minor (не число) — отказ invalidData', () {
     final Map<String, dynamic> document = <String, dynamic>{
       'schema_version': 3,

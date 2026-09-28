@@ -21,8 +21,10 @@ import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/export/backup_service.dart';
 
-/// Богатая база: максимум различимых случаев формата v1.
-Future<AppDatabase> richSeeded() async {
+/// Богатая база: максимум различимых случаев формата v1. Возвращает базу
+/// и идентификаторы категорий с иконкой/без — они нужны проверкам v4.
+Future<({AppDatabase db, String groceriesId, String milkId})>
+    richSeeded() async {
   final AppDatabase database = AppDatabase.forTesting(NativeDatabase.memory());
   await seedDefaultsIfEmpty(database);
 
@@ -64,17 +66,22 @@ Future<AppDatabase> richSeeded() async {
   );
   await database.accountsDao.softDelete(deleted.id);
 
-  // Категории: вложенность, системные и обычные, мягко удалённые.
+  // Категории: вложенность, системные и обычные, с иконкой и без (v4,
+  // D-54), мягко удалённые. Идентификаторы нужны второму тесту: посев
+  // создаёт одноимённую системную «Продукты», поиск по имени двусмыслен.
   final Category groceries = await database.categoriesDao.create(
     name: 'Продукты',
     kind: CategoryKind.expense,
     isSystem: true,
+    iconCode: 'groceries',
   );
   final Category milk = await database.categoriesDao.create(
     name: 'Молочка',
     kind: CategoryKind.expense,
     parentId: groceries.id,
   );
+  final String groceriesId = groceries.id;
+  final String milkId = milk.id;
   final Category customDeleted = await database.categoriesDao.create(
     name: 'Моё удалённое',
     kind: CategoryKind.expense,
@@ -134,7 +141,7 @@ Future<AppDatabase> richSeeded() async {
   );
   await database.transactionsDao.softDelete(deletedExpense.id);
 
-  return database;
+  return (db: database, groceriesId: groceriesId, milkId: milkId);
 }
 
 /// Канонизирует документ для сравнения: таблицы как множества строк
@@ -159,7 +166,7 @@ CanonicalDocument canonical(Map<String, dynamic> document) {
 
 void main() {
   test('экспорт → импорт → экспорт даёт идентичный документ', () async {
-    final AppDatabase source = await richSeeded();
+    final AppDatabase source = (await richSeeded()).db;
     addTearDown(source.close);
 
     final BackupService service = BackupService(source);
@@ -198,7 +205,12 @@ void main() {
   });
 
   test('round-trip сохраняет содержимое: суммы, валюты, курсы, ссылки', () async {
-    final AppDatabase source = await richSeeded();
+    final (
+      db: AppDatabase source,
+      groceriesId: String groceriesId,
+      milkId: String milkId,
+    ) =
+        await richSeeded();
     addTearDown(source.close);
 
     final String firstJson = await BackupService(source).exportJson();
@@ -218,6 +230,19 @@ void main() {
     final Currency usd = await restored.currenciesDao.findAlive('USD')
         as Currency;
     expect(usd.rateToBase, 79.375);
+
+    // Иконки категорий (v4, D-54) переживают round-trip дословно:
+    // выбранная — сохраняется, NULL — остаётся NULL. Проверяем по id
+    // фикстуры: посев создаёт одноимённую системную «Продукты» без иконки
+    // (замок на посев менять нельзя, §8).
+    expect(
+      (await restored.categoriesDao.findById(groceriesId))?.iconCode,
+      'groceries',
+    );
+    expect(
+      (await restored.categoriesDao.findById(milkId))?.iconCode,
+      isNull,
+    );
 
     // Вложенность и мягко удалённые строки физически в базе.
     final List<QueryRow> nested = await restored.customSelect(
@@ -271,7 +296,7 @@ void main() {
   });
 
   test('round-trip мягко удалённых строк: удалённые остаются удалёнными', () async {
-    final AppDatabase source = await richSeeded();
+    final AppDatabase source = (await richSeeded()).db;
     addTearDown(source.close);
 
     final String firstJson = await BackupService(source).exportJson();
@@ -306,7 +331,7 @@ void main() {
 
   test('повторный round-trip стабилен: экспорт → импорт → экспорт → импорт → экспорт',
       () async {
-    final AppDatabase source = await richSeeded();
+    final AppDatabase source = (await richSeeded()).db;
     addTearDown(source.close);
 
     final BackupService sourceService = BackupService(source);

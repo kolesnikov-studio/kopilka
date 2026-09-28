@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/text.dart';
 import 'package:kopilka/data/db/database.dart';
@@ -16,6 +17,11 @@ import 'package:kopilka/data/db/enums.dart';
 // target_amount_minor (сумма зачисления перевода между валютами, D-17);
 // чтение v1/v2 не меняется — нет поля = NULL.
 //
+// v4 (M5, D-54): в строках categories появилось необязательное поле
+// icon_code (код из справочника core/category_icons.dart); чтение v1/v2/v3
+// не меняется — нет поля = NULL. Валидация строгая (прецедент D-25):
+// неизвестный справочнику код — отказ импорта, не тихий пропуск.
+//
 // Правила §3, которые кодек обязан воспроизводить дословно:
 // - PK — UUID v4 (TEXT), сгенерирован приложением при создании записи;
 // - каждая строка содержит created_at/updated_at (UTC) и deleted_at
@@ -28,8 +34,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v3.
-const int backupSchemaVersion = 3;
+/// дамп таблиц v4.
+const int backupSchemaVersion = 4;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -67,9 +73,12 @@ enum BackupFailure {
 /// добавляются сюда, старые файлы обязаны читаться. v1 → v2: таблица
 /// `budgets` появилась в v2, старый файл дополняется пустым списком.
 /// v2 → v3: правки не требует — в v3 только необязательное поле строк
-/// transactions, его отсутствие означает NULL (D-21).
+/// transactions, его отсутствие означает NULL (D-21). v3 → v4: правки не
+/// требует — в v4 только необязательное поле строк categories, его
+/// отсутствие означает NULL (D-54).
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
+    4 => (Map<String, dynamic> document) => document,
     3 => (Map<String, dynamic> document) => document,
     2 => (Map<String, dynamic> document) => document,
     1 => (Map<String, dynamic> document) {
@@ -345,6 +354,18 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
         ),
         parentId: _optionalString(row['parent_id'], 'categories.parent_id'),
         icon: _optionalString(row['icon'], 'categories.icon'),
+        // v4 (D-54): необязательное поле; нет поля = NULL (v1/v2/v3).
+        // Строгая валидация: неизвестный справочнику код — отказ импорта
+        // (прецедент D-25), не тихий пропуск.
+        iconCode: switch (_optionalString(row['icon_code'], 'categories.icon_code')) {
+          null => null,
+          final String code when categoryIconByCode(code) != null => code,
+          final String code => throw BackupValidationException(
+              'categories.icon_code: неизвестный справочнику код «$code» — '
+              'отказ импорта (D-54/D-25)',
+              kind: BackupFailure.invalidData,
+            ),
+        },
         color: _optionalString(row['color'], 'categories.color'),
         isSystem: row['is_system'] == true,
         createdAt: _requireDate(row['created_at'], 'categories.created_at'),
@@ -503,6 +524,7 @@ class BackupCategory {
     required this.updatedAt,
     this.parentId,
     this.icon,
+    this.iconCode,
     this.color,
     this.deletedAt,
   });
@@ -512,6 +534,11 @@ class BackupCategory {
   final CategoryKind kind;
   final String? parentId;
   final String? icon;
+
+  /// Код иконки из справочника (v4, D-54): NULL = без иконки; у файлов
+  /// v1/v2/v3 поля нет — читается как NULL. Значение уже сверено
+  /// со справочником при декодировании (строгая валидация).
+  final String? iconCode;
   final String? color;
   final bool isSystem;
   final DateTime createdAt;
