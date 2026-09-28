@@ -2,7 +2,8 @@ name: Release
 
 # Сборка артефактов релиза на тег v* (ARCHITECTURE.md §7):
 # Android universal APK, Windows NSIS + portable zip, Linux AppImage,
-# черновик GitHub Release. Публикация — руками после проверки черновика.
+# черновой GitHub Release с заметками из release-notes.md (русский текст,
+# D-53). Публикация — руками после проверки черновика.
 
 on:
   push:
@@ -155,8 +156,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          test -f release-notes.md || { echo "::error::Нет release-notes.md — заметки релиза обновляет исполнитель в задаче подготовки (D-53)"; exit 1; }
           gh release create "$GITHUB_REF_NAME" \
             --draft \
             --title "Kopilka $GITHUB_REF_NAME" \
-            --generate-notes \
+            --notes-file release-notes.md \
             dist/*
