@@ -317,7 +317,7 @@ void main() {
       expect(await database.transactionsDao.getFiltered(), isEmpty);
     });
 
-    test('сумма с запятой как в ручном вводе не принимается (формат — точка)',
+    test('сумма с запятой читается как ручной ввод (нормализация в точку)',
         () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
@@ -614,6 +614,80 @@ void main() {
         (await database.transactionsDao.getFiltered()).first.id,
         before.first.id,
       );
+    });
+
+    test('дубль имени живого счёта в базе — отказ импорта', () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      await database.accountsDao.create(
+        name: 'Наличные',
+        kind: AccountKind.cash,
+        currencyCode: 'RUB',
+      );
+      final String csv = '$header\n'
+          '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
+      // Ссылка по имени неоднозначна: DAO дубли имён не запрещает,
+      // «молча взять один из двух» — ложь данных (решение приёмки 2026-09-28).
+      await expectLater(
+        importCsvFile(database, csv: csv),
+        throwsA(
+          isA<CsvImportException>().having(
+            (CsvImportException e) => e.kind,
+            'kind',
+            CsvImportFailure.invalidData,
+          ),
+        ),
+      );
+    });
+
+    test('дубль имени живой категории внутри вида — отказ импорта', () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      await database.categoriesDao.create(
+        name: 'Жильё',
+        kind: CategoryKind.expense,
+      );
+      final String csv = '$header\n'
+          '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
+      // Имена видов независимы, но дубль внутри вида делает ссылку по имени
+      // неоднозначной (решение приёмки 2026-09-28).
+      await expectLater(
+        importCsvFile(database, csv: csv),
+        throwsA(
+          isA<CsvImportException>().having(
+            (CsvImportException e) => e.kind,
+            'kind',
+            CsvImportFailure.invalidData,
+          ),
+        ),
+      );
+    });
+
+    test('категория ищется по виду операции: «Подарки» доходная и расходная',
+        () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      // Сев содержит оба вида «Подарки»: каждая операция обязана получить
+      // категорию своего вида, а не «первую в карте».
+      final String csv = '$header\n'
+          '${csvLine('2026-09-27T10:00:00.000Z', 'income', 'Наличные', '', 'Подарки', '10', 'RUB', '')}\n'
+          '${csvLine('2026-09-27T11:00:00.000Z', 'expense', 'Наличные', '', 'Подарки', '5', 'RUB', '')}\n';
+      final CsvImportResult result =
+          await importCsvFile(database, csv: csv);
+      expect(result.imported, 2);
+      final List<Transaction> rows =
+          await database.transactionsDao.getFiltered();
+      final List<Category> alive = await database.categoriesDao.getAlive();
+      final Map<String, String> kindById = <String, String>{
+        for (final Category c in alive)
+          c.id: CategoryKind.fromDb(c.kind).dbValue,
+      };
+      final Transaction income =
+          rows.firstWhere((Transaction t) => t.type == 'income');
+      final Transaction expense =
+          rows.firstWhere((Transaction t) => t.type == 'expense');
+      expect(kindById[income.categoryId!], 'income');
+      expect(kindById[expense.categoryId!], 'expense');
     });
 
     test('повторный импорт того же файла дублирует операции (merge, не upsert)',

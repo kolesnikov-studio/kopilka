@@ -403,13 +403,41 @@ TransactionType parseCsvType(String raw, int line) {
 /// зафиксировано в отчёте M4-шага 2.
 K? exactByName<K>(String name, Map<String, K> byName) => byName[name];
 
+/// Карта «имя → запись» живых записей справочника с отказом при дублях
+/// имён: имя — ключ сопоставления CSV (ссылки по имени), а DAO дубли имён
+/// не запрещает. Дубль сделал бы выбор записи неопределённым («молча
+/// взять последнюю» — ложь данных, D-25): отказ импорта, приведение имён
+/// — забота пользователя.
+Map<String, K> aliveByName<K>(
+  List<K> rows,
+  String Function(K) nameOf,
+) {
+  final Map<String, K> byName = <String, K>{};
+  for (final K row in rows) {
+    final String name = nameOf(row);
+    if (byName.containsKey(name)) {
+      throw CsvImportException(
+        'в базе несколько живых записей с именем «$name»: импорт по имени '
+        'неоднозначен — приведите имена счетов/категорий в порядок',
+        kind: CsvImportFailure.invalidData,
+        line: 0,
+      );
+    }
+    byName[name] = row;
+  }
+  return byName;
+}
+
 /// Разбирает и строго валидирует CSV-файл целиком (D-25: отказ всего
 /// импорта при любом нарушении, без частичной загрузки).
 ///
 /// Правила (бриф M4-шага 2, D-17/D-21/D-25/D-33):
 /// - неизвестный тип, нечисловая/неположительная сумма, битая дата — отказ;
-/// - счёт списания, валюта, счёт/категория по имени — обязаны существовать
-///   в живых справочниках базы (регистр значим);
+/// - счёт списания, валюта, категория по имени — обязаны существовать
+///   в живых справочниках базы (регистр значим); категория ищется среди
+///   категорий вида операции (доход у income, расход у expense): имена
+///   видов независимы («Подарки» в обоих видах — разные категории),
+///   дубль имени внутри вида — отказ;
 /// - перевод: счёт зачисления обязателен, категории быть не должно;
 ///   валюта колонки — валюта счёта списания;
 /// - не-перевод: ячейка счёта зачисления пустая (заполненная — отказ);
@@ -422,7 +450,8 @@ CsvImportData parseCsvImport({
   required String csv,
   required CsvColumnMapping mapping,
   required Map<String, Account> accountsByName,
-  required Map<String, Category> categoriesByName,
+  required Map<String, Category> expenseCategoriesByName,
+  required Map<String, Category> incomeCategoriesByName,
 }) {
   final List<List<String>> rows = parseCsv(csv);
   if (rows.isEmpty) {
@@ -498,12 +527,17 @@ CsvImportData parseCsvImport({
             line: line,
           );
         }
+        final Map<String, Category> categoriesByName =
+            type == TransactionType.income
+                ? incomeCategoriesByName
+                : expenseCategoriesByName;
         final Category? category = categoryName.isEmpty
             ? null
             : exactByName(categoryName, categoriesByName);
         if (categoryName.isNotEmpty && category == null) {
           throw CsvImportException(
-            'категория «$categoryName» не найдена среди живых категорий базы',
+            'категория «$categoryName» не найдена среди живых категорий '
+            '${type == TransactionType.income ? 'доходов' : 'расходов'} базы',
             kind: CsvImportFailure.invalidData,
             line: line,
           );
@@ -606,14 +640,27 @@ Future<CsvImportResult> importTransactionsCsv(
   IdGenerator idGenerator = newId,
   Clock clock = utcNow,
 }) async {
-  final List<Account> accounts = await db.accountsDao.getAlive();
-  final Map<String, Account> accountsByName = <String, Account>{
-    for (final Account account in accounts) account.name: account,
-  };
+  final Map<String, Account> accountsByName =
+      aliveByName(await db.accountsDao.getAlive(), (Account a) => a.name);
   final List<Category> categories = await db.categoriesDao.getAlive();
-  final Map<String, Category> categoriesByName = <String, Category>{
-    for (final Category category in categories) category.name: category,
-  };
+  final Map<String, Category> expenseCategoriesByName = aliveByName(
+    categories
+        .where(
+          (Category c) =>
+              CategoryKind.fromDb(c.kind) == CategoryKind.expense,
+        )
+        .toList(growable: false),
+    (Category c) => c.name,
+  );
+  final Map<String, Category> incomeCategoriesByName = aliveByName(
+    categories
+        .where(
+          (Category c) =>
+              CategoryKind.fromDb(c.kind) == CategoryKind.income,
+        )
+        .toList(growable: false),
+    (Category c) => c.name,
+  );
 
   await db.transaction(() async {
     for (final CsvParsedOperation operation in data.operations) {
@@ -633,7 +680,9 @@ Future<CsvImportResult> importTransactionsCsv(
       if (operation.categoryName != null) {
         final Category? category = exactByName(
           operation.categoryName!,
-          categoriesByName,
+          operation.type == TransactionType.income
+              ? incomeCategoriesByName
+              : expenseCategoriesByName,
         );
         if (category == null) {
           throw CsvImportException(
@@ -687,6 +736,8 @@ Future<CsvImportResult> importTransactionsCsv(
 
 /// Сквозной импорт: разбор + валидация + загрузка (точка входа для
 /// будущего UI). Падение на любом этапе оставляет базу нетронутой.
+/// Дубли имён живых счетов/категорий — отказ: ссылка по имени
+/// неоднозначна (DAO дубли имён не запрещает).
 Future<CsvImportResult> importCsvFile(
   AppDatabase db, {
   required String csv,
@@ -694,19 +745,33 @@ Future<CsvImportResult> importCsvFile(
 }) async {
   final CsvColumnMapping effectiveMapping =
       mapping ?? csvMappingFromExportV03();
-  final List<Account> accounts = await db.accountsDao.getAlive();
-  final Map<String, Account> accountsByName = <String, Account>{
-    for (final Account account in accounts) account.name: account,
-  };
+  final Map<String, Account> accountsByName =
+      aliveByName(await db.accountsDao.getAlive(), (Account a) => a.name);
   final List<Category> categories = await db.categoriesDao.getAlive();
-  final Map<String, Category> categoriesByName = <String, Category>{
-    for (final Category category in categories) category.name: category,
-  };
+  final Map<String, Category> expenseCategoriesByName = aliveByName(
+    categories
+        .where(
+          (Category c) =>
+              CategoryKind.fromDb(c.kind) == CategoryKind.expense,
+        )
+        .toList(growable: false),
+    (Category c) => c.name,
+  );
+  final Map<String, Category> incomeCategoriesByName = aliveByName(
+    categories
+        .where(
+          (Category c) =>
+              CategoryKind.fromDb(c.kind) == CategoryKind.income,
+        )
+        .toList(growable: false),
+    (Category c) => c.name,
+  );
   final CsvImportData data = parseCsvImport(
     csv: csv,
     mapping: effectiveMapping,
     accountsByName: accountsByName,
-    categoriesByName: categoriesByName,
+    expenseCategoriesByName: expenseCategoriesByName,
+    incomeCategoriesByName: incomeCategoriesByName,
   );
   return importTransactionsCsv(db, data);
 }
