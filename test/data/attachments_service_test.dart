@@ -207,6 +207,49 @@ void main() {
     });
   });
 
+  group('замки приёмки (D-63, чистое состояние при отказе ФС)', () {
+    test(
+      'замена: отказ ФС на удалении старого файла не задевает новое вложение',
+      () async {
+        final Transaction tx = await seedTransaction();
+        await service.attach(
+          transactionId: tx.id,
+          mimeType: 'image/png',
+          bytes: <int>[1],
+        );
+        f.clock.advance(const Duration(minutes: 1));
+
+        // Старый файл заменяем каталогом: deleteFile наткнётся на отказ
+        // ФС уже после того, как новая запись в БД создана.
+        await attachmentFile('file-1.png').delete();
+        final Directory fakeOldFile =
+            Directory('${tempDir.path}${Platform.pathSeparator}file-1.png');
+        await fakeOldFile.create();
+
+        await expectLater(
+          service.attach(
+            transactionId: tx.id,
+            mimeType: 'application/pdf',
+            bytes: <int>[2],
+          ),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.storageFailure,
+            ),
+          ),
+        );
+        final Attachment? second = await service.findForTransaction(tx.id);
+
+        // Замена состоялась: живая запись — новая, файл на месте.
+        expect(second, isNotNull);
+        expect(second!.filePath, 'file-2.pdf');
+        expect(await attachmentFile('file-2.pdf').exists(), isTrue);
+      },
+    );
+  });
+
   group('findForTransaction', () {
     test('NULL до вложения, вложение после', () async {
       final Transaction tx = await seedTransaction();

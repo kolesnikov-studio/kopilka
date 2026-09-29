@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kopilka/data/attachments_repository.dart';
+import 'package:kopilka/data/attachments_service.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
+import 'package:kopilka/data/db/dao/attachments_dao.dart';
 import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
@@ -37,6 +40,29 @@ final transactionsDaoProvider = Provider<TransactionsDao>(
 
 final budgetsDaoProvider = Provider<BudgetsDao>(
   (ref) => ref.watch(appDatabaseProvider).budgetsDao,
+);
+
+final attachmentsDaoProvider = Provider<AttachmentsDao>(
+  (ref) => ref.watch(appDatabaseProvider).attachmentsDao,
+);
+
+/// Хранилище файлов вложений (v6, D-63): каталог `attachments/` рядом с
+/// `kopilka.sqlite`. База создаётся в main и подменяется переопределением
+/// провайдера — образец магазинов настроек (D-43).
+final attachmentsStorageProvider = Provider<AttachmentsStorage>(
+  (ref) {
+    throw UnimplementedError(
+      'создаётся в main: AttachmentsStorage(rootDirectory: каталог attachments/ рядом с БД)',
+    );
+  },
+);
+
+/// Сервис вложений (v6, D-63): единый метод «запись файла + запись БД».
+final attachmentsServiceProvider = Provider<AttachmentsService>(
+  (ref) => AttachmentsService(
+    ref.watch(attachmentsStorageProvider),
+    ref.watch(attachmentsDaoProvider),
+  ),
 );
 
 /// Сервис бэкапа/экспорта над единственной БД (A18): один экземпляр

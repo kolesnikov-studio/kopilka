@@ -54,20 +54,14 @@ class AttachmentsService {
       mimeType: mimeType,
       bytes: bytes,
     );
+    final Attachment created;
     try {
-      final Attachment created = await _dao.create(
+      created = await _dao.create(
         transactionId: transactionId,
         filePath: fileName,
         mimeType: mimeType,
         fileSize: bytes.length,
       );
-      // Замена (D-63): старая запись уже мягко удалена правилом DAO,
-      // удаляем её файл. Отказ ФС здесь честно пробрасывается: вложение
-      // уже заменено, а файл-сирота безвреден (как в [delete]).
-      if (previous != null) {
-        await _storage.deleteFile(previous.filePath);
-      }
-      return created;
     } on Exception {
       // БД-запись не прошла (операция не найдена, MIME не прошёл вторую
       // линию защиты DAO, сбой БД): файл без записи — мусор; убираем и
@@ -75,6 +69,14 @@ class AttachmentsService {
       await _storage.deleteFile(fileName);
       rethrow;
     }
+    // Замена (D-63): старая запись уже мягко удалена правилом DAO,
+    // удаляем её файл. Вне try: отказ ФС здесь не должен задевать новый
+    // файл — вложение уже заменено, а файл-сирота безвреден (как в
+    // [delete]).
+    if (previous != null) {
+      await _storage.deleteFile(previous.filePath);
+    }
+    return created;
   }
 
   /// Живое вложение операции (или NULL).

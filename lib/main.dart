@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/app.dart';
 import 'package:kopilka/app/theme.dart';
+import 'package:kopilka/data/attachments_service.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
@@ -14,6 +15,7 @@ import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/theme_preferences.dart';
 import 'package:kopilka/features/settings/update_controller.dart';
 import 'package:kopilka/features/settings/update_preferences.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 Future<void> main() async {
@@ -31,6 +33,12 @@ Future<void> main() async {
   // Каталог поддержки приложения: файлы настроек (каталог автобэкапа,
   // настройка проверки обновлений, настройка синхронизации курсов).
   final Directory supportDirectory = await getApplicationSupportDirectory();
+
+  // Хранилище файлов вложений (v6, D-63): каталог `attachments/` рядом с
+  // `kopilka.sqlite` — как у файлов настроек (D-43).
+  final AttachmentsStorage attachmentsStorage = AttachmentsStorage(
+    rootDirectory: Directory(p.join(supportDirectory.path, 'attachments')),
+  );
   final AutoBackupDirectoryStore autoBackupStore = AutoBackupDirectoryStore(
     baseDirectory: supportDirectory,
   );
@@ -53,6 +61,7 @@ Future<void> main() async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
       appDatabaseProvider.overrideWithValue(db),
+      attachmentsStorageProvider.overrideWithValue(attachmentsStorage),
       autoBackupDirectoryStoreProvider.overrideWithValue(autoBackupStore),
       updatePreferencesStoreProvider.overrideWithValue(updatePreferences),
       rateSyncPreferencesStoreProvider.overrideWithValue(rateSyncPreferences),
