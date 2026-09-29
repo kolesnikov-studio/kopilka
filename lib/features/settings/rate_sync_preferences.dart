@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kopilka/core/preferences_json.dart';
 import 'package:path/path.dart' as p;
 
 // Персист настройки синхронизации курсов (D-36, M4-шаг 2 — UI).
@@ -27,30 +27,10 @@ class RateSyncPreferencesStore {
 
   File get _file => File(p.join(baseDirectory.path, _fileName));
 
-  Future<Map<String, dynamic>> _readAll() async {
-    try {
-      if (!await _file.exists()) {
-        return <String, dynamic>{};
-      }
-      final Object? decoded = jsonDecode(await _file.readAsString());
-      return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
-    } on IOException {
-      return <String, dynamic>{};
-    } on FormatException {
-      // Битый JSON (T-2, D-43.г) — «молча выкл»: настройка не критична,
-      // падать из-за неё нельзя нигде, не только в main. Паттерн —
-      // update_preferences.dart.
-      return <String, dynamic>{};
-    }
-  }
+  Future<Map<String, dynamic>> _readAll() => readPreferencesJson(_file);
 
-  Future<void> _writeAll(Map<String, dynamic> values) async {
-    try {
-      await _file.writeAsString(jsonEncode(values), flush: true);
-    } on IOException {
-      // Настройка не критична: при недоступной ФС просто не сохранится.
-    }
-  }
+  Future<void> _writeAll(Map<String, dynamic> values) =>
+      writePreferencesJson(_file, values);
 
   /// Включена ли синхронизация курсов (D-36: по умолчанию выкл).
   Future<bool> readEnabled() async => (await _readAll())[_keyEnabled] == true;

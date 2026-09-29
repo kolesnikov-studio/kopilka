@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kopilka/core/preferences_json.dart';
 import 'package:path/path.dart' as p;
 
 // Настройки проверки обновлений (§5). Хранение — файл в каталоге поддержки:
@@ -27,29 +27,10 @@ class UpdatePreferencesStore {
 
   File get _file => File(p.join(baseDirectory.path, _fileName));
 
-  Future<Map<String, dynamic>> _readAll() async {
-    try {
-      if (!await _file.exists()) {
-        return <String, dynamic>{};
-      }
-      final Object? decoded = jsonDecode(await _file.readAsString());
-      return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
-    } on IOException {
-      return <String, dynamic>{};
-    } on FormatException {
-      // Битый JSON — «молча выкл» (T-2): настройка не критична, тот же
-      // паттерн, что в rate_sync_preferences.dart.
-      return <String, dynamic>{};
-    }
-  }
+  Future<Map<String, dynamic>> _readAll() => readPreferencesJson(_file);
 
-  Future<void> _writeAll(Map<String, dynamic> values) async {
-    try {
-      await _file.writeAsString(jsonEncode(values), flush: true);
-    } on IOException {
-      // Настройка не критична: при недоступной ФС просто не сохранится.
-    }
-  }
+  Future<void> _writeAll(Map<String, dynamic> values) =>
+      writePreferencesJson(_file, values);
 
   /// Включена ли автопроверка (§5: по умолчанию выкл).
   Future<bool> readEnabled() async =>

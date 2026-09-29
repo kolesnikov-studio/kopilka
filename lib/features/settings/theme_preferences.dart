@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kopilka/core/preferences_json.dart';
 import 'package:path/path.dart' as p;
 
 // Персист пресета и основы темы (M5, D-54 идея 1, спека D-58 §4).
@@ -30,29 +30,10 @@ class ThemePreferencesStore {
 
   File get _file => File(p.join(baseDirectory.path, _fileName));
 
-  Future<Map<String, dynamic>> _readAll() async {
-    try {
-      if (!await _file.exists()) {
-        return <String, dynamic>{};
-      }
-      final Object? decoded = jsonDecode(await _file.readAsString());
-      return decoded is Map<String, dynamic> ? decoded : <String, dynamic>{};
-    } on IOException {
-      return <String, dynamic>{};
-    } on FormatException {
-      // Битый JSON (T-2, D-43.г) — «молча значения по умолчанию»: настройка
-      // не критична, падать из-за неё нельзя нигде, не только в main.
-      return <String, dynamic>{};
-    }
-  }
+  Future<Map<String, dynamic>> _readAll() => readPreferencesJson(_file);
 
-  Future<void> _writeAll(Map<String, dynamic> values) async {
-    try {
-      await _file.writeAsString(jsonEncode(values), flush: true);
-    } on IOException {
-      // Настройка не критична: при недоступной ФС просто не сохранится.
-    }
-  }
+  Future<void> _writeAll(Map<String, dynamic> values) =>
+      writePreferencesJson(_file, values);
 
   /// Id пресета из файла; null — файла нет / ключа нет / не строка.
   /// Чужой id (не из справочника пресетов) отфильтровывает контроллер.
