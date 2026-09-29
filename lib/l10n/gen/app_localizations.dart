@@ -986,6 +986,12 @@ abstract class AppLocalizations {
   /// **'No parent (top level)'**
   String get categoryParentNone;
 
+  /// Label of the icon grid in the category form: choosing one of the fixed glyphs (M5, D-54)
+  ///
+  /// In en, this message translates to:
+  /// **'Icon'**
+  String get categoryIconLabel;
+
   /// Badge marking a system preset category
   ///
   /// In en, this message translates to:

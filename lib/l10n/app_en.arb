@@ -564,6 +564,8 @@
   "@categoryParent": { "description": "Field label for the parent category picker" },
   "categoryParentNone": "No parent (top level)",
   "@categoryParentNone": { "description": "Option meaning the category has no parent" },
+  "categoryIconLabel": "Icon",
+  "@categoryIconLabel": { "description": "Label of the icon grid in the category form: choosing one of the fixed glyphs (M5, D-54)" },
   "systemBadge": "built-in",
   "@systemBadge": { "description": "Badge marking a system preset category" },
   "categoryDeleteTitle": "Delete category?",

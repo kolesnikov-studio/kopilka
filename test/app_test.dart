@@ -115,7 +115,7 @@ void main() {
     await tester.tap(navItem(NavigationBar, l10n.navCategories));
     await tester.pumpAndSettle();
     // База сеется предустановками: на экране видна первая системная категория.
-    expect(find.text(presetExpenseCategories.first), findsOneWidget);
+    expect(find.text(presetExpenseCategories.first.$1), findsOneWidget);
 
     await tester.tap(navItem(NavigationBar, l10n.navReports));
     await tester.pumpAndSettle();

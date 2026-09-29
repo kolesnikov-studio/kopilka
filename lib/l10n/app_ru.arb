@@ -157,6 +157,7 @@
   "kindExpense": "Расход",
   "categoryParent": "Родительская категория",
   "categoryParentNone": "Без родителя (верхний уровень)",
+  "categoryIconLabel": "Иконка",
   "systemBadge": "предустановлена",
   "categoryDeleteTitle": "Удалить категорию?",
   "categoryDeleteBody": "Категория «{name}» будет скрыта из списков.",

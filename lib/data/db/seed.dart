@@ -6,7 +6,9 @@ import 'package:kopilka/data/db/enums.dart';
 /// Валюта, создаваемая при первом запуске (одна базовая валюта).
 const String baseCurrencyCode = 'RUB';
 
-/// Меню системных категорий, предустановленных при первом запуске.
+/// Меню системных категорий, предустановленных при первом запуске, с иконками
+/// из справочника `core/category_icons.dart` (M5, D-54/D-55: иконки — только
+/// через посев, живые базы с NULL не трогаем).
 ///
 /// Категории создаются с `isSystem = true`: их нельзя удалить (DAO это
 /// запрещает), но можно переименовать — состав меню подстраивают под себя.
@@ -14,22 +16,22 @@ const String baseCurrencyCode = 'RUB';
 /// Названия системных категорий НЕ локализуются `.arb`: это данные в БД,
 /// а не тексты интерфейса — пользователь их переименовывает, экспортирует
 /// и переносит между устройствами вместе с файлом бэкапа.
-const List<String> presetExpenseCategories = <String>[
-  'Продукты',
-  'Кафе и рестораны',
-  'Транспорт',
-  'Жильё',
-  'Здоровье',
-  'Развлечения',
-  'Одежда',
-  'Подарки',
-  'Прочие расходы',
+const List<(String, String)> presetExpenseCategories = <(String, String)>[
+  ('Продукты', 'groceries'),
+  ('Кафе и рестораны', 'cafe'),
+  ('Транспорт', 'transport'),
+  ('Жильё', 'home'),
+  ('Здоровье', 'health'),
+  ('Развлечения', 'entertainment'),
+  ('Одежда', 'clothes'),
+  ('Подарки', 'gifts'),
+  ('Прочие расходы', 'other'),
 ];
 
-const List<String> presetIncomeCategories = <String>[
-  'Зарплата',
-  'Подарки',
-  'Прочие доходы',
+const List<(String, String)> presetIncomeCategories = <(String, String)>[
+  ('Зарплата', 'salary'),
+  ('Подарки', 'gifts'),
+  ('Прочие доходы', 'other'),
 ];
 
 /// Наполняет пустую базу справочниками первого запуска: базовая валюта
@@ -49,21 +51,23 @@ Future<void> seedDefaultsIfEmpty(AppDatabase db) async {
   }
 
   if ((await categories.getAlive(kind: CategoryKind.expense)).isEmpty) {
-    for (final String name in presetExpenseCategories) {
+    for (final (String name, String iconCode) in presetExpenseCategories) {
       await categories.create(
         name: name,
         kind: CategoryKind.expense,
         isSystem: true,
+        iconCode: iconCode,
       );
     }
   }
 
   if ((await categories.getAlive(kind: CategoryKind.income)).isEmpty) {
-    for (final String name in presetIncomeCategories) {
+    for (final (String name, String iconCode) in presetIncomeCategories) {
       await categories.create(
         name: name,
         kind: CategoryKind.income,
         isSystem: true,
+        iconCode: iconCode,
       );
     }
   }

@@ -7,6 +7,7 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
@@ -54,6 +55,7 @@ class Fixture {
     final Result<Category> result = await categories.createCategory(
       name: name,
       kind: kind,
+      iconCode: defaultCategoryIconCode,
     );
     return result.value.id;
   }
@@ -91,6 +93,28 @@ void main() {
     expect(income, isNotEmpty);
     expect(expense.every((Category c) => c.isSystem), isTrue);
     expect(income.every((Category c) => c.isSystem), isTrue);
+
+    // M5-шаг 2 (D-55): предустановки сеются с иконками из справочника.
+    expect(
+      expense.map((Category c) => c.iconCode),
+      everyElement(isIn(categoryIconCodes)),
+    );
+    expect(
+      income.map((Category c) => c.iconCode),
+      everyElement(isIn(categoryIconCodes)),
+    );
+    expect(
+      expense.firstWhere((Category c) => c.name == 'Продукты').iconCode,
+      'groceries',
+    );
+    expect(
+      expense.firstWhere((Category c) => c.name == 'Прочие расходы').iconCode,
+      'other',
+    );
+    expect(
+      income.firstWhere((Category c) => c.name == 'Зарплата').iconCode,
+      'salary',
+    );
 
     // Идемпотентность: повторный вызов не удваивает набор.
     await seedDefaultsIfEmpty(f.db);

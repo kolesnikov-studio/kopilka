@@ -522,6 +522,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get categoryParentNone => 'Без родителя (верхний уровень)';
 
   @override
+  String get categoryIconLabel => 'Иконка';
+
+  @override
   String get systemBadge => 'предустановлена';
 
   @override

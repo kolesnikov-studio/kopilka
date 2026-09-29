@@ -517,6 +517,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get categoryParentNone => 'No parent (top level)';
 
   @override
+  String get categoryIconLabel => 'Icon';
+
+  @override
   String get systemBadge => 'built-in';
 
   @override
