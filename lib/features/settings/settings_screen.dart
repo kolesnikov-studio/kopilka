@@ -7,6 +7,8 @@ import 'package:kopilka/data/export/backup_codec.dart';
 import 'package:kopilka/data/export/backup_service.dart';
 import 'package:kopilka/data/rates/rate_sync_service.dart';
 import 'package:kopilka/data/update/update_service.dart';
+import 'package:kopilka/data/db/database.dart';
+import 'package:kopilka/features/categories/categories_controller.dart';
 import 'package:kopilka/features/settings/csv_import_flow.dart';
 import 'package:kopilka/features/settings/currencies_controller.dart';
 import 'package:kopilka/features/settings/rate_sync_controller.dart';
@@ -223,6 +225,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
+    // Скрытые категории (M5, D-54 идея 3): через select — пересборка настроек
+    // только при смене самого счётчика, не на каждое изменение категорий.
+    final int hiddenCount = ref.watch(
+      hiddenSystemCategoriesProvider.select(
+        (AsyncValue<List<Category>> state) => state.value?.length ?? 0,
+      ),
+    );
     final String backupDirectory = ref.watch(autoBackupDirectoryProvider);
     final bool autoCheckEnabled = ref.watch(autoUpdateCheckEnabledProvider);
     final bool rateSyncEnabled = ref.watch(rateSyncEnabledProvider);
@@ -259,6 +268,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             onTap: () => context.push(AppRoutes.currencies),
           ),
+          // Скрытые категории (M5, D-54 идея 3): пункт виден только когда
+          // есть что возвращать — строка с «0 скрытых» была бы шумом.
+          if (hiddenCount > 0)
+            ListTile(
+              leading: const Icon(Icons.visibility_off_outlined),
+              title: Text(l10n.hiddenCategoriesTitle),
+              subtitle: Text(l10n.hiddenCategoriesTileSubtitle(hiddenCount)),
+              onTap: () => context.push(AppRoutes.hiddenCategories),
+            ),
           // Синхронизация курсов (D-36): opt-in галочка и ручная кнопка —
           // рядом с пунктом «Валюты», до секции бэкапа. Кнопка активна
           // только при включённой галочке и без идущего запроса (повторный

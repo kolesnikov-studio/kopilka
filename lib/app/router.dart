@@ -6,6 +6,7 @@ import 'package:kopilka/features/accounts/accounts_screen.dart';
 import 'package:kopilka/features/categories/categories_screen.dart';
 import 'package:kopilka/features/reports/reports_screen.dart';
 import 'package:kopilka/features/settings/currencies_screen.dart';
+import 'package:kopilka/features/settings/hidden_categories_screen.dart';
 import 'package:kopilka/features/settings/settings_screen.dart';
 import 'package:kopilka/features/transactions/transactions_screen.dart';
 
@@ -66,6 +67,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'currencies',
                     name: AppRoutes.currenciesName,
                     builder: (context, state) => const CurrenciesScreen(),
+                  ),
+                  GoRoute(
+                    path: 'hidden-categories',
+                    name: AppRoutes.hiddenCategoriesName,
+                    builder: (context, state) => const HiddenCategoriesScreen(),
                   ),
                 ],
               ),

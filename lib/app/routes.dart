@@ -7,6 +7,7 @@ abstract final class AppRoutes {
   static const String reports = '/reports';
   static const String settings = '/settings';
   static const String currencies = '/settings/currencies';
+  static const String hiddenCategories = '/settings/hidden-categories';
 
   static const String accountsName = 'accounts';
   static const String transactionsName = 'transactions';
@@ -14,4 +15,5 @@ abstract final class AppRoutes {
   static const String reportsName = 'reports';
   static const String settingsName = 'settings';
   static const String currenciesName = 'currencies';
+  static const String hiddenCategoriesName = 'hiddenCategories';
 }
