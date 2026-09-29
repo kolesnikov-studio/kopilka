@@ -4,12 +4,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/app.dart';
+import 'package:kopilka/app/theme.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/settings/rate_sync_controller.dart';
 import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
+import 'package:kopilka/features/settings/theme_preferences.dart';
 import 'package:kopilka/features/settings/update_controller.dart';
 import 'package:kopilka/features/settings/update_preferences.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,6 +39,8 @@ Future<void> main() async {
   );
   final RateSyncPreferencesStore rateSyncPreferences =
       RateSyncPreferencesStore(baseDirectory: supportDirectory);
+  final ThemePreferencesStore themePreferences =
+      ThemePreferencesStore(baseDirectory: supportDirectory);
 
   // Автобэкап при запуске (§4): тихий, последние 10 файлов. Не блокирует
   // запуск: ошибка файловой системы игнорируется.
@@ -52,8 +56,17 @@ Future<void> main() async {
       autoBackupDirectoryStoreProvider.overrideWithValue(autoBackupStore),
       updatePreferencesStoreProvider.overrideWithValue(updatePreferences),
       rateSyncPreferencesStoreProvider.overrideWithValue(rateSyncPreferences),
+      themePreferencesStoreProvider.overrideWithValue(themePreferences),
     ],
   );
+  // Тема (M5, D-58): пресет и основа читаются из файла настроек до runApp
+  // — стейт нужен до первого кадра; сбой файла молча даёт значения по
+  // умолчанию (§4 спеки, образец D-43).
+  try {
+    await container.read(themeProvider.notifier).load();
+  } on Exception {
+    // Тема не критична для запуска: при недоступном файле — дефолт.
+  }
   // Настройка синхронизации курсов (D-36) читается один раз при старте:
   // стейт глобальный, галочка в настройках его показывает и меняет.
   try {

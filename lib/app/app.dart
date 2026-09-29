@@ -11,14 +11,15 @@ class KopilkaApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    final themeMode = ref.watch(themeModeProvider);
+    final ThemePair themePair = ref.watch(themePairProvider);
+    final ThemeMode themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (BuildContext context) =>
           AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
-      theme: lightTheme,
-      darkTheme: darkTheme,
+      theme: themePair.light,
+      darkTheme: themePair.dark,
       themeMode: themeMode,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
