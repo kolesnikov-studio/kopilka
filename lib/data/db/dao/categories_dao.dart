@@ -86,6 +86,20 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   Future<List<Category>> getAlive({CategoryKind? kind}) =>
       _aliveQuery(kind).get();
 
+  /// Есть ли в таблице хоть одна категория данного вида — включая скрытые
+  /// системные (D-57) и мягко удалённые пользовательские. Условие посева
+  /// (D-62): предустановленный набор создаётся только на виде, где нет
+  /// ни одной категории вовсе, — скрытие всех системных переживает
+  /// рестарт, пользовательские удаления посев не воскрешает.
+  Future<bool> hasAny({required CategoryKind kind}) async {
+    final Expression<int> count = categories.id.count();
+    final TypedResult row = await (selectOnly(categories)
+          ..addColumns([count])
+          ..where(categories.kind.equals(kind.dbValue)))
+        .getSingle();
+    return (row.read(count) ?? 0) > 0;
+  }
+
   /// Поток живых категорий.
   Stream<List<Category>> watchAlive({CategoryKind? kind}) =>
       _aliveQuery(kind).watch();

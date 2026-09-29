@@ -37,7 +37,10 @@ const List<(String, String)> presetIncomeCategories = <(String, String)>[
 /// Наполняет пустую базу справочниками первого запуска: базовая валюта
 /// и системный предустановленный набор категорий.
 ///
-/// Идемпотентно: на непустой базе ничего не делает, повторный вызов безопасен.
+/// Идемпотентно: на базе, где у каждого вида уже есть хоть одна категория
+/// (включая скрытые системные — D-57), ничего не делает, повторный вызов
+/// безопасен. Условие — по всей таблице, а не по живым спискам (D-62):
+/// иначе скрытие всех предустановок воскрешалось бы рестартом.
 Future<void> seedDefaultsIfEmpty(AppDatabase db) async {
   final CurrenciesDao currencies = db.currenciesDao;
   final CategoriesDao categories = db.categoriesDao;
@@ -50,7 +53,7 @@ Future<void> seedDefaultsIfEmpty(AppDatabase db) async {
     );
   }
 
-  if ((await categories.getAlive(kind: CategoryKind.expense)).isEmpty) {
+  if (!await categories.hasAny(kind: CategoryKind.expense)) {
     for (final (String name, String iconCode) in presetExpenseCategories) {
       await categories.create(
         name: name,
@@ -61,7 +64,7 @@ Future<void> seedDefaultsIfEmpty(AppDatabase db) async {
     }
   }
 
-  if ((await categories.getAlive(kind: CategoryKind.income)).isEmpty) {
+  if (!await categories.hasAny(kind: CategoryKind.income)) {
     for (final (String name, String iconCode) in presetIncomeCategories) {
       await categories.create(
         name: name,

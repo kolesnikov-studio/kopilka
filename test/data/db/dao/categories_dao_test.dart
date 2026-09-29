@@ -476,4 +476,26 @@ void main() {
     final List<Budget> budgets = await f.budgets.getAlive();
     expect(budgets.single.categoryId, system.id);
   });
+
+  test('hasAny: скрытые системные и удалённые пользовательские считаются (условие посева, D-62)', () async {
+    // Пустой вид — посеву есть что создавать.
+    expect(await f.categories.hasAny(kind: CategoryKind.expense), isFalse);
+
+    final Category system = await f.seedCategory(name: 'Продукты', isSystem: true);
+    expect(await f.categories.hasAny(kind: CategoryKind.expense), isTrue);
+
+    // Скрытие всех системных — вид НЕ пуст для посева (D-62).
+    await f.categories.hide(system.id);
+    expect(await f.categories.hasAny(kind: CategoryKind.expense), isTrue);
+    expect(await f.categories.getAlive(kind: CategoryKind.expense), isEmpty);
+
+    // restore возвращает вид в живые списки — hasAny по-прежнему true.
+    await f.categories.restore(system.id);
+    expect(await f.categories.hasAny(kind: CategoryKind.expense), isTrue);
+
+    // Пользовательское удаление — тоже не делает вид пустым.
+    final Category user = await f.seedCategory(name: 'Хобби');
+    await f.categories.softDelete(user.id);
+    expect(await f.categories.hasAny(kind: CategoryKind.expense), isTrue);
+  });
 }
