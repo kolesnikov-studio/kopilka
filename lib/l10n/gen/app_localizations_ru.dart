@@ -780,4 +780,63 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get themePresetRose => 'Роза';
+
+  @override
+  String get attachmentSectionTitle => 'Вложение';
+
+  @override
+  String get attachmentPickAction => 'Прикрепить';
+
+  @override
+  String get attachmentPickTitle => 'Прикрепить файл';
+
+  @override
+  String get attachmentPickBody =>
+      'Файл будет сохранён вместе с этой операцией.';
+
+  @override
+  String get attachmentReplaceTitle => 'Заменить файл';
+
+  @override
+  String get attachmentReplaceAction => 'Заменить';
+
+  @override
+  String get attachmentReplaceBody =>
+      'Текущее вложение будет удалено и заменено новым файлом.';
+
+  @override
+  String get attachmentSaved => 'Вложение сохранено.';
+
+  @override
+  String get attachmentDeleteTitle => 'Удалить вложение';
+
+  @override
+  String get attachmentDeleteBody =>
+      'Вложение и его файл на диске будут удалены.';
+
+  @override
+  String get attachmentOpenAction => 'Открыть';
+
+  @override
+  String get attachmentFileMissing => 'Файл не найден на диске.';
+
+  @override
+  String attachmentTooLarge(String maxSize) {
+    return 'Файл слишком большой. Максимальный размер — $maxSize.';
+  }
+
+  @override
+  String get attachmentPdfUnsupported =>
+      'Просмотр PDF пока недоступен. Файл прикреплён к операции.';
+
+  @override
+  String get attachmentMimeTypeUnsupported =>
+      'Этот тип файла нельзя прикрепить. Поддерживаются изображения и PDF.';
+
+  @override
+  String get errorAttachmentStorage =>
+      'Не удалось сохранить вложение. Проверьте свободное место на диске и попробуйте ещё раз.';
+
+  @override
+  String get doneAction => 'Готово';
 }

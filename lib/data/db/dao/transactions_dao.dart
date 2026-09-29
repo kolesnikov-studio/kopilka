@@ -51,6 +51,7 @@ class TransactionView {
     this.targetAccountName,
     this.targetCurrencyCode,
     this.categoryName,
+    this.hasAttachment = false,
   });
 
   /// Сама операция.
@@ -72,6 +73,11 @@ class TransactionView {
 
   /// Имя категории; у перевода и операции без категории — null.
   final String? categoryName;
+
+  /// У операции есть живое вложение (v6, M5-шаг 6в): маркер в списке.
+  /// LEFT JOIN по одной строке на операцию; файл на диске не проверяется
+  /// — это обязанность карточки вложения, список смотрит только БД.
+  final bool hasAttachment;
 }
 
 /// Фильтр списка операций (счёт, категория, вид, период, поиск по заметке).
@@ -113,7 +119,13 @@ class TransactionFilter {
 /// Инкапсулирует правила §3: суммы всегда положительные (знак задаёт тип),
 /// валюта наследуется от счёта, категории доходов и расходов не
 /// смешиваются, у перевода нет категории.
-@DriftAccessor(tables: [Transactions, Accounts, Categories, Currencies])
+@DriftAccessor(tables: [
+  Transactions,
+  Accounts,
+  Categories,
+  Currencies,
+  Attachments,
+])
 class TransactionsDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionsDaoMixin {
   TransactionsDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -221,6 +233,8 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     // Имена из живых и мягко удалённых записей (ссылки истории валидны);
     // отсутствующие строки (несогласованный импорт) дают NULL — UI
     // подставит локализованный текст «Счёт удалён»/«Без категории».
+    // Живое вложение (6в) — тем же LEFT JOIN одним запросом: живых
+    // вложений на операцию не больше одного (правило DAO, D-63).
     final (String whereSql, List<Variable> variables) =
         _filteredSqlParts(filter);
     return customSelect(
@@ -229,14 +243,17 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       'a.currency_code AS account_currency_code, '
       'target.name AS target_account_name, '
       'target.currency_code AS target_currency_code, '
-      'c.name AS category_name '
+      'c.name AS category_name, '
+      'att.id IS NOT NULL AS has_attachment '
       'FROM transactions AS t '
       'JOIN accounts AS a ON a.id = t.account_id '
       'LEFT JOIN accounts AS target ON target.id = t.target_account_id '
       'LEFT JOIN categories AS c ON c.id = t.category_id '
+      'LEFT JOIN attachments AS att '
+      'ON att.transaction_id = t.id AND att.deleted_at IS NULL '
       '$whereSql ORDER BY t.date DESC, t.created_at DESC',
       variables: variables,
-      readsFrom: {transactions, accounts, categories},
+      readsFrom: {transactions, accounts, categories, attachments},
     ).watch().map(_readTransactionViews);
   }
 
@@ -250,6 +267,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
             targetAccountName: row.read<String?>('target_account_name'),
             targetCurrencyCode: row.read<String?>('target_currency_code'),
             categoryName: row.read<String?>('category_name'),
+            hasAttachment: row.read<bool>('has_attachment'),
           ),
       ];
 

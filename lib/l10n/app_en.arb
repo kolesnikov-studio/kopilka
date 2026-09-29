@@ -845,5 +845,79 @@
   "themePresetRose": "Rose",
   "@themePresetRose": {
     "description": "Preset name: pink palette (D-58)"
+  },
+
+  "attachmentSectionTitle": "Attachment",
+  "@attachmentSectionTitle": {
+    "description": "Section title in the transaction form for the attached file (D-63)"
+  },
+  "attachmentPickAction": "Attach",
+  "@attachmentPickAction": {
+    "description": "Button that opens the file picker to attach a file to a saved transaction (D-63)"
+  },
+  "attachmentPickTitle": "Attach file",
+  "@attachmentPickTitle": {
+    "description": "Title of the confirmation dialog before attaching a chosen file (D-63)"
+  },
+  "attachmentPickBody": "The file will be stored with this transaction.",
+  "@attachmentPickBody": {
+    "description": "Body of the confirmation dialog before attaching a chosen file (D-63)"
+  },
+  "attachmentReplaceTitle": "Replace file",
+  "@attachmentReplaceTitle": {
+    "description": "Title of the confirmation dialog when a new file replaces the existing attachment (one live file per transaction, D-63)"
+  },
+  "attachmentReplaceAction": "Replace",
+  "@attachmentReplaceAction": {
+    "description": "Confirm button of the replacement dialog (D-63)"
+  },
+  "attachmentReplaceBody": "The current attachment will be removed and replaced with the new file.",
+  "@attachmentReplaceBody": {
+    "description": "Body of the replacement dialog explaining that the old file is deleted (D-63)"
+  },
+  "attachmentSaved": "Attachment saved.",
+  "@attachmentSaved": {
+    "description": "Snackbar after a file was attached or replaced (D-63)"
+  },
+  "attachmentDeleteTitle": "Delete attachment",
+  "@attachmentDeleteTitle": {
+    "description": "Title of the confirmation dialog for deleting an attachment (D-63)"
+  },
+  "attachmentDeleteBody": "The attachment and its file on disk will be deleted.",
+  "@attachmentDeleteBody": {
+    "description": "Body of the confirmation dialog for deleting an attachment (D-63)"
+  },
+  "attachmentOpenAction": "Open",
+  "@attachmentOpenAction": {
+    "description": "Button or tooltip that opens the attached file for viewing (D-63)"
+  },
+  "attachmentFileMissing": "File not found on disk.",
+  "@attachmentFileMissing": {
+    "description": "Shown when attachment metadata exists but the file is missing on disk, e.g. after restoring a backup (D-64: metadata without files is normal)"
+  },
+  "attachmentTooLarge": "File is too large. Maximum size is {maxSize}.",
+  "@attachmentTooLarge": {
+    "placeholders": {
+      "maxSize": {
+        "type": "String"
+      }
+    },
+    "description": "Rejection of a picked file larger than the attachment size limit (10 MB, D-63); {maxSize} is a preformatted size like 10 MB"
+  },
+  "attachmentPdfUnsupported": "PDF preview is not available yet. The file is attached to the transaction.",
+  "@attachmentPdfUnsupported": {
+    "description": "Honest refusal when opening a PDF attachment (PDF viewing is out of MVP scope, phase 2, D-63)"
+  },
+  "attachmentMimeTypeUnsupported": "This file type cannot be attached. Supported: images and PDF.",
+  "@attachmentMimeTypeUnsupported": {
+    "description": "Rejection of a picked file whose type is outside the attachment whitelist (image/*, application/pdf, D-63)"
+  },
+  "errorAttachmentStorage": "The attachment could not be saved. Check free disk space and try again.",
+  "@errorAttachmentStorage": {
+    "description": "Explanation of DataFailure.storageFailure: the attachment directory could not be written; the transaction itself is not affected (D-63)"
+  },
+  "doneAction": "Done",
+  "@doneAction": {
+    "description": "Button that closes the transaction dialog after saving, in the attachment mode (M5 step 6v)"
   }
 }

@@ -14,6 +14,7 @@ import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/features/categories/categories_controller.dart';
+import 'package:kopilka/features/transactions/attachment_section.dart';
 import 'package:kopilka/features/transactions/transactions_controller.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -51,6 +52,9 @@ class _TransactionFormDialogState
   String? _categoryId;
   DateTime _date = DateTime.now();
   bool _busy = false;
+  // 6в: после успешного сохранения диалог не закрывается, а переключается
+  // в режим вложения (id операции появляется только после записи в БД).
+  String? _savedTransactionId;
   // B4.1: вторая сумма была предзаполнена оценкой по текущему курсу —
   // до первой правки поля под ним видна подсказка transferPrefillNote.
   bool _targetPrefilled = false;
@@ -197,7 +201,9 @@ class _TransactionFormDialogState
     }
     setState(() => _busy = false);
     if (result.isSuccess) {
-      Navigator.of(context).pop();
+      // M5-шаг 6в: остаёмся в диалоге в режиме вложения — файл крепится
+      // к живой операции, у только что созданной уже есть id.
+      setState(() => _savedTransactionId = result.value.id);
     } else {
       await showDataFailureSnack(context, result.failure);
     }
@@ -272,6 +278,22 @@ class _TransactionFormDialogState
       TransactionType.income => l10n.newIncomeTitle,
       TransactionType.transfer => l10n.newTransferTitle,
     };
+
+    // M5-шаг 6в: после сохранения показываем только секцию вложения
+    // (сумму/счёт/категорию операции править нельзя — они уже записаны).
+    final String? savedId = _savedTransactionId;
+    if (savedId != null) {
+      return AlertDialog(
+        title: Text(title),
+        content: AttachmentSection(transactionId: savedId),
+        actions: <Widget>[
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.doneAction),
+          ),
+        ],
+      );
+    }
 
     return AlertDialog(
       title: Text(title),

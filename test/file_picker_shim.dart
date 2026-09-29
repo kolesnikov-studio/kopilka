@@ -7,11 +7,17 @@
 // Грабли fake_async: сеттап теста заранее читает байты файла в реальном
 // I/O (tester.runAsync), фейк-пикер только возвращает их — никаких
 // файловых операций внутри pumpWidget и тестового тела.
+//
+// M5-шаг 6в: тот же файл отдаёт [FakeAttachmentsIo] — шов I/O контроллера
+// вложений (lib/features/transactions/attachments_controller.dart), чтобы
+// чтение байтов выбранного файла не падало в fake_async.
 import 'dart:async';
+import 'dart:io' show FileSystemException;
 import 'dart:typed_data';
 
 import 'package:cross_file/cross_file.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:kopilka/features/transactions/attachments_controller.dart';
 
 /// Файл, «выбранный» пикером: только то, что читает pickDraft (path).
 final class FakePlatformFile extends PlatformFile {
@@ -54,6 +60,8 @@ int fakeFilePickerCalls = 0;
 /// (path или bytes null — отмена выбора).
 void installFilePickerShim({String? path, List<int>? bytes}) {
   fakeFilePickerCalls = 0;
+  _lastPath = path;
+  shimBytes = bytes;
   FilePickerPlatform.instance = _FakeFilePickerPlatform(path, bytes);
 }
 
@@ -61,6 +69,35 @@ void installFilePickerShim({String? path, List<int>? bytes}) {
 void restoreFilePickerPlatform() {
   FilePickerPlatform.instance = MethodChannelFilePicker();
 }
+
+/// Шов I/O выбора вложений: отдаёт байты, заданные в
+/// [installFilePickerShim], без чтения с диска (реальное чтение внутри
+/// тестовой fake_async-зоны не завершается — грабли §7).
+class FakeAttachmentsIo implements AttachmentsIo {
+  const FakeAttachmentsIo();
+
+  @override
+  Future<Uint8List> readBytes(String path) async {
+    final List<int>? bytes = shimBytes;
+    if (bytes == null) {
+      throw const FileSystemException('шейм не задан');
+    }
+    return Uint8List.fromList(bytes);
+  }
+
+  @override
+  Future<bool> exists(String path) async =>
+      // Сценарий D-64: отсутствие файла при живых метаданных фейк
+      // определяет по суффиксу пути — тест с missing-файлом помечает
+      // имя файла вложения через [markShimFileMissing].
+      !path.endsWith(missingSuffix);
+}
+
+/// Суффикс имени файла, для которого фейк отвечает «файла нет».
+String missingSuffix = '.never-matches';
+
+/// Байты последнего [installFilePickerShim] — читает [FakeAttachmentsIo].
+List<int>? shimBytes;
 
 final class _FakeFilePickerPlatform extends FilePickerPlatform {
   _FakeFilePickerPlatform(this.path, this.bytes);
@@ -92,3 +129,8 @@ final class _FakeFilePickerPlatform extends FilePickerPlatform {
     return FakePlatformFile.file(picked, Uint8List.fromList(pickedBytes));
   }
 }
+
+/// Путь последнего шима — для сообщений об ошибках тестов.
+String? get shimPath => _lastPath;
+
+String? _lastPath;

@@ -1411,6 +1411,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Rose'**
   String get themePresetRose;
+
+  /// Section title in the transaction form for the attached file (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment'**
+  String get attachmentSectionTitle;
+
+  /// Button that opens the file picker to attach a file to a saved transaction (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Attach'**
+  String get attachmentPickAction;
+
+  /// Title of the confirmation dialog before attaching a chosen file (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Attach file'**
+  String get attachmentPickTitle;
+
+  /// Body of the confirmation dialog before attaching a chosen file (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'The file will be stored with this transaction.'**
+  String get attachmentPickBody;
+
+  /// Title of the confirmation dialog when a new file replaces the existing attachment (one live file per transaction, D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Replace file'**
+  String get attachmentReplaceTitle;
+
+  /// Confirm button of the replacement dialog (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get attachmentReplaceAction;
+
+  /// Body of the replacement dialog explaining that the old file is deleted (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'The current attachment will be removed and replaced with the new file.'**
+  String get attachmentReplaceBody;
+
+  /// Snackbar after a file was attached or replaced (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment saved.'**
+  String get attachmentSaved;
+
+  /// Title of the confirmation dialog for deleting an attachment (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete attachment'**
+  String get attachmentDeleteTitle;
+
+  /// Body of the confirmation dialog for deleting an attachment (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'The attachment and its file on disk will be deleted.'**
+  String get attachmentDeleteBody;
+
+  /// Button or tooltip that opens the attached file for viewing (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get attachmentOpenAction;
+
+  /// Shown when attachment metadata exists but the file is missing on disk, e.g. after restoring a backup (D-64: metadata without files is normal)
+  ///
+  /// In en, this message translates to:
+  /// **'File not found on disk.'**
+  String get attachmentFileMissing;
+
+  /// Rejection of a picked file larger than the attachment size limit (10 MB, D-63); {maxSize} is a preformatted size like 10 MB
+  ///
+  /// In en, this message translates to:
+  /// **'File is too large. Maximum size is {maxSize}.'**
+  String attachmentTooLarge(String maxSize);
+
+  /// Honest refusal when opening a PDF attachment (PDF viewing is out of MVP scope, phase 2, D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'PDF preview is not available yet. The file is attached to the transaction.'**
+  String get attachmentPdfUnsupported;
+
+  /// Rejection of a picked file whose type is outside the attachment whitelist (image/*, application/pdf, D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'This file type cannot be attached. Supported: images and PDF.'**
+  String get attachmentMimeTypeUnsupported;
+
+  /// Explanation of DataFailure.storageFailure: the attachment directory could not be written; the transaction itself is not affected (D-63)
+  ///
+  /// In en, this message translates to:
+  /// **'The attachment could not be saved. Check free disk space and try again.'**
+  String get errorAttachmentStorage;
+
+  /// Button that closes the transaction dialog after saving, in the attachment mode (M5 step 6v)
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get doneAction;
 }
 
 class _AppLocalizationsDelegate

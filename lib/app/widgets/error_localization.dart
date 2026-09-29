@@ -32,9 +32,9 @@ String localizedError(AppLocalizations l10n, DataFailure failure) {
     case DataFailure.budgetAlreadyExists:
       return l10n.errorBudgetAlreadyExists;
     case DataFailure.storageFailure:
-      // Пока UI вложений нет (шаг 6в), отказ ФС показывается как общая
-      // ошибка хранения; локализованный текст — задача UI-шага (D-63).
-      return l10n.errorUnknown;
+      // Файловая система недоступна (v6, D-63): собственный текст шага
+      // 6в — операция при этом цела, отказ касается только файла.
+      return l10n.errorAttachmentStorage;
     case DataFailure.unknown:
       return l10n.errorUnknown;
   }

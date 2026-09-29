@@ -773,4 +773,63 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themePresetRose => 'Rose';
+
+  @override
+  String get attachmentSectionTitle => 'Attachment';
+
+  @override
+  String get attachmentPickAction => 'Attach';
+
+  @override
+  String get attachmentPickTitle => 'Attach file';
+
+  @override
+  String get attachmentPickBody =>
+      'The file will be stored with this transaction.';
+
+  @override
+  String get attachmentReplaceTitle => 'Replace file';
+
+  @override
+  String get attachmentReplaceAction => 'Replace';
+
+  @override
+  String get attachmentReplaceBody =>
+      'The current attachment will be removed and replaced with the new file.';
+
+  @override
+  String get attachmentSaved => 'Attachment saved.';
+
+  @override
+  String get attachmentDeleteTitle => 'Delete attachment';
+
+  @override
+  String get attachmentDeleteBody =>
+      'The attachment and its file on disk will be deleted.';
+
+  @override
+  String get attachmentOpenAction => 'Open';
+
+  @override
+  String get attachmentFileMissing => 'File not found on disk.';
+
+  @override
+  String attachmentTooLarge(String maxSize) {
+    return 'File is too large. Maximum size is $maxSize.';
+  }
+
+  @override
+  String get attachmentPdfUnsupported =>
+      'PDF preview is not available yet. The file is attached to the transaction.';
+
+  @override
+  String get attachmentMimeTypeUnsupported =>
+      'This file type cannot be attached. Supported: images and PDF.';
+
+  @override
+  String get errorAttachmentStorage =>
+      'The attachment could not be saved. Check free disk space and try again.';
+
+  @override
+  String get doneAction => 'Done';
 }

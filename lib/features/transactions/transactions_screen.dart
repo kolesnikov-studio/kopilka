@@ -344,7 +344,26 @@ class _TransactionTile extends ConsumerWidget {
                     : ' · $subtitleCategoryName')
                 : ' · ${transaction.note}'),
       ),
-      trailing: amount,
+      // Маркер вложения (M5-шаг 6в): у операции живой файл — иконка
+      // скрепки перед суммой; файл может и не существовать на диске
+      // (восстановленный бэкап, D-64) — список смотрит только метаданные.
+      // Иконка вплетена в trailing через FittedBox-безопасный Row: у Wrap
+      // мультивалютного перевода и так длинный trailing — маркер только
+      // когда он есть, иначе trailing не меняется (B4.3-регресс).
+      trailing: row.hasAttachment
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.attach_file,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 4),
+                amount,
+              ],
+            )
+          : amount,
       onLongPress: () => _confirmDelete(context, ref, l10n),
     );
   }

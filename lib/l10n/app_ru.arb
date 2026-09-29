@@ -235,5 +235,23 @@
   "themePresetSunset": "Закат",
   "themePresetAmethyst": "Аметист",
   "themePresetGraphite": "Графит",
-  "themePresetRose": "Роза"
+  "themePresetRose": "Роза",
+
+  "attachmentSectionTitle": "Вложение",
+  "attachmentPickAction": "Прикрепить",
+  "attachmentPickTitle": "Прикрепить файл",
+  "attachmentPickBody": "Файл будет сохранён вместе с этой операцией.",
+  "attachmentReplaceTitle": "Заменить файл",
+  "attachmentReplaceAction": "Заменить",
+  "attachmentReplaceBody": "Текущее вложение будет удалено и заменено новым файлом.",
+  "attachmentSaved": "Вложение сохранено.",
+  "attachmentDeleteTitle": "Удалить вложение",
+  "attachmentDeleteBody": "Вложение и его файл на диске будут удалены.",
+  "attachmentOpenAction": "Открыть",
+  "attachmentFileMissing": "Файл не найден на диске.",
+  "attachmentTooLarge": "Файл слишком большой. Максимальный размер — {maxSize}.",
+  "attachmentPdfUnsupported": "Просмотр PDF пока недоступен. Файл прикреплён к операции.",
+  "attachmentMimeTypeUnsupported": "Этот тип файла нельзя прикрепить. Поддерживаются изображения и PDF.",
+  "errorAttachmentStorage": "Не удалось сохранить вложение. Проверьте свободное место на диске и попробуйте ещё раз.",
+  "doneAction": "Готово"
 }

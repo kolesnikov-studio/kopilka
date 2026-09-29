@@ -103,8 +103,9 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pumpAndSettle();
 
-      // Диалог закрылся, операция сохранена с точной суммой в минорных.
-      expect(find.byType(AlertDialog), findsNothing);
+      // M5-шаг 6в: после сохранения диалог остаётся открытым в режиме
+      // вложения (кнопка «Готово» закрывает), операция записана точно.
+      expect(find.text(app.l10n.doneAction), findsOneWidget);
       final List<Transaction> rows = await app.db.transactionsDao
           .getFiltered(TransactionFilter(accountId: account.id));
       expect(rows, hasLength(1));
@@ -256,8 +257,9 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pumpAndSettle();
 
-      // Сумма сохранена в минорных единицах без масштаба ×100 (экспонент 0).
-      expect(find.byType(AlertDialog), findsNothing);
+      // Сумма сохранена в минорных единицах без масштаба ×100 (экспонент 0);
+      // диалог остался в режиме вложения (6в).
+      expect(find.text(app.l10n.doneAction), findsOneWidget);
       final List<Transaction> rows = await app.db.transactionsDao
           .getFiltered(TransactionFilter(accountId: jpy.id));
       expect(rows.single.amountMinor, 1500);
@@ -310,7 +312,8 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
+      // Диалог остался в режиме вложения (6в); суммы записаны.
+      expect(find.text(app.l10n.doneAction), findsOneWidget);
       final List<Transaction> rows = await app.db.transactionsDao
           .getFiltered(TransactionFilter(accountId: kwd.id));
       // 3,500 KWD = 3500 минорных (миллимные единицы), не 350 000.
@@ -402,7 +405,8 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
+      // Диалог остался в режиме вложения (6в); перевод записан.
+      expect(find.text(app.l10n.doneAction), findsOneWidget);
       final List<Transaction> rows = await app.db.transactionsDao.getFiltered(
         TransactionFilter(type: TransactionType.transfer),
       );
@@ -482,7 +486,8 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
+      // Диалог остался в режиме вложения (6в); обе суммы записаны.
+      expect(find.text(app.l10n.doneAction), findsOneWidget);
       final List<Transaction> rows = await app.db.transactionsDao.getFiltered(
         TransactionFilter(type: TransactionType.transfer),
       );
