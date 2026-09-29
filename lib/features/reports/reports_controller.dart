@@ -69,25 +69,33 @@ final ratesSnapshotProvider = StreamProvider.autoDispose<Map<String, double>>(
       ),
 );
 
-/// Суммарный баланс всех живых счетов в базовой валюте (M3-шаг 5, D-18):
+/// Суммарный баланс живых счетов в базовой валюте (M3-шаг 5, D-18):
 /// балансы счетов (в валютах счетов) конвертируются текущим курсом
 /// справочника. Балансы самих счетов (список) остаются в валюте счёта —
 /// конвертируется только общий итог дашборда (D-18).
+///
+/// Счета с флагом «не учитывать в балансе» (v5, M5/D-54) выпадают из
+/// суммы: накопительный счёт не раздувает общий итог. Исключение —
+/// только про этот агрегат: персональные балансы счетов считаются
+/// как раньше (`_balanceExpression` DAO не тронут).
 ///
 /// Пересчёт — чистая карта потока балансов с актуальным снимком курсов:
 /// изменение балансов даёт новую выдачу из потока drift, изменение курса
 /// пересобирает провайдер (watch [ratesSnapshotProvider]) с новой картой —
 /// без кэша и без перезапуска (D-18). Переводы внутри не влияют:
-/// списание и зачисление гасятся.
+/// списание и зачисление гасятся. Переключение флага счёта тоже даёт
+/// новую выдачу: строка счёта изменилась в потоке `watchBalances`.
 final totalBalanceProvider = StreamProvider.autoDispose<int>((ref) {
   final Map<String, double> rates =
       ref.watch(ratesSnapshotProvider).value ?? const <String, double>{};
   return ref.watch(accountsDaoProvider).watchBalances().map(
-        (List<AccountBalance> balances) => balances.fold<int>(
-          0,
-          (int sum, AccountBalance row) =>
-              sum + convertBalanceToBase(row, rates),
-        ),
+        (List<AccountBalance> balances) => balances
+            .where((AccountBalance row) => row.account.excludeFromBalance != true)
+            .fold<int>(
+              0,
+              (int sum, AccountBalance row) =>
+                  sum + convertBalanceToBase(row, rates),
+            ),
       );
 });
 

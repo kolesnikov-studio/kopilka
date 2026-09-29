@@ -340,6 +340,97 @@ void main() {
   );
 
   testWidgets(
+    'D-54: переключатель «не учитывать в балансе» создаёт счёт с флагом',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.nameLabel),
+        'Накопительный',
+      );
+      // Начальный баланс: парсер принимает только суммы строго больше нуля,
+      // пустое поле трактуется как 0 — сохранение отклонил бы валидатор.
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.amountLabel),
+        '99000',
+      );
+
+      // Переключатель выключен по умолчанию (нулевые отличия от v0.4).
+      final SwitchListTile tile = tester.widget<SwitchListTile>(
+        find.byType(SwitchListTile),
+      );
+      expect(tile.value, isFalse);
+      // Подсказка называет последствие (по образцу hint Dz-1/D-48).
+      expect(find.text(app.l10n.excludeFromBalanceHint), findsOneWidget);
+
+      await tester.tap(find.text(app.l10n.excludeFromBalanceLabel));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isTrue,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      final Account account = (await app.db.accountsDao.getAlive()).single;
+      expect(account.name, 'Накопительный');
+      expect(account.initialBalanceMinor, 9900000);
+      expect(account.excludeFromBalance, isTrue);
+    },
+  );
+
+  testWidgets(
+    'D-54: флаг снимается при редактировании и плитка списка помечается',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      final Account excluded = await app.db.accountsDao.create(
+        name: 'Копилка',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+        initialBalanceMinor: 9900000,
+        excludeFromBalance: true,
+      );
+
+      await tester.tap(find.text(app.l10n.navAccounts).last);
+      await tester.pumpAndSettle();
+
+      // Плитка исключённого счёта помечена подписью (малый значок).
+      expect(find.text(app.l10n.accountExcludedBadge), findsOneWidget);
+
+      await tester.tap(find.text('Копилка'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        isTrue,
+        reason: 'форма предзаполняется значением счёта',
+      );
+
+      // Снять флаг и сохранить.
+      await tester.tap(find.text(app.l10n.excludeFromBalanceLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      final Account? after = await app.db.accountsDao.findById(excluded.id);
+      expect(after!.excludeFromBalance, isFalse);
+      // Пометка с плитки исчезла.
+      expect(find.text(app.l10n.accountExcludedBadge), findsNothing);
+    },
+  );
+
+  testWidgets(
     'B3: баланс JPY-счёта в плитке списка — без копеек',
     (WidgetTester tester) async {
       final AppHarness app = await pumpDialogApp(

@@ -522,6 +522,19 @@
     "description": "Validation message of the account form when no currency is chosen"
   },
 
+  "excludeFromBalanceLabel": "Exclude from balance",
+  "@excludeFromBalanceLabel": {
+    "description": "Switch title in the account form: account with the flag on is not counted in the total balance (M5/D-54)"
+  },
+  "excludeFromBalanceHint": "The account will be removed from the total balance on the reports screen. Its own balance does not change.",
+  "@excludeFromBalanceHint": {
+    "description": "Hint under the switch explaining the consequence of the flag: the account disappears from the total balance, personal balance stays (M5/D-54)"
+  },
+  "accountExcludedBadge": "Not in balance",
+  "@accountExcludedBadge": {
+    "description": "Small mark on the accounts list tile for an account excluded from the total balance (M5/D-54)"
+  },
+
   "accountsEmpty": "No accounts yet. Add your first account.",
   "@accountsEmpty": { "description": "Empty state of the accounts list" },
   "accountAdd": "Add account",

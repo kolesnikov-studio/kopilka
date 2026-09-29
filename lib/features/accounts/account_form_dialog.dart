@@ -51,6 +51,10 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   String? _currencyCode;
   bool _busy = false;
 
+  /// Флаг «не учитывать в балансе» (M5/D-54): при создании выключен,
+  /// при правке — текущее значение счёта.
+  bool _excludeFromBalance = false;
+
   /// Б2.2: виден ли у счёта в режиме правки выбор валюты (счёт без операций).
   bool _canChangeCurrency = false;
 
@@ -62,6 +66,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
       _name.text = initial.account.name;
       _kind = AccountKind.fromDb(initial.account.kind);
       _currencyCode = initial.account.currencyCode;
+      _excludeFromBalance = initial.account.excludeFromBalance ?? false;
       // Поле «Сумма» при редактировании означает НОВЫЙ начальный баланс:
       // предзаполняем его initial_balance_minor, не вычисленным балансом
       // (§3: баланс считается из истории, полями его не правят). Масштаб —
@@ -190,6 +195,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
           kind: _kind,
           currencyCode: currencyCode!,
           initialBalanceMinor: initialMinor,
+          excludeFromBalance: _excludeFromBalance,
         );
       } else {
         // Б2.2/D-24: смена валюты счёта в UI — только для счёта без операций
@@ -207,6 +213,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
           kind: Value<AccountKind>(_kind),
           currencyCode: currencyPatch,
           initialBalanceMinor: Value<int>(initialMinor),
+          excludeFromBalance: Value<bool>(_excludeFromBalance),
         );
       }
     } finally {
@@ -372,6 +379,25 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                 exponent: buildExponent,
                 hintText: '0,00',
                 suffixText: amountSuffix,
+              ),
+              // M5/D-54: флаг «не учитывать в балансе» — под ним
+              // подсказка о последствии (по образцу hint Dz-1/D-48):
+              // счёт выпадает из общего баланса отчётов, персональный
+              // баланс не меняется.
+              SwitchListTile(
+                value: _excludeFromBalance,
+                onChanged: _busy
+                    ? null
+                    : (bool value) =>
+                        setState(() => _excludeFromBalance = value),
+                contentPadding: EdgeInsets.zero,
+                title: Text(l10n.excludeFromBalanceLabel),
+                subtitle: Text(
+                  l10n.excludeFromBalanceHint,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
               ),
             ],
           ),

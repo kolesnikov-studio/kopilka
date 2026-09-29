@@ -461,6 +461,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get selectCurrencyValidator => 'Select a currency.';
 
   @override
+  String get excludeFromBalanceLabel => 'Exclude from balance';
+
+  @override
+  String get excludeFromBalanceHint =>
+      'The account will be removed from the total balance on the reports screen. Its own balance does not change.';
+
+  @override
+  String get accountExcludedBadge => 'Not in balance';
+
+  @override
   String get accountsEmpty => 'No accounts yet. Add your first account.';
 
   @override

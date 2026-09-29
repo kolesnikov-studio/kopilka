@@ -138,6 +138,10 @@
   "accountCurrencyChangeAction": "Сменить валюту",
   "selectCurrencyValidator": "Выберите валюту.",
 
+  "excludeFromBalanceLabel": "Не учитывать в балансе",
+  "excludeFromBalanceHint": "Счёт не попадёт в общий баланс на экране отчётов. Его собственный баланс не изменится.",
+  "accountExcludedBadge": "не в балансе",
+
   "accountsEmpty": "Счетов пока нет. Добавьте первый.",
   "accountAdd": "Добавить счёт",
   "accountEdit": "Изменить счёт",

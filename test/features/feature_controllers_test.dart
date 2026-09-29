@@ -435,6 +435,61 @@ void main() {
     );
   });
 
+  test(
+    'счёт с флагом «не учитывать в балансе» выпадает из суммарного, персональный цел (v5/D-54)',
+    () async {
+      final Fixture f = Fixture();
+      await seedDefaultsIfEmpty(f.db);
+      f.container.listen(totalBalanceProvider, (_, _) {});
+
+      final String normal = await f.newAccount('Рублёвый', initial: 100000);
+      final Account excluded = await f.db.accountsDao.create(
+        name: 'Накопительный',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+        initialBalanceMinor: 900000,
+        excludeFromBalance: true,
+      );
+      // У исключённого счёта живёт история: её смена не должна попадать
+      // в общий итог.
+      await f.db.transactionsDao.create(
+        type: TransactionType.expense,
+        accountId: excluded.id,
+        amountMinor: 50000,
+      );
+
+      // В суммарном — только обычный счёт; накопительный с балансом
+      // 850 000 не раздувает итог (идея 14/D-54).
+      await waitUntil(
+        () => f.container.read(totalBalanceProvider).value == 100000,
+      );
+
+      // Персональный баланс исключённого счёта не изменился.
+      expect(
+        await f.db.accountsDao.balanceMinor(excluded.id),
+        850000,
+      );
+
+      // Переключение флага у живого счёта возвращает его в суммарный.
+      await f.db.accountsDao.updateAccount(
+        excluded.id,
+        excludeFromBalance: const Value<bool>(false),
+      );
+      await waitUntil(
+        () => f.container.read(totalBalanceProvider).value == 950000,
+      );
+
+      // И обратно: включение флага убирает счёт из суммы.
+      await f.db.accountsDao.updateAccount(
+        normal,
+        excludeFromBalance: const Value<bool>(true),
+      );
+      await waitUntil(
+        () => f.container.read(totalBalanceProvider).value == 850000,
+      );
+    },
+  );
+
   test('reportsMultiCurrencyProvider: одна валюта — false, две — true (B5)',
       () async {
     final Fixture f = Fixture();

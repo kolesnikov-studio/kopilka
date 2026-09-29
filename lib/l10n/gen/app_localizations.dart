@@ -878,6 +878,24 @@ abstract class AppLocalizations {
   /// **'Select a currency.'**
   String get selectCurrencyValidator;
 
+  /// Switch title in the account form: account with the flag on is not counted in the total balance (M5/D-54)
+  ///
+  /// In en, this message translates to:
+  /// **'Exclude from balance'**
+  String get excludeFromBalanceLabel;
+
+  /// Hint under the switch explaining the consequence of the flag: the account disappears from the total balance, personal balance stays (M5/D-54)
+  ///
+  /// In en, this message translates to:
+  /// **'The account will be removed from the total balance on the reports screen. Its own balance does not change.'**
+  String get excludeFromBalanceHint;
+
+  /// Small mark on the accounts list tile for an account excluded from the total balance (M5/D-54)
+  ///
+  /// In en, this message translates to:
+  /// **'Not in balance'**
+  String get accountExcludedBadge;
+
   /// Empty state of the accounts list
   ///
   /// In en, this message translates to:

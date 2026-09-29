@@ -466,6 +466,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get selectCurrencyValidator => 'Выберите валюту.';
 
   @override
+  String get excludeFromBalanceLabel => 'Не учитывать в балансе';
+
+  @override
+  String get excludeFromBalanceHint =>
+      'Счёт не попадёт в общий баланс на экране отчётов. Его собственный баланс не изменится.';
+
+  @override
+  String get accountExcludedBadge => 'не в балансе';
+
+  @override
   String get accountsEmpty => 'Счетов пока нет. Добавьте первый.';
 
   @override

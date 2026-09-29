@@ -44,6 +44,7 @@ class AccountsController extends Notifier {
     required AccountKind kind,
     required String currencyCode,
     int initialBalanceMinor = 0,
+    bool excludeFromBalance = false,
   }) async {
     try {
       final Account account = await _accounts.create(
@@ -51,6 +52,7 @@ class AccountsController extends Notifier {
         kind: kind,
         currencyCode: currencyCode,
         initialBalanceMinor: initialBalanceMinor,
+        excludeFromBalance: excludeFromBalance,
       );
       return Success<Account>(account);
     } on DataValidationException catch (error) {
@@ -65,6 +67,7 @@ class AccountsController extends Notifier {
     Value<AccountKind> kind = const Value.absent(),
     Value<String> currencyCode = const Value.absent(),
     Value<int> initialBalanceMinor = const Value.absent(),
+    Value<bool> excludeFromBalance = const Value.absent(),
   }) async {
     try {
       final Account account = await _accounts.updateAccount(
@@ -73,6 +76,7 @@ class AccountsController extends Notifier {
         kind: kind,
         currencyCode: currencyCode,
         initialBalanceMinor: initialBalanceMinor,
+        excludeFromBalance: excludeFromBalance,
       );
       return Success<Account>(account);
     } on DataValidationException catch (error) {

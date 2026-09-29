@@ -75,17 +75,45 @@ class _AccountTile extends ConsumerWidget {
       AccountKind.other => Icons.wallet_outlined,
     };
 
+    // M5/D-54: счёт с флагом «не учитывать в балансе» помечается в
+    // подзаголовке сдержанной подписью (малый значок + текст);
+    // персональный баланс плитки считается как раньше.
+    final String subtitle =
+        '${l10n.kindLabel}: ${switch (AccountKind.fromDb(row.account.kind)) {
+      AccountKind.cash => l10n.accountKindCash,
+      AccountKind.bank => l10n.accountKindBank,
+      AccountKind.card => l10n.accountKindCard,
+      AccountKind.other => l10n.accountKindOther,
+    }}';
+
     return ListTile(
       leading: Icon(icon),
       title: Text(row.account.name),
-      subtitle: Text(
-        '${l10n.kindLabel}: ${switch (AccountKind.fromDb(row.account.kind)) {
-          AccountKind.cash => l10n.accountKindCash,
-          AccountKind.bank => l10n.accountKindBank,
-          AccountKind.card => l10n.accountKindCard,
-          AccountKind.other => l10n.accountKindOther,
-        }}',
-      ),
+      // Wrap, а не Row: подзаголовок получает узкие ограничения, и только
+      // Wrap не переполняется — длинные строки переносятся на новую строку.
+      // Значок и подпись — отдельные дети: подпись «не в балансе»
+      // самодостаточна (прецедент D-56 — tooltip без интерфейсного смысла).
+      subtitle: row.account.excludeFromBalance == true
+          ? Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: <Widget>[
+                Text(subtitle),
+                Icon(
+                  Icons.visibility_off_outlined,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                Text(
+                  l10n.accountExcludedBadge,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            )
+          : Text(subtitle),
       trailing: Text(
         formatMoneyMinor(
           row.balanceMinor,
