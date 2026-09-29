@@ -42,7 +42,7 @@ lib/
 
 Поток зависимостей: UI → Riverpod-контроллеры → сервисы/DAO → drift. UI не обращается к БД напрямую.
 
-## 3. Схема данных (v1, закладывается в M1; текущая — v4)
+## 3. Схема данных (v1, закладывается в M1; текущая — v5)
 
 Общие правила (нарушать нельзя):
 - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа будущего слияния файлов/синка.
@@ -52,7 +52,7 @@ lib/
 
 Таблицы:
 - `currencies`: code TEXT PK (ISO 4217), symbol, is_base, rate_to_base
-- `accounts`: id, name, kind (cash|bank|card|other), currency_code FK, initial_balance_minor, sort_order
+- `accounts`: id, name, kind (cash|bank|card|other), currency_code FK, initial_balance_minor, sort_order; с v5 — `exclude_from_balance BOOLEAN NULL`: флаг «не учитывать в балансе» (null/false = учитывать, true = счёт выпадает только из суммарного баланса, персональный баланс не меняется; M5, D-54)
 - `categories`: id, name, kind (income|expense), parent_id NULL (вложенность), icon, color, is_system; с v4 — `icon_code TEXT NULL`: код иконки из справочника `core/category_icons.dart` (NULL = иконка не выбрана; старое свободное поле `icon` не используется и не трогается; M5, D-54/D-55)
 - `transactions`: id, type (income|expense|transfer), account_id FK, target_account_id NULL (для transfer), category_id NULL, amount_minor, currency_code, date, note
 
@@ -62,7 +62,7 @@ lib/
 
 ## 4. Экспорт/импорт и бэкапы
 
-- Формат бэкапа: JSON `{ schema_version, exported_at, data: { таблицы } }`. Полный дамп, атомарная замена при импорте. С v4 в строках categories необязательное поле `iconCode` (нет поля = NULL; чтение v1/v2/v3 не менялось); неизвестный справочнику код — отказ импорта, не тихий пропуск (прецедент D-25; M5, D-54/D-55).
+- Формат бэкапа: JSON `{ schema_version, exported_at, data: { таблицы } }`. Полный дамп, атомарная замена при импорте. С v4 в строках categories необязательное поле `iconCode` (нет поля = NULL; чтение v1/v2/v3 не менялось); неизвестный справочнику код — отказ импорта, не тихий пропуск (прецедент D-25; M5, D-54/D-55). С v5 в строках accounts необязательное поле `exclude_from_balance` (нет поля = NULL = «учитывать»; чтение v1–v4 не менялось); не-булево значение — отказ импорта (тот же прецедент D-25; M5, D-54).
 - Импорт обязан поддерживать старые schema_version (миграции формата экспорта).
 - CSV — экспорт транзакций (для Excel/таблиц); импорт CSV с маппингом колонок — опционален (M2).
 - Автобэкап при каждом запуске: JSON в выбранный пользователем каталог, хранить последние 10.
