@@ -22,6 +22,11 @@ final allCategoriesProvider = StreamProvider<List<Category>>((ref) {
   return ref.watch(categoriesDaoProvider).watchAlive();
 });
 
+/// Скрытые системные категории — для возврата из настроек (M5, D-54 идея 3).
+final hiddenSystemCategoriesProvider = StreamProvider<List<Category>>((ref) {
+  return ref.watch(categoriesDaoProvider).watchHiddenSystem();
+});
+
 /// Контроллер экрана категорий: формы и удаление через DAO.
 class CategoriesController extends Notifier {
   @override
@@ -84,6 +89,28 @@ class CategoriesController extends Notifier {
       return const Success<void>(null);
     } on DataValidationException catch (error) {
       return Failure<void>(error.kind);
+    }
+  }
+
+  /// Скрывает системную категорию (M5, D-54 идея 3): запись `deleted_at` в БД
+  /// без смены схемы; категория исчезает из всех живых списков (выбор в форме
+  /// операции, фильтры, отчёты, бюджеты) и с экрана категорий, но операции и
+  /// бюджеты продолжают существовать и считаться. Отказ (не-системная) UI
+  /// объясняет по машиночитаемому виду.
+  Future<Result<Category>> hideCategory(String id) async {
+    try {
+      return Success<Category>(await _categories.hide(id));
+    } on DataValidationException catch (error) {
+      return Failure<Category>(error.kind);
+    }
+  }
+
+  /// Возвращает скрытую системную категорию во все живые списки.
+  Future<Result<Category>> restoreCategory(String id) async {
+    try {
+      return Success<Category>(await _categories.restore(id));
+    } on DataValidationException catch (error) {
+      return Failure<Category>(error.kind);
     }
   }
 }

@@ -14,6 +14,15 @@ part 'categories_dao.g.dart';
 ///
 /// Дерево держим согласованным вручную, потому что каскадов нет (§3):
 /// удаление запрещено, если есть живые вложенные категории или операции.
+///
+/// Скрытие системных категорий (M5, D-54 идея 3) — тот же soft delete:
+/// отдельного признака в схеме нет, `deleted_at`-подобный механизм уже
+/// есть (§3), новых миграций не требуется. Живые списки
+/// (`getAlive`/`watchAlive`) скрытую категорию не отдают — она исчезает
+/// из выбора в формах операций, фильтров, отчётов и бюджетов; операции и
+/// бюджеты скрытой категории продолжают существовать и считаться, а в
+/// списках с историей (LEFT JOIN по `category_id`) имя по-прежнему
+/// резолвится. Вернуть скрытую — [restore].
 @DriftAccessor(tables: [Budgets, Categories, Transactions])
 class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
@@ -184,6 +193,63 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  /// Скрывает системную категорию (M5, D-54 идея 3): та же запись `deleted_at`,
+  /// что и в soft delete (схема не меняется) — категория исчезает из живых
+  /// списков, но остаётся в БД и возвращается через [restore].
+  ///
+  /// Разрешено только системным: не-системные удаляются [softDelete] с теми
+  /// же запретами (вложенные, операции, бюджеты), отдельного скрытия у них
+  /// нет — непустая пользовательская категория не должна потерять ни кнопку
+  /// удаления, ни объяснение отказа.
+  Future<Category> hide(String id) async {
+    final Category current = await _requireAlive(id);
+    if (!current.isSystem) {
+      throw DataValidationException(
+        'скрывать можно только системную категорию, «${current.name}» — пользовательская',
+        kind: DataFailure.categoryIsSystem,
+      );
+    }
+    final DateTime now = clock();
+    await (update(categories)..where((t) => t.id.equals(id))).write(
+      CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
+    // Возврат через _requireAlive невозможен: строка уже скрыта (deleted_at
+    // установлен), живые выборки её не отдают. Читаем без фильтра.
+    return (await _findAny(id))!;
+  }
+
+  /// Возвращает скрытую системную категорию в живые списки (M5, D-54 идея 3).
+  Future<Category> restore(String id) async {
+    final Category? current = await (select(categories)
+          ..where(
+            (t) =>
+                t.id.equals(id) &
+                t.deletedAt.isNotNull() &
+                t.isSystem.equals(true),
+          ))
+        .getSingleOrNull();
+    if (current == null) {
+      throw DataValidationException(
+        'скрытая системная категория $id не найдена',
+        kind: DataFailure.notFound,
+      );
+    }
+    final DateTime now = clock();
+    await (update(categories)..where((t) => t.id.equals(id))).write(
+      CategoriesCompanion(deletedAt: const Value<DateTime?>(null), updatedAt: Value(now)),
+    );
+    return _requireAlive(id);
+  }
+
+  /// Скрытые системные категории (для возврата из настроек, M5/D-54 идея 3):
+  /// `is_system` + `deleted_at`, по виду и имени — как в живых списках.
+  Future<List<Category>> getHiddenSystem({CategoryKind? kind}) =>
+      _hiddenSystemQuery(kind).get();
+
+  /// Поток скрытых системных категорий.
+  Stream<List<Category>> watchHiddenSystem({CategoryKind? kind}) =>
+      _hiddenSystemQuery(kind).watch();
+
   SimpleSelectStatement<$CategoriesTable, Category> _aliveQuery(
     CategoryKind? kind,
   ) {
@@ -192,6 +258,28 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
           ..where(
             (t) =>
                 t.deletedAt.isNull() &
+                (kind == null
+                    ? const Constant<bool>(true)
+                    : t.kind.equals(kind.dbValue)),
+          )
+          ..orderBy([
+            (t) => OrderingTerm.asc(t.kind),
+            (t) => OrderingTerm.asc(t.name),
+          ]);
+    return query;
+  }
+
+  /// Скрытые системные: `deleted_at IS NOT NULL AND is_system` — порядок
+  /// как у живых (вид, имя). Используется экраном «Скрытые категории».
+  SimpleSelectStatement<$CategoriesTable, Category> _hiddenSystemQuery(
+    CategoryKind? kind,
+  ) {
+    final SimpleSelectStatement<$CategoriesTable, Category> query =
+        select(categories)
+          ..where(
+            (t) =>
+                t.deletedAt.isNotNull() &
+                t.isSystem.equals(true) &
                 (kind == null
                     ? const Constant<bool>(true)
                     : t.kind.equals(kind.dbValue)),
