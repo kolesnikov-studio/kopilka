@@ -162,6 +162,17 @@
   "categoryDeleteTitle": "Удалить категорию?",
   "categoryDeleteBody": "Категория «{name}» будет скрыта из списков.",
 
+  "categoryHideTitle": "Скрыть категорию?",
+  "categoryHideAction": "Скрыть",
+  "categoryHideBody": "Предустановленная категория «{name}» исчезнет из всех списков. Вернуть можно позже: Настройки → Скрытые категории. Операции и бюджеты продолжат работать.",
+  "categoryHiddenSnack": "Категория «{name}» скрыта",
+
+  "hiddenCategoriesTitle": "Скрытые категории",
+  "hiddenCategoriesTileSubtitle": "{count, plural, one{{count} скрытая категория} few{{count} скрытые категории} many{{count} скрытых категорий} other{{count} скрытой категории}}",
+  "hiddenCategoriesEmpty": "Скрытых категорий нет.",
+  "categoryRestoreAction": "Вернуть",
+  "categoryRestoredSnack": "Категория «{name}» возвращена",
+
   "transactionsEmpty": "Операций пока нет. Добавьте первую.",
   "transactionsEmptyFiltered": "Под выбранные фильтры ничего не подошло.",
   "searchHint": "Поиск по заметкам",

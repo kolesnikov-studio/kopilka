@@ -1010,6 +1010,60 @@ abstract class AppLocalizations {
   /// **'The category “{name}” will be hidden from the lists.'**
   String categoryDeleteBody(String name);
 
+  /// Confirmation title for hiding a built-in category (M5, D-54 idea 3)
+  ///
+  /// In en, this message translates to:
+  /// **'Hide category?'**
+  String get categoryHideTitle;
+
+  /// Confirmation button that hides a built-in category (not a deletion)
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get categoryHideAction;
+
+  /// Confirmation body for hiding a built-in category: explains where to undo it and that data is kept
+  ///
+  /// In en, this message translates to:
+  /// **'The built-in category “{name}” will disappear from all lists. You can bring it back later in Settings → Hidden categories. Transactions and budgets will keep working.'**
+  String categoryHideBody(String name);
+
+  /// Snack after a built-in category was hidden
+  ///
+  /// In en, this message translates to:
+  /// **'Category “{name}” hidden'**
+  String categoryHiddenSnack(String name);
+
+  /// Title of the settings screen listing hidden built-in categories with a restore action (M5, D-54 idea 3); also the settings tile leading to it
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden categories'**
+  String get hiddenCategoriesTitle;
+
+  /// Settings tile subtitle: how many built-in categories are currently hidden
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hidden category} other{{count} hidden categories}}'**
+  String hiddenCategoriesTileSubtitle(int count);
+
+  /// Empty state of the hidden categories screen
+  ///
+  /// In en, this message translates to:
+  /// **'No hidden categories.'**
+  String get hiddenCategoriesEmpty;
+
+  /// Action that brings a hidden built-in category back to all lists
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get categoryRestoreAction;
+
+  /// Snack after a hidden built-in category was restored
+  ///
+  /// In en, this message translates to:
+  /// **'Category “{name}” restored'**
+  String categoryRestoredSnack(String name);
+
   /// Empty state of the transactions list without filters
   ///
   /// In en, this message translates to:

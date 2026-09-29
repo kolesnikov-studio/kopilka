@@ -531,6 +531,47 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get categoryHideTitle => 'Hide category?';
+
+  @override
+  String get categoryHideAction => 'Hide';
+
+  @override
+  String categoryHideBody(String name) {
+    return 'The built-in category “$name” will disappear from all lists. You can bring it back later in Settings → Hidden categories. Transactions and budgets will keep working.';
+  }
+
+  @override
+  String categoryHiddenSnack(String name) {
+    return 'Category “$name” hidden';
+  }
+
+  @override
+  String get hiddenCategoriesTitle => 'Hidden categories';
+
+  @override
+  String hiddenCategoriesTileSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hidden categories',
+      one: '1 hidden category',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get hiddenCategoriesEmpty => 'No hidden categories.';
+
+  @override
+  String get categoryRestoreAction => 'Restore';
+
+  @override
+  String categoryRestoredSnack(String name) {
+    return 'Category “$name” restored';
+  }
+
+  @override
   String get transactionsEmpty => 'No transactions yet. Add the first one.';
 
   @override

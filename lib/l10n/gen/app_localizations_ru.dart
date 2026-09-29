@@ -536,6 +536,49 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get categoryHideTitle => 'Скрыть категорию?';
+
+  @override
+  String get categoryHideAction => 'Скрыть';
+
+  @override
+  String categoryHideBody(String name) {
+    return 'Предустановленная категория «$name» исчезнет из всех списков. Вернуть можно позже: Настройки → Скрытые категории. Операции и бюджеты продолжат работать.';
+  }
+
+  @override
+  String categoryHiddenSnack(String name) {
+    return 'Категория «$name» скрыта';
+  }
+
+  @override
+  String get hiddenCategoriesTitle => 'Скрытые категории';
+
+  @override
+  String hiddenCategoriesTileSubtitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count скрытой категории',
+      many: '$count скрытых категорий',
+      few: '$count скрытые категории',
+      one: '$count скрытая категория',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get hiddenCategoriesEmpty => 'Скрытых категорий нет.';
+
+  @override
+  String get categoryRestoreAction => 'Вернуть';
+
+  @override
+  String categoryRestoredSnack(String name) {
+    return 'Категория «$name» возвращена';
+  }
+
+  @override
   String get transactionsEmpty => 'Операций пока нет. Добавьте первую.';
 
   @override

@@ -578,6 +578,46 @@
     }
   },
 
+  "categoryHideTitle": "Hide category?",
+  "@categoryHideTitle": { "description": "Confirmation title for hiding a built-in category (M5, D-54 idea 3)" },
+  "categoryHideAction": "Hide",
+  "@categoryHideAction": { "description": "Confirmation button that hides a built-in category (not a deletion)" },
+  "categoryHideBody": "The built-in category “{name}” will disappear from all lists. You can bring it back later in Settings → Hidden categories. Transactions and budgets will keep working.",
+  "@categoryHideBody": {
+    "description": "Confirmation body for hiding a built-in category: explains where to undo it and that data is kept",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "categoryHiddenSnack": "Category “{name}” hidden",
+  "@categoryHiddenSnack": {
+    "description": "Snack after a built-in category was hidden",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+
+  "hiddenCategoriesTitle": "Hidden categories",
+  "@hiddenCategoriesTitle": { "description": "Title of the settings screen listing hidden built-in categories with a restore action (M5, D-54 idea 3); also the settings tile leading to it" },
+  "hiddenCategoriesTileSubtitle": "{count, plural, =1{1 hidden category} other{{count} hidden categories}}",
+  "@hiddenCategoriesTileSubtitle": {
+    "description": "Settings tile subtitle: how many built-in categories are currently hidden",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "hiddenCategoriesEmpty": "No hidden categories.",
+  "@hiddenCategoriesEmpty": { "description": "Empty state of the hidden categories screen" },
+  "categoryRestoreAction": "Restore",
+  "@categoryRestoreAction": { "description": "Action that brings a hidden built-in category back to all lists" },
+  "categoryRestoredSnack": "Category “{name}” restored",
+  "@categoryRestoredSnack": {
+    "description": "Snack after a hidden built-in category was restored",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+
   "transactionsEmpty": "No transactions yet. Add the first one.",
   "@transactionsEmpty": { "description": "Empty state of the transactions list without filters" },
   "transactionsEmptyFiltered": "Nothing matches the selected filters.",
