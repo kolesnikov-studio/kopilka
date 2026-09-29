@@ -46,7 +46,7 @@ lib/
 (D-43: update/rate-sync/theme preferences), с M5-шага 6 — `attachments/`
 (файлы вложений операций; D-63).
 
-## 3. Схема данных (v1, закладывается в M1; текущая — v5)
+## 3. Схема данных (v1, закладывается в M1; текущая — v6)
 
 Общие правила (нарушать нельзя):
 - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа будущего слияния файлов/синка.
@@ -59,6 +59,7 @@ lib/
 - `accounts`: id, name, kind (cash|bank|card|other), currency_code FK, initial_balance_minor, sort_order; с v5 — `exclude_from_balance BOOLEAN NULL`: флаг «не учитывать в балансе» (null/false = учитывать, true = счёт выпадает только из суммарного баланса, персональный баланс не меняется; M5, D-54)
 - `categories`: id, name, kind (income|expense), parent_id NULL (вложенность), icon, color, is_system; с v4 — `icon_code TEXT NULL`: код иконки из справочника `core/category_icons.dart` (NULL = иконка не выбрана; старое свободное поле `icon` не используется и не трогается; M5, D-54/D-55)
 - `transactions`: id, type (income|expense|transfer), account_id FK, target_account_id NULL (для transfer), category_id NULL, amount_minor, currency_code, date, note
+- `attachments`: id, transaction_id FK (без каскада — мягкое удаление операции файл не трогает), file_path, mime_type (белый список image/*, application/pdf), file_size (лимит ~10 МБ — константа, не настройка); v6 (M5, D-63). Сами файлы — вне БД: каталог `attachments/` рядом с `kopilka.sqlite`, имена `<uuid>.<расширение>`, запись атомарная (tmp + rename), после записи не переименовываются. Ровно один живой файл на операцию — правило DAO (повторное вложение заменяет прежнее). Отказ ФС — машиночитаемый отказ слоя данных (`storageFailure`); операция при этом создаётся без вложения, не падает. Файлы вложений в бэкап не входят (JSON — данные, не blobs, D-63)
 
 Балансы не хранятся — вычисляются запросом из транзакций + initial_balance. Единый источник истины.
 
