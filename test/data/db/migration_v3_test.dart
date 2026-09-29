@@ -181,7 +181,7 @@ void main() {
     final int version =
         (await db.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version');
-    expect(version, 4, reason: 'после открытия база должна быть на текущей схеме');
+    expect(version, 5, reason: 'после открытия база должна быть на текущей схеме');
 
     // Колонка существует, nullable и без default (D-21) — через S3-хелпер.
     final Map<String, String> txColumns = await columnTypes(db, 'transactions');
@@ -278,7 +278,7 @@ void main() {
     expect(
       (await db.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      4,
+      5,
     );
 
     // Оба шага цепочки исполнены: budgets создана, колонка добавлена.
@@ -322,7 +322,7 @@ void main() {
     expect(
       (await second.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      4,
+      5,
     );
     final List<Budget> alive = await second.budgetsDao.getAlive();
     expect(alive.single.id, budget.id);

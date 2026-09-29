@@ -26,8 +26,8 @@ void main() {
     await db.close();
   });
 
-  test('schemaVersion = 4', () {
-    expect(db.schemaVersion, 4);
+  test('schemaVersion = 5', () {
+    expect(db.schemaVersion, 5);
   });
 
   test('схема создаёт пять таблиц: четыре из §3 плюс budgets (v2)', () async {

@@ -365,4 +365,88 @@ void main() {
 
     await expectLater(stream, emitsThrough(hasLength(1)));
   });
+
+  test('create: флаг exclude_from_balance сохраняется (v5/D-54)', () async {
+    await f.ensureRub();
+    final Account excluded = await f.accounts.create(
+      name: 'Накопления',
+      kind: AccountKind.bank,
+      currencyCode: 'RUB',
+      initialBalanceMinor: 500000,
+      excludeFromBalance: true,
+    );
+    expect(excluded.excludeFromBalance, isTrue);
+
+    // Дефолт: флага нет — false, а не NULL (DAO пишет bool всегда).
+    final Account normal = await f.seedAccount(name: 'Обычный');
+    expect(normal.excludeFromBalance, isFalse);
+  });
+
+  test(
+    'балансные агрегаты: счёт с флагом остаётся в выдаче, баланс свой (v5/D-54)',
+    () async {
+      // Решение по брифу: исключение из СУММАРНОГО баланса — на уровне
+      // агрегата контроллера отчётов; _balanceExpression (§8) не тронут,
+      // поэтому DAO обязан отдавать строку исключённого счёта с его
+      // персональным балансом как раньше.
+      final Account normal = await f.seedAccount(initialBalanceMinor: 100000);
+      final Account excluded = await f.accounts.create(
+        name: 'Накопления',
+        kind: AccountKind.bank,
+        currencyCode: 'RUB',
+        initialBalanceMinor: 900000,
+        excludeFromBalance: true,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: excluded.id,
+        amountMinor: 50000,
+      );
+
+      final List<AccountBalance> balances = await f.accounts.getBalances();
+      // Строка исключённого счёта не выпадает из потока балансов.
+      expect(balances, hasLength(2));
+      expect(
+        balances.firstWhere((AccountBalance b) => b.account.id == excluded.id)
+            .balanceMinor,
+        850000,
+        reason: 'персональный баланс исключённого счёта не меняется',
+      );
+      expect(
+        balances.firstWhere((AccountBalance b) => b.account.id == normal.id)
+            .balanceMinor,
+        100000,
+      );
+      expect(await f.accounts.balanceMinor(excluded.id), 850000);
+    },
+  );
+
+  test('updateAccount переключает флаг у живого счёта (v5/D-54)', () async {
+    final Account account = await f.seedAccount(initialBalanceMinor: 100000);
+    expect(account.excludeFromBalance, isFalse);
+
+    f.clock.advance(const Duration(days: 1));
+    final Account excluded = await f.accounts.updateAccount(
+      account.id,
+      excludeFromBalance: const Value<bool>(true),
+    );
+    expect(excluded.excludeFromBalance, isTrue);
+    expect(excluded.updatedAt.toUtc(), f.clock.read());
+    expect(excluded.createdAt.toUtc(), account.createdAt.toUtc());
+
+    // Обратное переключение: флаг снимается.
+    final Account restored = await f.accounts.updateAccount(
+      account.id,
+      excludeFromBalance: const Value<bool>(false),
+    );
+    expect(restored.excludeFromBalance, isFalse);
+
+    // Value.absent() — поле не менять (семантика частичных обновлений A1).
+    final Account untouched = await f.accounts.updateAccount(
+      account.id,
+      name: const Value<String>('Переименованный'),
+    );
+    expect(untouched.excludeFromBalance, isFalse);
+    expect(untouched.name, 'Переименованный');
+  });
 }

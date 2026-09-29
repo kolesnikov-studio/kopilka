@@ -173,7 +173,7 @@ void main() {
     final int version =
         (await db.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version');
-    expect(version, 4, reason: 'после открытия база должна быть на v4');
+    expect(version, 5, reason: 'после открытия база на v5 — цепочка миграций дошла до конца');
 
     // Колонка существует, nullable и без default (D-54) — через S3-хелпер.
     final Map<String, String> catColumns = await columnTypes(db, 'categories');
@@ -272,7 +272,7 @@ void main() {
     expect(
       (await db.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      4,
+      5,
     );
 
     // Все три шага цепочки исполнены: budgets создана, колонки добавлены.
@@ -321,7 +321,7 @@ void main() {
     expect(
       (await second.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      4,
+      5,
     );
     final Category alive =
         (await second.categoriesDao.getAlive()).single;

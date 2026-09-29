@@ -39,6 +39,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     required String currencyCode,
     int initialBalanceMinor = 0,
     int? sortOrder,
+    bool excludeFromBalance = false,
   }) async {
     final String trimmedName = name.trim();
     if (trimmedName.isEmpty) {
@@ -57,6 +58,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
         currencyCode: currencyCode,
         initialBalanceMinor: Value(initialBalanceMinor),
         sortOrder: Value(sortOrder ?? await _nextSortOrder()),
+        // Флаг «не учитывать в балансе» (v5/D-54): null и false
+        // равнозначны («учитывать»), поэтому храним именно bool.
+        excludeFromBalance: Value(excludeFromBalance),
         createdAt: now,
         updatedAt: now,
       ),
@@ -130,6 +134,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     Value<String> currencyCode = const Value.absent(),
     Value<int> initialBalanceMinor = const Value.absent(),
     Value<int> sortOrder = const Value.absent(),
+    Value<bool> excludeFromBalance = const Value.absent(),
   }) async {
     final Account current = await _requireAlive(id);
     Value<String>? newName;
@@ -161,6 +166,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
         currencyCode: currencyCode,
         initialBalanceMinor: initialBalanceMinor,
         sortOrder: sortOrder,
+        excludeFromBalance: excludeFromBalance,
         updatedAt: Value(clock()),
       ),
     );

@@ -1,11 +1,13 @@
 import 'package:drift/drift.dart';
 
-// Схема v4. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
+// Схема v5. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
 // categories, transactions). v2 добавляет бюджеты (M2, D-14). v3 добавляет
 // nullable-колонку transactions.target_amount_minor — суммы зачисления
 // перевода между счетами в разных валютах (M3, D-17/D-21). v4 добавляет
 // nullable-колонку categories.icon_code — код иконки категории из
-// константного справочника core (M5, D-54); см. миграцию в database.dart.
+// константного справочника core (M5, D-54). v5 добавляет nullable-колонку
+// accounts.exclude_from_balance — флаг «не учитывать в балансе» (M5, D-54);
+// см. миграцию в database.dart.
 //
 // Общие правила (нарушать нельзя):
 // - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа
@@ -59,6 +61,13 @@ class Accounts extends Table {
 
   /// Порядок отображения в списке.
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// Флаг «не учитывать в балансе» (v5, M5/D-54): true = счёт выпадает из
+  /// суммарного баланса (накопительный счёт не раздувает общий итог).
+  /// NULL/false = учитывать (дефолт и поведение v0.1–v0.4 без отличий).
+  /// Исключение касается только агрегата: персональный баланс счёта
+  /// считается как раньше (§3, [_balanceExpression] не тронут).
+  BoolColumn get excludeFromBalance => boolean().nullable()();
 
   DateTimeColumn get createdAt => dateTime()();
 

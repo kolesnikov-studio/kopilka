@@ -545,6 +545,19 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _excludeFromBalanceMeta =
+      const VerificationMeta('excludeFromBalance');
+  @override
+  late final GeneratedColumn<bool> excludeFromBalance = GeneratedColumn<bool>(
+    'exclude_from_balance',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("exclude_from_balance" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -586,6 +599,7 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
     currencyCode,
     initialBalanceMinor,
     sortOrder,
+    excludeFromBalance,
     createdAt,
     updatedAt,
     deletedAt,
@@ -649,6 +663,15 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('exclude_from_balance')) {
+      context.handle(
+        _excludeFromBalanceMeta,
+        excludeFromBalance.isAcceptableOrUnknown(
+          data['exclude_from_balance']!,
+          _excludeFromBalanceMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -704,6 +727,10 @@ class $AccountsTable extends Accounts with TableInfo<$AccountsTable, Account> {
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      excludeFromBalance: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}exclude_from_balance'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -741,6 +768,13 @@ class Account extends DataClass implements Insertable<Account> {
 
   /// Порядок отображения в списке.
   final int sortOrder;
+
+  /// Флаг «не учитывать в балансе» (v5, M5/D-54): true = счёт выпадает из
+  /// суммарного баланса (накопительный счёт не раздувает общий итог).
+  /// NULL/false = учитывать (дефолт и поведение v0.1–v0.4 без отличий).
+  /// Исключение касается только агрегата: персональный баланс счёта
+  /// считается как раньше (§3, [_balanceExpression] не тронут).
+  final bool? excludeFromBalance;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -751,6 +785,7 @@ class Account extends DataClass implements Insertable<Account> {
     required this.currencyCode,
     required this.initialBalanceMinor,
     required this.sortOrder,
+    this.excludeFromBalance,
     required this.createdAt,
     required this.updatedAt,
     this.deletedAt,
@@ -764,6 +799,9 @@ class Account extends DataClass implements Insertable<Account> {
     map['currency_code'] = Variable<String>(currencyCode);
     map['initial_balance_minor'] = Variable<int>(initialBalanceMinor);
     map['sort_order'] = Variable<int>(sortOrder);
+    if (!nullToAbsent || excludeFromBalance != null) {
+      map['exclude_from_balance'] = Variable<bool>(excludeFromBalance);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || deletedAt != null) {
@@ -780,6 +818,9 @@ class Account extends DataClass implements Insertable<Account> {
       currencyCode: Value(currencyCode),
       initialBalanceMinor: Value(initialBalanceMinor),
       sortOrder: Value(sortOrder),
+      excludeFromBalance: excludeFromBalance == null && nullToAbsent
+          ? const Value.absent()
+          : Value(excludeFromBalance),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       deletedAt: deletedAt == null && nullToAbsent
@@ -802,6 +843,9 @@ class Account extends DataClass implements Insertable<Account> {
         json['initialBalanceMinor'],
       ),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      excludeFromBalance: serializer.fromJson<bool?>(
+        json['excludeFromBalance'],
+      ),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -817,6 +861,7 @@ class Account extends DataClass implements Insertable<Account> {
       'currencyCode': serializer.toJson<String>(currencyCode),
       'initialBalanceMinor': serializer.toJson<int>(initialBalanceMinor),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'excludeFromBalance': serializer.toJson<bool?>(excludeFromBalance),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -830,6 +875,7 @@ class Account extends DataClass implements Insertable<Account> {
     String? currencyCode,
     int? initialBalanceMinor,
     int? sortOrder,
+    Value<bool?> excludeFromBalance = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -840,6 +886,9 @@ class Account extends DataClass implements Insertable<Account> {
     currencyCode: currencyCode ?? this.currencyCode,
     initialBalanceMinor: initialBalanceMinor ?? this.initialBalanceMinor,
     sortOrder: sortOrder ?? this.sortOrder,
+    excludeFromBalance: excludeFromBalance.present
+        ? excludeFromBalance.value
+        : this.excludeFromBalance,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -856,6 +905,9 @@ class Account extends DataClass implements Insertable<Account> {
           ? data.initialBalanceMinor.value
           : this.initialBalanceMinor,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      excludeFromBalance: data.excludeFromBalance.present
+          ? data.excludeFromBalance.value
+          : this.excludeFromBalance,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -871,6 +923,7 @@ class Account extends DataClass implements Insertable<Account> {
           ..write('currencyCode: $currencyCode, ')
           ..write('initialBalanceMinor: $initialBalanceMinor, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('excludeFromBalance: $excludeFromBalance, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -886,6 +939,7 @@ class Account extends DataClass implements Insertable<Account> {
     currencyCode,
     initialBalanceMinor,
     sortOrder,
+    excludeFromBalance,
     createdAt,
     updatedAt,
     deletedAt,
@@ -900,6 +954,7 @@ class Account extends DataClass implements Insertable<Account> {
           other.currencyCode == this.currencyCode &&
           other.initialBalanceMinor == this.initialBalanceMinor &&
           other.sortOrder == this.sortOrder &&
+          other.excludeFromBalance == this.excludeFromBalance &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -912,6 +967,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
   final Value<String> currencyCode;
   final Value<int> initialBalanceMinor;
   final Value<int> sortOrder;
+  final Value<bool?> excludeFromBalance;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -923,6 +979,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     this.currencyCode = const Value.absent(),
     this.initialBalanceMinor = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.excludeFromBalance = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -935,6 +992,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     required String currencyCode,
     this.initialBalanceMinor = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.excludeFromBalance = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.deletedAt = const Value.absent(),
@@ -952,6 +1010,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Expression<String>? currencyCode,
     Expression<int>? initialBalanceMinor,
     Expression<int>? sortOrder,
+    Expression<bool>? excludeFromBalance,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -965,6 +1024,8 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       if (initialBalanceMinor != null)
         'initial_balance_minor': initialBalanceMinor,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (excludeFromBalance != null)
+        'exclude_from_balance': excludeFromBalance,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -979,6 +1040,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     Value<String>? currencyCode,
     Value<int>? initialBalanceMinor,
     Value<int>? sortOrder,
+    Value<bool?>? excludeFromBalance,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -991,6 +1053,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
       currencyCode: currencyCode ?? this.currencyCode,
       initialBalanceMinor: initialBalanceMinor ?? this.initialBalanceMinor,
       sortOrder: sortOrder ?? this.sortOrder,
+      excludeFromBalance: excludeFromBalance ?? this.excludeFromBalance,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -1019,6 +1082,9 @@ class AccountsCompanion extends UpdateCompanion<Account> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (excludeFromBalance.present) {
+      map['exclude_from_balance'] = Variable<bool>(excludeFromBalance.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1043,6 +1109,7 @@ class AccountsCompanion extends UpdateCompanion<Account> {
           ..write('currencyCode: $currencyCode, ')
           ..write('initialBalanceMinor: $initialBalanceMinor, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('excludeFromBalance: $excludeFromBalance, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
@@ -3434,6 +3501,7 @@ typedef $$AccountsTableCreateCompanionBuilder = AccountsCompanion Function({
   required String currencyCode,
   Value<int> initialBalanceMinor,
   Value<int> sortOrder,
+  Value<bool?> excludeFromBalance,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<DateTime?> deletedAt,
@@ -3446,6 +3514,7 @@ typedef $$AccountsTableUpdateCompanionBuilder = AccountsCompanion Function({
   Value<String> currencyCode,
   Value<int> initialBalanceMinor,
   Value<int> sortOrder,
+  Value<bool?> excludeFromBalance,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<DateTime?> deletedAt,
@@ -3545,6 +3614,11 @@ class $$AccountsTableFilterComposer
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get excludeFromBalance => $composableBuilder(
+    column: $table.excludeFromBalance,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3671,6 +3745,11 @@ class $$AccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get excludeFromBalance => $composableBuilder(
+    column: $table.excludeFromBalance,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -3735,6 +3814,11 @@ class $$AccountsTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get excludeFromBalance => $composableBuilder(
+    column: $table.excludeFromBalance,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -3857,6 +3941,7 @@ class $$AccountsTableTableManager
                 Value<String> currencyCode = const Value.absent(),
                 Value<int> initialBalanceMinor = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<bool?> excludeFromBalance = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -3868,6 +3953,7 @@ class $$AccountsTableTableManager
                 currencyCode: currencyCode,
                 initialBalanceMinor: initialBalanceMinor,
                 sortOrder: sortOrder,
+                excludeFromBalance: excludeFromBalance,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
@@ -3881,6 +3967,7 @@ class $$AccountsTableTableManager
                 required String currencyCode,
                 Value<int> initialBalanceMinor = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<bool?> excludeFromBalance = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -3892,6 +3979,7 @@ class $$AccountsTableTableManager
                 currencyCode: currencyCode,
                 initialBalanceMinor: initialBalanceMinor,
                 sortOrder: sortOrder,
+                excludeFromBalance: excludeFromBalance,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 deletedAt: deletedAt,
