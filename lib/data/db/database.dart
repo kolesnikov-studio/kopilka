@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:kopilka/data/db/dao/attachments_dao.dart';
 import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
@@ -15,22 +16,30 @@ part 'database.g.dart';
 
 /// Локальная база приложения (SQLite через drift).
 ///
-/// Схема v5. v1 — дословно по ARCHITECTURE.md §3; v2 добавляет таблицу
+/// Схема v6. v1 — дословно по ARCHITECTURE.md §3; v2 добавляет таблицу
 /// `budgets` (M2, D-14); v3 добавляет nullable-колонку
 /// `transactions.target_amount_minor` — сумму зачисления перевода между
 /// валютами (M3, D-17/D-21); v4 добавляет nullable-колонку
 /// `categories.icon_code` — код иконки из справочника core (M5, D-54);
 /// v5 добавляет nullable-колонку `accounts.exclude_from_balance` — флаг
-/// «не учитывать в балансе» (M5, D-54).
+/// «не учитывать в балансе» (M5, D-54); v6 добавляет таблицу `attachments` —
+/// метаданные вложений к операциям (M5, D-63; файлы — вне БД).
 /// Балансы не хранятся: вычисляются запросом из
 /// транзакций и `initial_balance_minor` (M1).
 ///
 /// Доступ к данным — через DAO: `currenciesDao`, `accountsDao`,
-/// `categoriesDao`, `transactionsDao`, `budgetsDao`. UI обращается к ним
-/// не напрямую, а через Riverpod-контроллеры (§2).
+/// `categoriesDao`, `transactionsDao`, `budgetsDao`, `attachmentsDao`.
+/// UI обращается к ним не напрямую, а через Riverpod-контроллеры (§2).
 @DriftDatabase(
-  tables: [Currencies, Accounts, Categories, Transactions, Budgets],
-  daos: [CurrenciesDao, AccountsDao, CategoriesDao, TransactionsDao, BudgetsDao],
+  tables: [Currencies, Accounts, Categories, Transactions, Budgets, Attachments],
+  daos: [
+    CurrenciesDao,
+    AccountsDao,
+    CategoriesDao,
+    TransactionsDao,
+    BudgetsDao,
+    AttachmentsDao,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// БД приложения: файл `kopilka.sqlite` в каталоге поддержки приложения.
@@ -40,7 +49,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,11 +58,12 @@ class AppDatabase extends _$AppDatabase {
     },
     onUpgrade: (Migrator m, int from, int to) async {
       // Правило эпох (ROADMAP.md): изменение схемы — только новая
-      // schema_version + миграция + тест миграции. Цепочка v1→…→v5
+      // schema_version + миграция + тест миграции. Цепочка v1→…→v6
       // исполняется по порядку: from < 2 добавляет budgets, from < 3 —
       // колонку переводов (ALTER TABLE без перезаписи данных, D-21),
       // from < 4 — колонку иконок категорий (M5, D-54), from < 5 —
-      // колонку флага баланса счетов (M5, D-54).
+      // колонку флага баланса счетов (M5, D-54), from < 6 — таблицу
+      // вложений attachments (M5, D-63; только createTable, без данных).
       if (from < 2) {
         await m.createTable(budgets);
       }
@@ -65,6 +75,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) {
         await m.addColumn(accounts, accounts.excludeFromBalance);
+      }
+      if (from < 6) {
+        await m.createTable(attachments);
       }
     },
     beforeOpen: (OpeningDetails details) async {

@@ -31,6 +31,10 @@ String localizedError(AppLocalizations l10n, DataFailure failure) {
       return l10n.errorBudgetCategoryInvalid;
     case DataFailure.budgetAlreadyExists:
       return l10n.errorBudgetAlreadyExists;
+    case DataFailure.storageFailure:
+      // Пока UI вложений нет (шаг 6в), отказ ФС показывается как общая
+      // ошибка хранения; локализованный текст — задача UI-шага (D-63).
+      return l10n.errorUnknown;
     case DataFailure.unknown:
       return l10n.errorUnknown;
   }

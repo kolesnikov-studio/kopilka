@@ -30,6 +30,12 @@ const Set<String> expectedTables = <String>{
   'budgets',
 };
 
+/// Ожидаемый набор таблиц схемы v6: пять выше + attachments (v6, D-63).
+const Set<String> expectedTablesPlusAttachments = <String>{
+  ...expectedTables,
+  'attachments',
+};
+
 /// Инвариант служебных колонок: в каждой таблице [tables] есть
 /// created_at, updated_at, deleted_at (§3).
 Future<void> expectTimestampColumns(

@@ -1,15 +1,15 @@
-// Тест миграции схемы v4 → v5 (правило эпох, ROADMAP.md: у пользователей
+// Тест миграции схемы v5 → v6 (правило эпох, ROADMAP.md: у пользователей
 // реальный файл БД v0.1–v0.5, он обязан открыться без потерь).
 //
-// Приём — по образцу migration_v4_test: файл базы со схемой v4 строится
-// сырым sqlite3 API (тот же DDL, что генерировала v0.4, user_version = 4),
-// с данными формата v0.4 (даты — unix-секунды, иконки в icon_code). Затем
-// файл открывается AppDatabase: drift видит user_version 4 < 5 и выполняет
-// onUpgrade (ALTER TABLE ADD COLUMN без перезаписи данных, D-54). Старые
-// строки счетов читаются, exclude_from_balance = NULL — валидное состояние
-// «учитывать в балансе» (дефолт v0.1–v0.4 без отличий).
+// Приём — по образцу migration_v5_test: файл базы со схемой v5 строится
+// сырым sqlite3 API (тот же DDL, что генерировала v0.5, user_version = 5),
+// с данными формата v0.5 (флаг exclude_from_balance, иконки в icon_code).
+// Затем файл открывается AppDatabase: drift видит user_version 5 < 6 и
+// выполняет onUpgrade (createTable attachments — без перезаписи данных,
+// D-63). Таблица вложений пуста (данных вложений в v5 не было), операции
+// и счета читаются дословно.
 //
-// Второй сценарий — полная цепочка v1 → … → v5: файл v0.1 открывается
+// Второй сценарий — полная цепочка v1 → … → v6: файл v0.1 открывается
 // на текущей схеме, onUpgrade исполняет все шаги по порядку.
 //
 // sqlite3 здесь — dev-зависимость только для тестов (та же нативная
@@ -24,10 +24,11 @@ import 'package:kopilka/data/db/enums.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 // S3-хелпер: структурные проверки после миграции идут общими инвариантами
-// (образец migration_v4_test).
+// (образец migration_v4/v5_test).
 import '../../helpers/schema_invariants.dart';
 
-/// DDL схемы v1 (v0.1): budgets не существует, индексы транзакций на месте.
+/// DDL схемы v1 (v0.1): budgets/attachments не существуют, индексы
+/// транзакций на месте.
 const List<String> _v1Ddl = <String>[
   'CREATE TABLE currencies ('
       'code TEXT NOT NULL PRIMARY KEY, '
@@ -76,10 +77,10 @@ const List<String> _v1Ddl = <String>[
   'CREATE INDEX idx_transactions_category_id ON transactions (category_id)',
 ];
 
-/// DDL схемы v4 (v0.4): v1 + таблица budgets + колонка переводов
-/// target_amount_minor + колонка иконок категорий icon_code.
-/// Колонки exclude_from_balance ещё нет.
-const List<String> _v4Ddl = <String>[
+/// DDL схемы v5 (v0.5): v1 + budgets + колонка переводов
+/// target_amount_minor + колонка иконок icon_code + флаг баланса
+/// exclude_from_balance. Таблицы attachments ещё нет.
+const List<String> _v5Ddl = <String>[
   ..._v1Ddl,
   'CREATE TABLE budgets ('
       'id TEXT NOT NULL PRIMARY KEY, '
@@ -90,15 +91,15 @@ const List<String> _v4Ddl = <String>[
       'deleted_at INTEGER NULL)',
   'ALTER TABLE transactions ADD COLUMN target_amount_minor INTEGER NULL',
   'ALTER TABLE categories ADD COLUMN icon_code TEXT NULL',
+  'ALTER TABLE accounts ADD COLUMN exclude_from_balance INTEGER NULL',
 ];
 
-/// Данные v0.4: посев справочников, счёт, категория с иконкой (v4) и
-/// категория без; после миграции счёт читается с exclude_from_balance =
-/// NULL — валидное состояние «учитывать». Даты — unix-секунды.
-/// [withV4Columns] = false — посев для файла v1: колонок v3/v4 ещё нет,
-/// иконка появится только в v4.
-void _seedV04Data(Database raw, {bool withV4Columns = true}) {
-  final int now = DateTime.utc(2026, 9, 29, 12).millisecondsSinceEpoch ~/ 1000;
+/// Данные v0.5: посев справочников, счёт, категория, операция. После
+/// миграции всё читается дословно; таблица attachments пуста.
+/// Даты — unix-секунды. [withV4Columns] = false — посев для файла v1:
+/// колонок v3/v4/v5 ещё нет.
+void _seedV05Data(Database raw, {bool withV4Columns = true}) {
+  final int now = DateTime.utc(2026, 9, 30, 12).millisecondsSinceEpoch ~/ 1000;
   raw.execute(
     "INSERT INTO currencies (code, symbol, is_base, rate_to_base, created_at, updated_at) "
     "VALUES ('RUB', '₽', 1, 1.0, $now, $now)",
@@ -130,7 +131,7 @@ void main() {
   late Directory tempDir;
 
   setUp(() async {
-    tempDir = await Directory.systemTemp.createTemp('kopilka_migration_v5');
+    tempDir = await Directory.systemTemp.createTemp('kopilka_migration_v6');
   });
 
   tearDown(() async {
@@ -139,77 +140,72 @@ void main() {
     }
   });
 
-  test('миграция v4 → v5: данные v0.4 целы, флаг баланса NULL', () async {
+  test('миграция v5 → v6: данные v0.5 целы, таблица attachments создана',
+      () async {
     final File dbFile = File(
       '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
     );
     final Database raw = sqlite3.open(dbFile.path);
-    raw.execute('PRAGMA user_version = 4');
-    for (final String ddl in _v4Ddl) {
+    raw.execute('PRAGMA user_version = 5');
+    for (final String ddl in _v5Ddl) {
       raw.execute(ddl);
     }
-    _seedV04Data(raw);
+    _seedV05Data(raw);
     raw.close();
 
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
 
-    // beforeOpen после миграции: версия поднята до 5.
+    // beforeOpen после миграции: версия поднята до 6.
     final int version =
         (await db.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version');
     expect(version, 6, reason: 'после открытия база должна быть на v6');
 
-    // Колонка существует, nullable и без default (D-21-образец) —
-    // семантика колонки суть этого теста, raw-PRAGMA. drift хранит
-    // boolean() как INTEGER с CHECK (IN (0, 1)) — не declared 'BOOLEAN'.
-    final List<QueryRow> rawColumns = await db.customSelect(
-      'PRAGMA table_info(accounts)',
-    ).get();
-    final Map<String, dynamic> flagColumn = rawColumns.singleWhere(
-      (QueryRow row) => row.read<String>('name') == 'exclude_from_balance',
-    ).data;
-    expect(flagColumn['type'], 'INTEGER');
-    expect(flagColumn['notnull'], 0, reason: 'колонка nullable');
-    expect(
-      flagColumn['dflt_value'],
-      isNull,
-      reason: 'default не задан: NULL — семантика «учитывать» (v0.1–v0.4)',
-    );
-    // CHECK-инвариант булевой колонки drift (0/1) на месте — DDL из
-    // sqlite_master (у PRAGMA table_info колонки sql нет).
-    final List<QueryRow> ddlRows = await db.customSelect(
-      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'",
-    ).get();
-    expect(
-      ddlRows.single.read<String>('sql'),
-      contains('exclude_from_balance" IN (0, 1)'),
-    );
-    // Служебные колонки §3 у всех таблиц на месте после миграции (S3).
-    await expectTimestampColumns(db, expectedTables);
+    // Таблица attachments существует; структурные колонки §3 на месте
+    // (S3-инвариант). file_path/mime_type/file_size — из D-63 дословно.
+    final Map<String, String> columns = await columnTypes(db, 'attachments');
+    expect(columns.keys, containsAll(<String>[
+      'id',
+      'transaction_id',
+      'file_path',
+      'mime_type',
+      'file_size',
+      'created_at',
+      'updated_at',
+      'deleted_at',
+    ]));
+    expect(columns['id'], 'TEXT');
+    expect(columns['transaction_id'], 'TEXT');
+    expect(columns['file_path'], 'TEXT');
+    expect(columns['mime_type'], 'TEXT');
+    expect(columns['file_size'], 'INTEGER');
+    await expectTimestampColumns(db, expectedTablesPlusAttachments);
 
-    // Данные v0.4 выжили дословно, флаг у старых строк NULL.
+    // FK на transactions без каскада: строка в sqlite_master ссылается
+    // на transactions, отдельных действий ON DELETE нет.
+    final List<QueryRow> fkRows = await db.customSelect(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'attachments'",
+    ).get();
+    final String ddlSql = fkRows.single.read<String>('sql');
+    expect(ddlSql, contains('REFERENCES transactions (id)'));
+    expect(ddlSql, isNot(contains('ON DELETE')));
+
+    // Данных вложений в v5 не было — таблица пуста.
+    expect(await db.select(db.attachments).get(), isEmpty);
+
+    // Данные v0.5 выжили дословно.
     final List<Account> accounts = await db.select(db.accounts).get();
     expect(accounts.single.id, 'acc-1');
-    expect(accounts.single.name, 'Karta');
     expect(accounts.single.initialBalanceMinor, 1000050);
-    expect(
-      accounts.single.excludeFromBalance,
-      isNull,
-      reason: 'данные v0.4 созданы до v5 — счёт учитывается в балансе',
-    );
-
-    // Иконки v4 не тронуты миграцией v5.
+    expect(accounts.single.excludeFromBalance, isNull);
     final List<Category> categories = await db.select(db.categories).get();
     expect(categories.single.iconCode, 'groceries');
-
-    // Операции не тронуты.
     final List<Transaction> transactions = await db.select(db.transactions).get();
-    expect(transactions, hasLength(1));
     expect(transactions.single.amountMinor, 50050);
   });
 
-  test('цепочка v1 → … → v5: файл v0.1 открывается на текущей схеме',
+  test('цепочка v1 → … → v6: файл v0.1 открывается на текущей схеме',
       () async {
     final File dbFile = File(
       '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
@@ -219,9 +215,9 @@ void main() {
     for (final String ddl in _v1Ddl) {
       raw.execute(ddl);
     }
-    // budgets в v1 не существует, колонок v3/v4 нет — бюджет и иконка
-    // появятся в цепочке миграций.
-    _seedV04Data(raw, withV4Columns: false);
+    // budgets в v1 не существует, колонок v3/v4/v5 нет — они появятся
+    // в цепочке миграций.
+    _seedV05Data(raw, withV4Columns: false);
     raw.close();
 
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
@@ -233,31 +229,25 @@ void main() {
       6,
     );
 
-    // Все шаги цепочки исполнены: budgets создана, обе колонки добавлены
-    // (drift хранит boolean() как INTEGER — не declared 'BOOLEAN').
+    // Все шаги цепочки исполнены: budgets создана, колонки добавлены,
+    // таблица вложений создана (drift хранит boolean() как INTEGER).
     final Map<String, String> accountColumns = await columnTypes(db, 'accounts');
     expect(accountColumns['exclude_from_balance'], 'INTEGER');
     final Map<String, String> catColumns = await columnTypes(db, 'categories');
     expect(catColumns['icon_code'], 'TEXT');
-    final List<Transaction> transactions = await db.select(db.transactions).get();
-    expect(transactions, hasLength(1));
-    expect(
-      transactions.single.targetAmountMinor,
-      isNull,
-      reason: 'все данные v0.1 — одно-валютные',
-    );
-    expect(
-      (await db.select(db.accounts).get())
-          .every((Account a) => a.excludeFromBalance == null),
-      isTrue,
-      reason: 'все данные v0.1 — с учётом в балансе',
-    );
-    // Шаг v1→v2 цепочки: таблица budgets создана и пуста.
+    final Map<String, String> attColumns = await columnTypes(db, 'attachments');
+    expect(attColumns['file_path'], 'TEXT');
+    expect(attColumns['mime_type'], 'TEXT');
+    expect(attColumns['file_size'], 'INTEGER');
     final List<Budget> budgets = await db.select(db.budgets).get();
     expect(budgets, isEmpty);
+    expect(await db.select(db.attachments).get(), isEmpty);
+    final List<Transaction> transactions = await db.select(db.transactions).get();
+    expect(transactions, hasLength(1));
+    expect(transactions.single.targetAmountMinor, isNull);
   });
 
-  test('повторное открытие базы v5: без ре-миграции, данные на месте',
+  test('повторное открытие базы v6: без ре-миграции, данные на месте',
       () async {
     final File dbFile = File(
       '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
@@ -265,17 +255,28 @@ void main() {
 
     final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
     await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
-    final Account savings = await first.accountsDao.create(
-      name: 'Накопления',
-      kind: AccountKind.bank,
+    final Account account = await first.accountsDao.create(
+      name: 'Наличные',
+      kind: AccountKind.cash,
       currencyCode: 'RUB',
-      initialBalanceMinor: 9900000,
-      excludeFromBalance: true,
+      initialBalanceMinor: 150000,
+    );
+    final Transaction tx = await first.transactionsDao.create(
+      type: TransactionType.expense,
+      accountId: account.id,
+      amountMinor: 25000,
+      note: 'с вложением',
+    );
+    await first.attachmentsDao.create(
+      transactionId: tx.id,
+      filePath: 'att-check.png',
+      mimeType: 'image/png',
+      fileSize: 4242,
     );
     await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 5),
-    // данные живы, флаг сохранился.
+    // Повторное открытие: onUpgrade не выполняется (версия уже 6),
+    // данные живы, вложение читается.
     final AppDatabase second =
         AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(second.close);
@@ -284,8 +285,9 @@ void main() {
           .read<int>('user_version'),
       6,
     );
-    final Account alive = (await second.accountsDao.getAlive()).single;
-    expect(alive.id, savings.id);
-    expect(alive.excludeFromBalance, isTrue);
+    final Attachment? att = await second.attachmentsDao
+        .findByTransaction(tx.id);
+    expect(att?.filePath, 'att-check.png');
+    expect(att?.fileSize, 4242);
   });
 }

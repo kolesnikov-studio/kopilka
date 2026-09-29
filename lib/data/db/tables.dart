@@ -1,12 +1,14 @@
 import 'package:drift/drift.dart';
 
-// Схема v5. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
+// Схема v6. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
 // categories, transactions). v2 добавляет бюджеты (M2, D-14). v3 добавляет
 // nullable-колонку transactions.target_amount_minor — суммы зачисления
 // перевода между счетами в разных валютах (M3, D-17/D-21). v4 добавляет
 // nullable-колонку categories.icon_code — код иконки категории из
 // константного справочника core (M5, D-54). v5 добавляет nullable-колонку
-// accounts.exclude_from_balance — флаг «не учитывать в балансе» (M5, D-54);
+// accounts.exclude_from_balance — флаг «не учитывать в балансе» (M5, D-54).
+// v6 добавляет таблицу attachments — вложения фото/PDF к операциям
+// (M5, D-63); сами файлы живут вне БД (см. data/attachments_service.dart);
 // см. миграцию в database.dart.
 //
 // Общие правила (нарушать нельзя):
@@ -153,6 +155,40 @@ class Transactions extends Table {
   DateTimeColumn get date => dateTime()();
 
   TextColumn get note => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Вложения к операциям (v6, D-63): фото или PDF рядом с операцией.
+///
+/// Сами файлы хранятся вне БД — в каталоге `attachments/` рядом с
+/// `kopilka.sqlite` (см. `data/attachments_service.dart`); здесь — только
+/// метаданные. FK на операции без каскада: мягкое удаление операции
+/// файл не трогает (§3 — удаление только soft delete).
+/// Ровно один живой файл на операцию — правило DAO, не SQL (образец
+/// «один живой бюджет на категорию»); расширение до многих — без миграции.
+class Attachments extends Table {
+  /// UUID v4, генерирует приложение; имя файла без расширения.
+  TextColumn get id => text()();
+
+  /// Операция-владелец вложения (FK на `transactions.id`, без каскада).
+  TextColumn get transactionId => text().references(Transactions, #id)();
+
+  /// Относительный путь файла в каталоге вложений: `<uuid>.<расширение>`.
+  TextColumn get filePath => text()();
+
+  /// MIME-тип из белого списка: image/* или application/pdf (D-63).
+  TextColumn get mimeType => text()();
+
+  /// Размер файла в байтах; лимит — константа в `data/attachments_service.dart`.
+  IntColumn get fileSize => integer()();
 
   DateTimeColumn get createdAt => dateTime()();
 
