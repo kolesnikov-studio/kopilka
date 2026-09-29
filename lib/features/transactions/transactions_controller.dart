@@ -64,13 +64,6 @@ class TransactionsFilterController extends Notifier<TransactionsFilterState> {
       );
 }
 
-/// Живые операции по текущему фильтру.
-final filteredTransactionsProvider =
-    StreamProvider<List<Transaction>>((ref) {
-  final TransactionsFilterState state = ref.watch(transactionsFilterProvider);
-  return ref.watch(transactionsDaoProvider).watchFiltered(state.toFilter());
-});
-
 /// Строки списка операций с именами счетов и категории (R7): имена приходят
 /// JOIN'ом из DAO, плиткам не нужны подписки на списки счетов/категорий.
 final filteredTransactionViewsProvider =
