@@ -179,6 +179,7 @@
 
   "transactionsEmpty": "Операций пока нет. Добавьте первую.",
   "transactionsEmptyFiltered": "Под выбранные фильтры ничего не подошло.",
+  "transactionsEmptyFilteredAction": "Показать все операции",
   "searchHint": "Поиск по заметкам",
   "filterAll": "Все",
   "filterIncomes": "Доходы",

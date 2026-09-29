@@ -635,6 +635,8 @@
   "@transactionsEmpty": { "description": "Empty state of the transactions list without filters" },
   "transactionsEmptyFiltered": "Nothing matches the selected filters.",
   "@transactionsEmptyFiltered": { "description": "Empty state of the filtered transactions list" },
+  "transactionsEmptyFilteredAction": "Show all transactions",
+  "@transactionsEmptyFilteredAction": { "description": "Action on the empty filtered transactions list to clear type, account and search filters" },
   "searchHint": "Search in notes",
   "@searchHint": { "description": "Hint of the transaction search field" },
   "filterAll": "All",

@@ -589,6 +589,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nothing matches the selected filters.';
 
   @override
+  String get transactionsEmptyFilteredAction => 'Show all transactions';
+
+  @override
   String get searchHint => 'Search in notes';
 
   @override

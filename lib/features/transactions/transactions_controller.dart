@@ -62,6 +62,12 @@ class TransactionsFilterController extends Notifier<TransactionsFilterState> {
         accountId: state.accountId,
         search: search,
       );
+
+  /// Полный сброс фильтров (D-68.б): CTA пустого отфильтрованного результата
+  /// снимает тип, счёт и поиск — иначе при фильтре «только поиск» кнопка
+  /// ничего бы не меняла. Строка поиска видима и восстановима, честный жест
+  /// один — «показать всё».
+  void clearAll() => state = const TransactionsFilterState();
 }
 
 /// Строки списка операций с именами счетов и категории (R7): имена приходят

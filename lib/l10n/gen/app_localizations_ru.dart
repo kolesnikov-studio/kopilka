@@ -596,6 +596,9 @@ class AppLocalizationsRu extends AppLocalizations {
       'Под выбранные фильтры ничего не подошло.';
 
   @override
+  String get transactionsEmptyFilteredAction => 'Показать все операции';
+
+  @override
   String get searchHint => 'Поиск по заметкам';
 
   @override

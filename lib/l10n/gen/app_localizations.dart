@@ -1094,6 +1094,12 @@ abstract class AppLocalizations {
   /// **'Nothing matches the selected filters.'**
   String get transactionsEmptyFiltered;
 
+  /// Action on the empty filtered transactions list to clear type, account and search filters
+  ///
+  /// In en, this message translates to:
+  /// **'Show all transactions'**
+  String get transactionsEmptyFilteredAction;
+
   /// Hint of the transaction search field
   ///
   /// In en, this message translates to:

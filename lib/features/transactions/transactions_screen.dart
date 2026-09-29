@@ -94,6 +94,7 @@ class TransactionsScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: <Widget>[
+                _allTypesChip(context, ref, filter, l10n),
                 _typeChip(context, ref, filter, l10n, TransactionType.income,
                     l10n.filterIncomes),
                 _typeChip(context, ref, filter, l10n, TransactionType.expense,
@@ -114,8 +115,29 @@ class TransactionsScreen extends ConsumerWidget {
               data: (List<TransactionView> rows) {
                 if (rows.isEmpty) {
                   if (filtered) {
+                    // D-68.б: CTA снимает ВСЕ фильтры, включая поиск —
+                    // кнопка, оставляющая активным фильтр, из-за которого
+                    // список пуст, ничего бы не изменила.
                     return Center(
-                      child: Text(l10n.transactionsEmptyFiltered),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            l10n.transactionsEmptyFiltered,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: () => ref
+                                .read(transactionsFilterProvider.notifier)
+                                .clearAll(),
+                            icon: const Icon(Icons.filter_alt_off),
+                            label: Text(
+                              l10n.transactionsEmptyFilteredAction,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }
                   // U1: CTA на пустом списке — тот же выбор типа, что у FAB.
@@ -136,6 +158,26 @@ class TransactionsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Чип «Все» (D-68.а): всегда видимый способ снять фильтр типа —
+  // раньше сброс был только повторным тапом по активному чипу.
+  Widget _allTypesChip(
+    BuildContext context,
+    WidgetRef ref,
+    TransactionsFilterState filter,
+    AppLocalizations l10n,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        selected: filter.type == null,
+        label: Text(l10n.filterAll),
+        onSelected: (_) => ref
+            .read(transactionsFilterProvider.notifier)
+            .setType(null),
       ),
     );
   }
