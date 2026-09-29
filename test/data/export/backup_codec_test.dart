@@ -496,4 +496,139 @@ void main() {
       ),
     );
   });
+
+  test('v5: строка счёта с exclude_from_balance читается типизированно (D-54)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 5,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[
+          <String, dynamic>{
+            'id': 'acc-1',
+            'name': 'Накопительный',
+            'kind': 'bank',
+            'currency_code': 'RUB',
+            'initial_balance_minor': 9900000,
+            'sort_order': 0,
+            'exclude_from_balance': true,
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+          <String, dynamic>{
+            'id': 'acc-2',
+            'name': 'Карта',
+            'kind': 'card',
+            'currency_code': 'RUB',
+            'initial_balance_minor': 100000,
+            'sort_order': 1,
+            'exclude_from_balance': false,
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.accounts, hasLength(2));
+    expect(backup.accounts.first.excludeFromBalance, isTrue);
+    // false — валидное явное «учитывать».
+    expect(backup.accounts.last.excludeFromBalance, isFalse);
+  });
+
+  test('v4-файл без поля exclude_from_balance: счёт читается как NULL (D-54)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 4,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[
+          <String, dynamic>{
+            'id': 'acc-1',
+            'name': 'Карта',
+            'kind': 'card',
+            'currency_code': 'RUB',
+            'initial_balance_minor': 100000,
+            'sort_order': 0,
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.schemaVersion, 4);
+    expect(
+      backup.accounts.single.excludeFromBalance,
+      isNull,
+      reason: 'нет поля = NULL = «учитывать» (v1–v4)',
+    );
+  });
+
+  test('битый exclude_from_balance (не булево) — отказ invalidData (D-25)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 5,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[
+          <String, dynamic>{
+            'id': 'acc-1',
+            'name': 'Карта',
+            'kind': 'card',
+            'currency_code': 'RUB',
+            'initial_balance_minor': 100000,
+            'sort_order': 0,
+            'exclude_from_balance': 'да',
+            'created_at': '2026-09-29T00:00:00.000Z',
+            'updated_at': '2026-09-29T00:00:00.000Z',
+          },
+        ],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('импорт v5-файла восстанавливает флаг счёта (round-trip кодека)', () async {
+    final AppDatabase database = db();
+    addTearDown(database.close);
+    await seedDefaultsIfEmpty(database);
+    await database.accountsDao.create(
+      name: 'Накопительный',
+      kind: AccountKind.bank,
+      currencyCode: 'RUB',
+      initialBalanceMinor: 9900000,
+      excludeFromBalance: true,
+    );
+
+    final String json = await BackupService(database).exportJson();
+    final Map<String, dynamic> document =
+        jsonDecode(json) as Map<String, dynamic>;
+    expect(document['schema_version'], backupSchemaVersion);
+    expect(backupSchemaVersion, 5);
+
+    final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(restored.close);
+    await BackupService(restored).importJson(json);
+
+    final List<Account> accounts = await restored.accountsDao.getAlive();
+    final Account savings =
+        accounts.singleWhere((Account a) => a.name == 'Накопительный');
+    expect(savings.excludeFromBalance, isTrue);
+  });
 }

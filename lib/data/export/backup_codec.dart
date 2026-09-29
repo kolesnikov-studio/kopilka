@@ -22,6 +22,11 @@ import 'package:kopilka/data/db/enums.dart';
 // не меняется — нет поля = NULL. Валидация строгая (прецедент D-25):
 // неизвестный справочнику код — отказ импорта, не тихий пропуск.
 //
+// v5 (M5, D-54): в строках accounts появилось необязательное поле
+// exclude_from_balance (флаг «не учитывать в балансе»); чтение v1–v4
+// не меняется — нет поля = NULL («учитывать»). Валидация строгая
+// (прецедент D-25): не-булево значение — отказ импорта.
+//
 // Правила §3, которые кодек обязан воспроизводить дословно:
 // - PK — UUID v4 (TEXT), сгенерирован приложением при создании записи;
 // - каждая строка содержит created_at/updated_at (UTC) и deleted_at
@@ -34,8 +39,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v4.
-const int backupSchemaVersion = 4;
+/// дамп таблиц v5.
+const int backupSchemaVersion = 5;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -75,9 +80,12 @@ enum BackupFailure {
 /// v2 → v3: правки не требует — в v3 только необязательное поле строк
 /// transactions, его отсутствие означает NULL (D-21). v3 → v4: правки не
 /// требует — в v4 только необязательное поле строк categories, его
-/// отсутствие означает NULL (D-54).
+/// отсутствие означает NULL (D-54). v4 → v5: правки не требует — в v5
+/// только необязательное поле строк accounts, его отсутствие означает
+/// NULL («учитывать», D-54).
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
+    5 => (Map<String, dynamic> document) => document,
     4 => (Map<String, dynamic> document) => document,
     3 => (Map<String, dynamic> document) => document,
     2 => (Map<String, dynamic> document) => document,
@@ -193,7 +201,13 @@ const Set<String> _dateColumns = <String>{
   'date',
 };
 
-const Set<String> _boolColumns = <String>{'is_base', 'is_system'};
+const Set<String> _boolColumns = <String>{
+  'is_base',
+  'is_system',
+  // v5 (D-54): флаг «не учитывать в балансе» — обычная булева колонка
+  // SQLite (0/1/NULL); на экспорте нормализуется в true/false/null.
+  'exclude_from_balance',
+};
 
 Object? _encodeValue(String column, Object? value) {
   if (value == null) {
@@ -333,6 +347,17 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
         sortOrder: row['sort_order'] == null
             ? 0
             : _requireInt(row['sort_order'], 'accounts.sort_order'),
+        // v5 (D-54): необязательное поле; нет поля = NULL («учитывать»,
+        // файлы v1–v4). Строгая валидация по образцу icon_code (D-25):
+        // не-булево значение — отказ импорта, не тихая нормализация.
+        excludeFromBalance: switch (row['exclude_from_balance']) {
+          null => null,
+          final bool value => value,
+          _ => throw BackupValidationException(
+              'accounts.exclude_from_balance должен быть булевым или отсутствовать',
+              kind: BackupFailure.invalidData,
+            ),
+        },
         createdAt: _requireDate(row['created_at'], 'accounts.created_at'),
         updatedAt: _requireDate(row['updated_at'], 'accounts.updated_at'),
         deletedAt: row['deleted_at'] == null
@@ -499,6 +524,7 @@ class BackupAccount {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.excludeFromBalance,
     this.deletedAt,
   });
 
@@ -508,6 +534,10 @@ class BackupAccount {
   final String currencyCode;
   final int initialBalanceMinor;
   final int sortOrder;
+
+  /// Флаг «не учитывать в балансе» (v5, D-54): NULL/false = учитывать;
+  /// у файлов v1–v4 поля нет — читается как NULL.
+  final bool? excludeFromBalance;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
