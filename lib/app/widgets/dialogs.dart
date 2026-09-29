@@ -9,6 +9,11 @@ Future<bool> showConfirmDialog({
   required BuildContext context,
   required String title,
   required String body,
+
+  /// Подпись подтверждающей кнопки; по умолчанию — «Удалить» (историческое
+  /// использование диалога). Действиям без удаления — своя подпись
+  /// (например, скрытие категории, M5-шаг 3).
+  String? confirmLabel,
 }) async {
   final AppLocalizations l10n = AppLocalizations.of(context);
   final bool? confirmed = await showDialog<bool>(
@@ -23,7 +28,7 @@ Future<bool> showConfirmDialog({
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: Text(l10n.deleteAction),
+          child: Text(confirmLabel ?? l10n.deleteAction),
         ),
       ],
     ),

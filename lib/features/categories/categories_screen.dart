@@ -10,8 +10,9 @@ import 'package:kopilka/features/categories/categories_controller.dart';
 import 'package:kopilka/features/categories/category_form_dialog.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
-/// Управление категориями: системный предустановленный набор помечен бейджем,
-/// пользовательские можно удалять (soft delete с объяснением отказов).
+/// Управление категориями: системный предустановленный набор помечен бейджем
+/// и скрывается (M5/D-54 идея 3: возврат — из настроек), пользовательские
+/// можно удалять (soft delete только пустых, с объяснением отказов).
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
 
@@ -121,7 +122,7 @@ class _CategoryTile extends ConsumerWidget {
       ),
       subtitle: parentName == null ? null : Text(parentName),
       onTap: () => showCategoryFormDialog(context, category: category),
-      onLongPress: () => _confirmDelete(context, ref, l10n),
+      onLongPress: () => _confirmRemove(context, ref, l10n),
     );
   }
 
@@ -139,14 +140,36 @@ class _CategoryTile extends ConsumerWidget {
     return null;
   }
 
-  Future<void> _confirmDelete(
+  /// Системные — скрыть (не удаляются: DAO отказывает), пользовательские —
+  /// мягко удалить (только пустые: вложенные, с операциями или бюджетом —
+  /// отказ DAO объясняется снеком).
+  Future<void> _confirmRemove(
     BuildContext context,
     WidgetRef ref,
     AppLocalizations l10n,
   ) async {
     if (category.isSystem) {
-      // Системную категорию DAO не удаляет — объясняем сразу, без диалога.
-      await showSnack(context, l10n.errorCategoryIsSystem);
+      final bool confirmed = await showConfirmDialog(
+        context: context,
+        title: l10n.categoryHideTitle,
+        body: l10n.categoryHideBody(category.name),
+        confirmLabel: l10n.categoryHideAction,
+      );
+      if (!confirmed || !context.mounted) {
+        return;
+      }
+      final Result<Category> result = await ref
+          .read(categoriesControllerProvider.notifier)
+          .hideCategory(category.id);
+      if (!context.mounted) {
+        return;
+      }
+      if (result.isSuccess) {
+        await showSnack(context, l10n.categoryHiddenSnack(category.name));
+      } else {
+        // Отказ DAO (не-системная, гонка с удалением) — по машиночитаемому виду.
+        await showDataFailureSnack(context, result.failure);
+      }
       return;
     }
     final bool confirmed = await showConfirmDialog(
