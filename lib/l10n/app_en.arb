@@ -787,5 +787,50 @@
   "transferPrefillNote": "Prefilled with the current rate — correct it if the exchange rate differed",
   "@transferPrefillNote": {
     "description": "Helper shown under the prefilled inflow amount of a cross-currency transfer (B4.1)"
+  },
+
+  "themeSectionTitle": "Theme",
+  "@themeSectionTitle": {
+    "description": "Settings section header for themes (D-58)"
+  },
+  "themeModeSystem": "System",
+  "@themeModeSystem": {
+    "description": "Follow the system light/dark setting (D-58)"
+  },
+  "themeModeLight": "Light",
+  "@themeModeLight": {
+    "description": "Always light theme (D-58)"
+  },
+  "themeModeDark": "Dark",
+  "@themeModeDark": {
+    "description": "Always dark theme (D-58)"
+  },
+  "themePresetsLabel": "Presets",
+  "@themePresetsLabel": {
+    "description": "Label above the color preset grid (D-58)"
+  },
+  "themePresetDefault": "Default",
+  "@themePresetDefault": {
+    "description": "Preset name: app default green palette (D-58)"
+  },
+  "themePresetOcean": "Ocean",
+  "@themePresetOcean": {
+    "description": "Preset name: blue palette (D-58)"
+  },
+  "themePresetSunset": "Sunset",
+  "@themePresetSunset": {
+    "description": "Preset name: warm orange palette (D-58)"
+  },
+  "themePresetAmethyst": "Amethyst",
+  "@themePresetAmethyst": {
+    "description": "Preset name: violet palette (D-58)"
+  },
+  "themePresetGraphite": "Graphite",
+  "@themePresetGraphite": {
+    "description": "Preset name: neutral gray palette (D-58)"
+  },
+  "themePresetRose": "Rose",
+  "@themePresetRose": {
+    "description": "Preset name: pink palette (D-58)"
   }
 }

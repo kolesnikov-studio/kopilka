@@ -1327,6 +1327,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Prefilled with the current rate — correct it if the exchange rate differed'**
   String get transferPrefillNote;
+
+  /// Settings section header for themes (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get themeSectionTitle;
+
+  /// Follow the system light/dark setting (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get themeModeSystem;
+
+  /// Always light theme (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get themeModeLight;
+
+  /// Always dark theme (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get themeModeDark;
+
+  /// Label above the color preset grid (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get themePresetsLabel;
+
+  /// Preset name: app default green palette (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get themePresetDefault;
+
+  /// Preset name: blue palette (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Ocean'**
+  String get themePresetOcean;
+
+  /// Preset name: warm orange palette (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Sunset'**
+  String get themePresetSunset;
+
+  /// Preset name: violet palette (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Amethyst'**
+  String get themePresetAmethyst;
+
+  /// Preset name: neutral gray palette (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Graphite'**
+  String get themePresetGraphite;
+
+  /// Preset name: pink palette (D-58)
+  ///
+  /// In en, this message translates to:
+  /// **'Rose'**
+  String get themePresetRose;
 }
 
 class _AppLocalizationsDelegate

@@ -124,8 +124,8 @@ void main() {
 
     await tester.tap(navItem(NavigationBar, l10n.navSettings));
     await tester.pumpAndSettle();
-    // Экран настроек реальный: секция бэкапов.
-    expect(find.text(l10n.backupSectionTitle), findsOneWidget);
+    // Экран настроек реальный: секция «Тема» первой (M5, D-58).
+    expect(find.text(l10n.themeSectionTitle), findsOneWidget);
 
     await tester.tap(navItem(NavigationBar, l10n.navAccounts));
     await tester.pumpAndSettle();

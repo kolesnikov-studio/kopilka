@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kopilka/app/routes.dart';
+import 'package:kopilka/app/theme.dart';
+import 'package:kopilka/app/theme_presets.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/data/export/backup_codec.dart';
 import 'package:kopilka/data/export/backup_service.dart';
@@ -256,6 +258,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         children: <Widget>[
           const SizedBox(height: 8),
+          // Тема (M5, D-58): первая секция — самый наглядный эффект; пресет
+          // и основа применяются ко всему приложению немедленно, без снека.
+          _SectionHeader(title: l10n.themeSectionTitle),
+          const ThemeSection(),
+          const Divider(),
           // Валюты (B1): отдельный пункт-строка с счётчиком живых валют —
           // выше секции бэкапа; внутри экрана три активных действия.
           ListTile(
@@ -423,4 +430,226 @@ class _SectionHeader extends StatelessWidget {
           style: Theme.of(context).textTheme.titleSmall,
         ),
       );
+}
+
+/// Секция «Тема» (M5, D-58 §1): сегменты основы (Системная/Светлая/Тёмная)
+/// и сетка 2 колонки карточек-пресетов. Тап применяет пресет немедленно;
+/// выбранный — обводка seed + галочка. Снек «применено» не нужен —
+/// перекрас всего приложения виден сразу (D-58).
+class ThemeSection extends ConsumerWidget {
+  const ThemeSection({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ThemeMode mode = ref.watch(themeModeProvider);
+    final ThemePreset selected = ref.watch(
+      themeProvider.select((ThemeState state) => state.preset),
+    );
+    final ThemeController controller = ref.read(themeProvider.notifier);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: SegmentedButton<ThemeMode>(
+            key: const ValueKey<String>('themeModeSegments'),
+            segments: <ButtonSegment<ThemeMode>>[
+              ButtonSegment<ThemeMode>(
+                value: ThemeMode.system,
+                icon: const Icon(Icons.brightness_auto_outlined),
+                label: Text(l10n.themeModeSystem),
+              ),
+              ButtonSegment<ThemeMode>(
+                value: ThemeMode.light,
+                icon: const Icon(Icons.light_mode_outlined),
+                label: Text(l10n.themeModeLight),
+              ),
+              ButtonSegment<ThemeMode>(
+                value: ThemeMode.dark,
+                icon: const Icon(Icons.dark_mode_outlined),
+                label: Text(l10n.themeModeDark),
+              ),
+            ],
+            selected: <ThemeMode>{mode},
+            onSelectionChanged: (Set<ThemeMode> selection) {
+              // SegmentedButton пустым не бывает (emptySelectionAllowed
+              // не включён), но guard не мешает.
+              if (selection.isNotEmpty) {
+                controller.setMode(selection.first);
+              }
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text(l10n.themePresetsLabel,
+              style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          // Сетка 2 колонки карточек-превью (D-58 §1): фиксированные
+          // карточки ~72×48 — превью показывает честную палитру пресета,
+          // а не растягивается на всю ширину окна.
+          child: Column(
+            children: <Widget>[
+              for (int i = 0; i < themePresets.length; i += 2)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: <Widget>[
+                      _ThemePresetCard(
+                        key: ValueKey<String>(
+                          'themePreset-${themePresets[i].id}',
+                        ),
+                        preset: themePresets[i],
+                        selected: identical(themePresets[i], selected),
+                        onSelected: () => controller.setPreset(themePresets[i]),
+                      ),
+                      if (i + 1 < themePresets.length) ...<Widget>[
+                        const SizedBox(width: 8),
+                        _ThemePresetCard(
+                          key: ValueKey<String>(
+                            'themePreset-${themePresets[i + 1].id}',
+                          ),
+                          preset: themePresets[i + 1],
+                          selected: identical(themePresets[i + 1], selected),
+                          onSelected: () =>
+                              controller.setPreset(themePresets[i + 1]),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Карточка-превью пресета (D-58 §1): скруглённый прямоугольник ~72×48 —
+/// фон surface пресета, кружок seed, полоска primaryContainer, строка
+/// onSurface; подпись — имя пресета (l10n-ключ по id, D-58 §3).
+class _ThemePresetCard extends StatelessWidget {
+  const _ThemePresetCard({
+    super.key,
+    required this.preset,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final ThemePreset preset;
+
+  final bool selected;
+
+  final VoidCallback onSelected;
+
+  /// Честные swatch-цвета пресета из §2 спеки (не текущей темы экрана):
+  /// превью показывает палитру пресета, даже когда он не выбран.
+  Color get _surface =>
+      preset.lightSurface ?? ColorScheme.fromSeed(seedColor: preset.seed).surface;
+
+  Color get _onSurface =>
+      preset.lightOnSurface ??
+      ColorScheme.fromSeed(seedColor: preset.seed).onSurface;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final BorderSide border = selected
+        ? BorderSide(color: preset.seed, width: 2)
+        : BorderSide(color: scheme.outlineVariant);
+    // Имя пресета — l10n-ключ по id (D-56: id — не интерфейсный текст).
+    final String name = switch (preset.id) {
+      'default' => l10n.themePresetDefault,
+      'ocean' => l10n.themePresetOcean,
+      'sunset' => l10n.themePresetSunset,
+      'amethyst' => l10n.themePresetAmethyst,
+      'graphite' => l10n.themePresetGraphite,
+      'rose' => l10n.themePresetRose,
+      _ => preset.id,
+    };
+
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      color: _surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: border,
+      ),
+      // ~72×48 по спеке (§1): фиксированный размер, содержимое внутри;
+      // у выбранного — галочка в правом верхнем углу.
+      child: SizedBox(
+        width: 72,
+        height: 48,
+        child: Semantics(
+          selected: selected,
+          button: true,
+          child: InkWell(
+            onTap: onSelected,
+            child: Stack(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
+                        children: <Widget>[
+                          Container(
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: preset.seed,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Container(
+                              height: 5,
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(2.5),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: _onSurface),
+                      ),
+                    ],
+                  ),
+                ),
+                if (selected)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Icon(
+                      Icons.check_circle,
+                      size: 14,
+                      color: preset.seed,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

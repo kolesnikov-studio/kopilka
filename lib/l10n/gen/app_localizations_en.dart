@@ -730,4 +730,37 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get transferPrefillNote =>
       'Prefilled with the current rate — correct it if the exchange rate differed';
+
+  @override
+  String get themeSectionTitle => 'Theme';
+
+  @override
+  String get themeModeSystem => 'System';
+
+  @override
+  String get themeModeLight => 'Light';
+
+  @override
+  String get themeModeDark => 'Dark';
+
+  @override
+  String get themePresetsLabel => 'Presets';
+
+  @override
+  String get themePresetDefault => 'Default';
+
+  @override
+  String get themePresetOcean => 'Ocean';
+
+  @override
+  String get themePresetSunset => 'Sunset';
+
+  @override
+  String get themePresetAmethyst => 'Amethyst';
+
+  @override
+  String get themePresetGraphite => 'Graphite';
+
+  @override
+  String get themePresetRose => 'Rose';
 }

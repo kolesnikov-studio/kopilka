@@ -737,4 +737,37 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get transferPrefillNote =>
       'Предзаполнено по текущему курсу — поправьте, если курс обмена отличался';
+
+  @override
+  String get themeSectionTitle => 'Тема';
+
+  @override
+  String get themeModeSystem => 'Системная';
+
+  @override
+  String get themeModeLight => 'Светлая';
+
+  @override
+  String get themeModeDark => 'Тёмная';
+
+  @override
+  String get themePresetsLabel => 'Пресеты';
+
+  @override
+  String get themePresetDefault => 'По умолчанию';
+
+  @override
+  String get themePresetOcean => 'Океан';
+
+  @override
+  String get themePresetSunset => 'Закат';
+
+  @override
+  String get themePresetAmethyst => 'Аметист';
+
+  @override
+  String get themePresetGraphite => 'Графит';
+
+  @override
+  String get themePresetRose => 'Роза';
 }

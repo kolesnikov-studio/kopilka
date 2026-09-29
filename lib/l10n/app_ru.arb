@@ -219,5 +219,17 @@
   "transferAmountOut": "Списано",
   "transferAmountIn": "Зачислено",
   "transferRateLine": "По курсу 1 {from} = {rate} {to}",
-  "transferPrefillNote": "Предзаполнено по текущему курсу — поправьте, если курс обмена отличался"
+  "transferPrefillNote": "Предзаполнено по текущему курсу — поправьте, если курс обмена отличался",
+
+  "themeSectionTitle": "Тема",
+  "themeModeSystem": "Системная",
+  "themeModeLight": "Светлая",
+  "themeModeDark": "Тёмная",
+  "themePresetsLabel": "Пресеты",
+  "themePresetDefault": "По умолчанию",
+  "themePresetOcean": "Океан",
+  "themePresetSunset": "Закат",
+  "themePresetAmethyst": "Аметист",
+  "themePresetGraphite": "Графит",
+  "themePresetRose": "Роза"
 }

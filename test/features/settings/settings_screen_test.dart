@@ -71,16 +71,17 @@ void main() {
     expect(find.text(l10n.rateSyncSectionTitle), findsOneWidget);
     expect(find.text(l10n.rateSyncEnabled), findsOneWidget);
     expect(find.text(l10n.rateSyncNow), findsOneWidget);
-    // Список вырос (импорт CSV + секция курсов): секция бэкапов ниже сгиба.
-    // Заголовок проверяем по ключу (finder.text нашёл бы и на экране, и
-    // вне её — проверка наличия в дереве), пункты бэкапа — после прокрутки.
-    expect(find.byKey(const ValueKey<String>('backupSection')), findsOneWidget);
+    // Список вырос ещё раз (секция «Тема» первой, M5/D-58): секция
+    // бэкапов ниже сгиба — сначала прокрутка до её пунктов; заголовок
+    // по ключу появляется вместе с ними (finder.text нашёл бы и на
+    // экране, и вне её).
     await tester.scrollUntilVisible(
       find.text(l10n.exportJsonAction),
       120,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('backupSection')), findsOneWidget);
     expect(find.text(l10n.exportJsonAction), findsOneWidget);
     expect(find.text(l10n.importJsonAction), findsOneWidget);
     expect(find.text(l10n.exportCsvAction), findsOneWidget);
