@@ -197,6 +197,92 @@ void main() {
     expect(result.failure, DataFailure.categoryHasTransactions);
   });
 
+  test('скрытие системной категории убирает из живых потоков, возврат возвращает (M5-шаг 3)',
+      () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+
+    final List<Category> seeded =
+        await f.db.categoriesDao.getAlive(kind: CategoryKind.expense);
+    final String id =
+        seeded.firstWhere((Category c) => c.name == 'Транспорт').id;
+
+    // Инициализируем потоки (StreamProvider ленивый и умирает без слушателя,
+    // замок из теста R5 ниже): до скрытия категория живая, скрытых нет.
+    f.container.listen(allCategoriesProvider, (_, _) {});
+    f.container.listen(hiddenSystemCategoriesProvider, (_, _) {});
+    await waitUntil(
+      () => (f.container.read(allCategoriesProvider).value ?? <Category>[])
+          .any((Category c) => c.id == id),
+    );
+
+    // Скрываем через контроллер — из живого потока категория уходит.
+    final Result<Category> hidden = await f.categories.hideCategory(id);
+    expect(hidden.isSuccess, isTrue);
+    await waitUntil(
+      () => (f.container.read(allCategoriesProvider).value ?? <Category>[])
+          .every((Category c) => c.id != id),
+    );
+    expect(
+      (f.container.read(allCategoriesProvider).value ?? <Category>[])
+          .where((Category c) => c.isSystem),
+      isNotEmpty,
+      reason: 'остальные предустановки на месте',
+    );
+    // Скрытая — в потоке скрытых (провайдер настроек).
+    await waitUntil(
+      () => (f.container
+                  .read(hiddenSystemCategoriesProvider)
+                  .value ??
+              <Category>[])
+          .any((Category c) => c.id == id),
+    );
+
+    // Возвращаем через контроллер — категория снова во всех живых списках.
+    final Result<Category> restored = await f.categories.restoreCategory(id);
+    expect(restored.isSuccess, isTrue);
+    await waitUntil(
+      () => (f.container.read(allCategoriesProvider).value ?? <Category>[])
+          .any((Category c) => c.id == id),
+    );
+    await waitUntil(
+      () => (f.container
+                  .read(hiddenSystemCategoriesProvider)
+                  .value ??
+              <Category>[])
+          .every((Category c) => c.id != id),
+    );
+  });
+
+  test('скрытие не-системной и повторное скрытие — отказы; удаление пустой работает (M5-шаг 3)',
+      () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+
+    final String userId = await f.newCategory('Хобби', CategoryKind.expense);
+    final Result<Category> notSystem = await f.categories.hideCategory(userId);
+    expect(notSystem.isFailure, isTrue);
+    expect(notSystem.failure, DataFailure.categoryIsSystem);
+
+    final List<Category> seeded =
+        await f.db.categoriesDao.getAlive(kind: CategoryKind.expense);
+    final String systemId = seeded.first.id;
+    expect((await f.categories.hideCategory(systemId)).isSuccess, isTrue);
+    // Повторное скрытие — отказ (уже скрыта, живой строки нет).
+    final Result<Category> again = await f.categories.hideCategory(systemId);
+    expect(again.isFailure, isTrue);
+    expect(again.failure, DataFailure.notFound);
+
+    // Семантика удаления не изменилась: пустая пользовательская удаляется.
+    final Result<void> deleted = await f.categories.deleteCategory(userId);
+    expect(deleted.isSuccess, isTrue);
+    // А системная не удаляется и скрытой — тоже (категорияIsSystem).
+    final Result<void> deleteHiddenSystem =
+        await f.categories.deleteCategory(systemId);
+    expect(deleteHiddenSystem.isFailure, isTrue);
+    expect(deleteHiddenSystem.failure, DataFailure.notFound);
+  });
+
   test('операции: расход, доход и перевод обновляют балансы DAO', () async {
     final Fixture f = Fixture();
     await seedDefaultsIfEmpty(f.db);

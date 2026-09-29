@@ -3,6 +3,7 @@
 import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/core/errors.dart';
+import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 
@@ -319,5 +320,160 @@ void main() {
     await f.seedCategory();
 
     await expectLater(stream, emitsThrough(hasLength(1)));
+  });
+
+  test('hide: системная скрыта из живых списков, строка в БД осталась (M5-шаг 3)', () async {
+    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
+    f.clock.advance(const Duration(hours: 1));
+
+    final Category hidden = await f.categories.hide(system.id);
+
+    expect(hidden.deletedAt, isNotNull);
+    expect(hidden.updatedAt.toUtc(), f.clock.read());
+    // Исчезла из живых списков (getAlive/watchAlive, findById).
+    expect(await f.categories.getAlive(), isEmpty);
+    expect(
+      await f.categories.getAlive(kind: CategoryKind.expense),
+      isEmpty,
+    );
+    expect(await f.categories.findById(system.id), isNull);
+    // Но осталась в БД (soft delete, §3) и видна в списке скрытых.
+    expect(await rawRowCount(f.db, 'categories'), 1);
+    final List<Category> hiddenList = await f.categories.getHiddenSystem();
+    expect(hiddenList.single.id, system.id);
+  });
+
+  test('hide: не-системную скрыть нельзя — только softDelete', () async {
+    final Category user = await f.seedCategory(name: 'Хобби');
+
+    await expectLater(
+      f.categories.hide(user.id),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.categoryIsSystem,
+        ),
+      ),
+    );
+    expect(await f.categories.getAlive(), hasLength(1));
+  });
+
+  test('hide: неясный id и уже скрытая — отказ notFound', () async {
+    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
+    await expectLater(
+      f.categories.hide('нет-такого'),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.notFound,
+        ),
+      ),
+    );
+    await f.categories.hide(system.id);
+    await expectLater(
+      f.categories.hide(system.id),
+      throwsA(isA<DataValidationException>()),
+    );
+  });
+
+  test('restore: скрытая системная возвращается во все живые списки (M5-шаг 3)', () async {
+    final Category system = await f.seedCategory(
+      name: 'Прочее',
+      kind: CategoryKind.income,
+      isSystem: true,
+    );
+    await f.categories.hide(system.id);
+    f.clock.advance(const Duration(hours: 1));
+
+    final Category restored = await f.categories.restore(system.id);
+
+    expect(restored.deletedAt, isNull);
+    expect(restored.updatedAt.toUtc(), f.clock.read());
+    expect(await f.categories.getAlive(), hasLength(1));
+    expect(
+      await f.categories.getAlive(kind: CategoryKind.income),
+      hasLength(1),
+    );
+    expect(await f.categories.findById(system.id), isNotNull);
+    expect(await f.categories.getHiddenSystem(), isEmpty);
+  });
+
+  test('restore: не скрытые (живая, не-системная, удалённая) не возвращаются', () async {
+    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
+    final Category user = await f.seedCategory(name: 'Хобби');
+
+    // Живая и не-системная: не в списке скрытых — отказ notFound.
+    await expectLater(
+      f.categories.restore(user.id),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.notFound,
+        ),
+      ),
+    );
+    // Живая системная — тоже не «возврат».
+    await expectLater(
+      f.categories.restore(system.id),
+      throwsA(isA<DataValidationException>()),
+    );
+    // Удалённая не-системная — не системная, возврату не подлежит.
+    await f.categories.softDelete(user.id);
+    await expectLater(
+      f.categories.restore(user.id),
+      throwsA(isA<DataValidationException>()),
+    );
+  });
+
+  test('watchHiddenSystem: скрытие добавляет, возврат убирает', () async {
+    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
+    final Stream<List<Category>> stream = f.categories.watchHiddenSystem();
+
+    // До скрытия — пусто; после скрытия — одна; после возврата — пусто.
+    await expectLater(stream, emitsThrough(isEmpty));
+    final Category hidden = await f.categories.hide(system.id);
+    await expectLater(stream, emitsThrough(hasLength(1)));
+    await f.categories.restore(hidden.id);
+    await expectLater(stream, emitsThrough(isEmpty));
+    // Не-системные в потоке скрытых не появляются.
+    final Category user = await f.seedCategory(name: 'Хобби');
+    await f.categories.softDelete(user.id);
+    await expectLater(stream, emitsThrough(isEmpty));
+  });
+
+  test('скрытие с операциями: операция живёт, имя резолвится в истории (LEFT JOIN), считается в отчётах-бюджетах', () async {
+    final Category system = await f.seedCategory(name: 'Продукты', isSystem: true);
+    final Account account = await f.seedAccount();
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: account.id,
+      categoryId: system.id,
+      amountMinor: 500,
+    );
+    await f.budgets.create(categoryId: system.id, limitMinor: 1000);
+
+    await f.categories.hide(system.id);
+
+    // Живые списки пусты, но операция и бюджет живы и считаются.
+    expect(await f.categories.getAlive(), isEmpty);
+    expect(await f.transactions.getFiltered(), hasLength(1));
+    expect(await f.budgets.getAlive(), hasLength(1));
+    // История (LEFT JOIN без фильтра deleted_at) — имя видно, как у удалённых.
+    final List<TransactionView> views =
+        await f.transactions.watchFilteredView().first;
+    expect(views.single.categoryName, 'Продукты');
+    // Отчёты (JOIN c.deleted_at IS NULL, D-18) — категория не считается.
+    expect(
+      await f.transactions.expensesByCategoryForMonthInBase(
+        moment: f.clock.read(),
+      ),
+      isEmpty,
+    );
+    // Бюджет жив, прогресс не теряет имя (категория в БД есть).
+    final List<Budget> budgets = await f.budgets.getAlive();
+    expect(budgets.single.categoryId, system.id);
   });
 }
