@@ -3,6 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/amount_field.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/core/currency.dart';
+// Глиф в пунктах выбора категории (M5-шаг 2): categories_screen — экран,
+// но categoryIcon — единственный рендер глифа с заглушкой NULL (D-55);
+// категории при этом по-прежнему приходят через categoriesByKindProvider.
+import 'package:kopilka/features/categories/categories_screen.dart'
+    show categoryIcon;
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/rate.dart';
 import 'package:kopilka/core/result.dart';
@@ -360,7 +365,18 @@ class _TransactionFormDialogState
                     for (final Category category in categories)
                       DropdownMenuItem<String?>(
                         value: category.id,
-                        child: Text(category.name),
+                        child: Row(
+                          children: <Widget>[
+                            categoryIcon(category),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                category.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                   onChanged: (String? value) =>
