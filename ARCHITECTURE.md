@@ -134,6 +134,9 @@ lib/
   по учитываемым»: `_balanceExpression` не трогать (D-66.а).
 - Коды `core/category_icons.dart` и id `theme_presets.dart` после выпуска не
   переименовываются (D-55.3/D-58; D-66.б).
-- Preferences-файлы — паттерн D-43 (битый JSON = молча дефолт, замки T-2);
-  после правки P3 — ссылка на общий хелпер (D-66.в).
+- Preferences-файлы — паттерн D-43 (битый JSON = молча дефолт, замки T-2):
+  чтение/запись — через общий хелпер `core/preferences_json.dart`
+  (`readPreferencesJson`/`writePreferencesJson`, D-66.в); магазины —
+  свои имена файлов и свои ключи.
+- Схема БД — v6 (`attachments`, D-63); изменения только по правилу эпох
   (новая schema_version + миграция + тест).
