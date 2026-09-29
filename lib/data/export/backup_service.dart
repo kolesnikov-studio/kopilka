@@ -21,7 +21,7 @@ class BackupService {
   final AppDatabase db;
   final Clock clock;
 
-  /// Экспорт полного дампа в JSON-строку (формат v5, см. кодек).
+  /// Экспорт полного дампа в JSON-строку (формат v6, см. кодек).
   Future<String> exportJson() async =>
       jsonEncode(await exportToJson(db));
 
@@ -139,6 +139,22 @@ class BackupService {
                 ),
               );
         }
+        // v6 (D-64): метаданные вложений. Файлы на диске бэкап не
+        // переносит (D-63): восстанавливаются только записи БД.
+        for (final BackupAttachment row in backup.attachments) {
+          await db.into(db.attachments).insert(
+                AttachmentsCompanion.insert(
+                  id: row.id,
+                  transactionId: row.transactionId,
+                  filePath: row.filePath,
+                  mimeType: row.mimeType,
+                  fileSize: row.fileSize,
+                  createdAt: row.createdAt,
+                  updatedAt: row.updatedAt,
+                  deletedAt: Value(row.deletedAt),
+                ),
+              );
+        }
       } finally {
         await db.customStatement('PRAGMA foreign_keys = ON');
       }
@@ -158,6 +174,10 @@ class BackupService {
     };
     final Set<String> categoryIds = <String>{
       for (final BackupCategory row in backup.categories) row.id,
+    };
+    // v6 (D-64): ссылка вложения на операцию — по правилу остальных таблиц.
+    final Set<String> transactionIds = <String>{
+      for (final BackupTransaction row in backup.transactions) row.id,
     };
 
     for (final BackupAccount row in backup.accounts) {
@@ -255,6 +275,15 @@ class BackupService {
       if (!categoryIds.contains(row.categoryId)) {
         throw BackupValidationException(
           'бюджет ссылается на отсутствующую категорию ${row.categoryId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+    }
+    for (final BackupAttachment row in backup.attachments) {
+      if (!transactionIds.contains(row.transactionId)) {
+        throw BackupValidationException(
+          'вложение ${row.id} ссылается на отсутствующую операцию '
+          '${row.transactionId}',
           kind: BackupFailure.invalidData,
         );
       }

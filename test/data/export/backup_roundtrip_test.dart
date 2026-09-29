@@ -20,11 +20,18 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/export/backup_service.dart';
+import 'package:kopilka/data/attachments_service.dart';
 
-/// Богатая база: максимум различимых случаев формата v1. Возвращает базу
-/// и идентификаторы категорий с иконкой/без — они нужны проверкам v4.
-Future<({AppDatabase db, String groceriesId, String milkId})>
-    richSeeded() async {
+/// Богатая база: максимум различимых случаев формата v1. Возвращает базу,
+/// идентификаторы категорий с иконкой/без и id операции с вложением —
+/// они нужны проверкам v4/v6.
+Future<
+    ({
+      AppDatabase db,
+      String groceriesId,
+      String milkId,
+      String attachmentTransactionId,
+    })> richSeeded() async {
   final AppDatabase database = AppDatabase.forTesting(NativeDatabase.memory());
   await seedDefaultsIfEmpty(database);
 
@@ -141,7 +148,30 @@ Future<({AppDatabase db, String groceriesId, String milkId})>
   );
   await database.transactionsDao.softDelete(deletedExpense.id);
 
-  return (db: database, groceriesId: groceriesId, milkId: milkId);
+  // Вложение (v6, D-64): метаданные через DAO живой операции. Файл на
+  // диске не нужен: бэкап переносит только метаданные (D-63).
+  final Transaction groceriesExpense =
+      await database.transactionsDao.create(
+    type: TransactionType.expense,
+    accountId: card.id,
+    categoryId: groceries.id,
+    amountMinor: 1500,
+  );
+  final String attachmentFileName =
+      'att-${groceriesExpense.id.substring(0, 8)}.jpg';
+  await database.attachmentsDao.create(
+    transactionId: groceriesExpense.id,
+    filePath: attachmentFileName,
+    mimeType: 'image/jpeg',
+    fileSize: 2048,
+  );
+
+  return (
+    db: database,
+    groceriesId: groceriesId,
+    milkId: milkId,
+    attachmentTransactionId: groceriesExpense.id,
+  );
 }
 
 /// Канонизирует документ для сравнения: таблицы как множества строк
@@ -209,6 +239,7 @@ void main() {
       db: AppDatabase source,
       groceriesId: String groceriesId,
       milkId: String milkId,
+      attachmentTransactionId: String attachmentTransactionId,
     ) =
         await richSeeded();
     addTearDown(source.close);
@@ -252,12 +283,13 @@ void main() {
     expect(nested.single.data['child'], 'Молочка');
     expect(nested.single.data['parent'], 'Продукты');
 
-    // Все виды операций живыми: расход (3, с категорией и без), доход (2,
-    // в т.ч. в USD), перевод между счетами в разных валютах; один расход
-    // мягко удалён и в живой список не входит.
+    // Все виды операций живыми: расход (4, с категорией и без — включая
+    // носителя вложения на 1500), доход (2, в т.ч. в USD), перевод между
+    // счетами в разных валютах; один расход мягко удалён и в живой список
+    // не входит.
     final List<Transaction> alive =
         await restored.transactionsDao.getFiltered();
-    expect(alive, hasLength(6));
+    expect(alive, hasLength(7));
     final Transaction transfer = alive.singleWhere(
         (Transaction t) =>
             TransactionType.fromDb(t.type) == TransactionType.transfer);
@@ -293,6 +325,26 @@ void main() {
       'SELECT COUNT(*) AS c FROM budgets WHERE deleted_at IS NOT NULL',
     ).get();
     expect(deadBudgets.single.read<int>('c'), 1);
+
+    // Вложение (v6, D-64): метаданные пережили round-trip дословно;
+    // файл на диске НЕ требуется — бэкап его не переносит (D-63),
+    // отсутствие файла — норма (UI 6в обязан показывать это без падения).
+    final Attachment? attachment =
+        await restored.attachmentsDao.findByTransaction(attachmentTransactionId);
+    expect(attachment, isNotNull);
+    expect(attachment!.mimeType, 'image/jpeg');
+    expect(attachment.fileSize, 2048);
+    expect(
+      AttachmentsStorage.isMimeTypeAllowed(attachment.mimeType),
+      isTrue,
+    );
+    expect(attachment.filePath, endsWith('.jpg'));
+
+    // Мягко удалённая операция без вложения: вложений ровно одно.
+    final List<QueryRow> attachmentsCount = await restored.customSelect(
+      'SELECT COUNT(*) AS c FROM attachments',
+    ).get();
+    expect(attachmentsCount.single.read<int>('c'), 1);
   });
 
   test('round-trip мягко удалённых строк: удалённые остаются удалёнными', () async {
@@ -327,6 +379,12 @@ void main() {
       'SELECT COUNT(*) AS c FROM transactions WHERE deleted_at IS NOT NULL',
     ).get();
     expect(deletedTransactions.single.data['c'], 1);
+
+    // Вложение — метаданные в дампе (v6, D-64), файл на диске не требуется.
+    final List<QueryRow> attachments = await restored.customSelect(
+      'SELECT COUNT(*) AS c FROM attachments',
+    ).get();
+    expect(attachments.single.read<int>('c'), 1);
   });
 
   test('повторный round-trip стабилен: экспорт → импорт → экспорт → импорт → экспорт',

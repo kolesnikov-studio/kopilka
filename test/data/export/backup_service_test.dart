@@ -622,6 +622,123 @@ void main() {
     });
   });
 
+  // --- v6: вложения в формате экспорта (D-64) ---
+
+  /// Документ v6 с одним вложением (задаёт тест); без сервисных проверок
+  /// формы перевода — для проверок ссылок и импорта.
+  Map<String, dynamic> v6WithAttachment(Map<String, dynamic> attachment) =>
+      <String, dynamic>{
+        'schema_version': 6,
+        'data': <String, dynamic>{
+          'currencies': <dynamic>[
+            <String, dynamic>{
+              'code': 'RUB',
+              'symbol': '₽',
+              'is_base': true,
+              'rate_to_base': 1,
+              'created_at': '2026-09-30T00:00:00.000Z',
+              'updated_at': '2026-09-30T00:00:00.000Z',
+            },
+          ],
+          'accounts': <dynamic>[
+            <String, dynamic>{
+              'id': 'acc-1',
+              'name': 'Карта',
+              'kind': 'card',
+              'currency_code': 'RUB',
+              'created_at': '2026-09-30T00:00:00.000Z',
+              'updated_at': '2026-09-30T00:00:00.000Z',
+            },
+          ],
+          'categories': <dynamic>[],
+          'transactions': <dynamic>[
+            <String, dynamic>{
+              'id': 'tx-1',
+              'type': 'expense',
+              'account_id': 'acc-1',
+              'amount_minor': 250,
+              'currency_code': 'RUB',
+              'date': '2026-09-30T00:00:00.000Z',
+              'created_at': '2026-09-30T00:00:00.000Z',
+              'updated_at': '2026-09-30T00:00:00.000Z',
+            },
+          ],
+          'budgets': <dynamic>[],
+          'attachments': <dynamic>[attachment],
+        },
+      };
+
+  final Map<String, dynamic> serviceAttachment = <String, dynamic>{
+    'id': 'att-1',
+    'transaction_id': 'tx-1',
+    'file_path': 'att-1.jpg',
+    'mime_type': 'application/pdf',
+    'file_size': 999,
+    'created_at': '2026-09-30T00:00:00.000Z',
+    'updated_at': '2026-09-30T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  test('вложение с битой ссылкой на операцию — отказ invalidData (D-64)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final String json = jsonEncode(v6WithAttachment(<String, dynamic>{
+      ...serviceAttachment,
+      'transaction_id': 'tx-нет-такой',
+    }));
+    expect(
+      () => BackupService(database).importJson(json),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+    // Отказ до транзакции: база не тронута.
+    expect(await database.transactionsDao.getFiltered(), hasLength(0));
+  });
+
+  test('импорт v6 восстанавливает метаданные вложения (файл не нужен, D-63)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final String json = jsonEncode(v6WithAttachment(serviceAttachment));
+
+    await BackupService(database).importJson(json);
+
+    final List<QueryRow> rows = await database.customSelect(
+      'SELECT id, transaction_id, file_path, mime_type, file_size '
+      'FROM attachments',
+    ).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.data['transaction_id'], 'tx-1');
+    expect(rows.single.data['file_path'], 'att-1.jpg');
+    expect(rows.single.data['mime_type'], 'application/pdf');
+    expect(rows.single.data['file_size'], 999);
+  });
+
+  test('импорт v5-файла: вложений ноль (нет ключа — пустой список, D-64)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final Map<String, dynamic> document = v6WithAttachment(serviceAttachment);
+    (document['data'] as Map<String, dynamic>).remove('attachments');
+    document['schema_version'] = 5;
+    final String json = jsonEncode(document);
+
+    await BackupService(database).importJson(json);
+
+    final List<QueryRow> rows = await database
+        .customSelect('SELECT COUNT(*) AS c FROM attachments')
+        .get();
+    expect(rows.single.read<int>('c'), 0);
+    // Данные v5 при этом восстановлены.
+    expect(await database.transactionsDao.getFiltered(), hasLength(1));
+  });
+
   test('автобэкап создаёт вложенный каталог, если его нет', () async {
     final AppDatabase database = await seeded();
     addTearDown(database.close);

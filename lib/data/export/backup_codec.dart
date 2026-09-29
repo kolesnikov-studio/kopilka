@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/text.dart';
+import 'package:kopilka/data/attachments_service.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 
@@ -27,6 +28,12 @@ import 'package:kopilka/data/db/enums.dart';
 // не меняется — нет поля = NULL («учитывать»). Валидация строгая
 // (прецедент D-25): не-булево значение — отказ импорта.
 //
+// v6 (M5, D-64): в data появилась таблица attachments (метаданные вложений
+// к операциям, D-63) — строки таблицы БД в общем механизме дампа. Файлы
+// вложений в бэкап НЕ входят (JSON — данные, не blobs): импорт восстанав-
+// ливает только метаданные, отсутствие файла на диске — норма. Чтение
+// v1–v5 не меняется: нет ключа `attachments` = пустой список (образец
+// v1→v2 в каркасе миграций формата).
 // Правила §3, которые кодек обязан воспроизводить дословно:
 // - PK — UUID v4 (TEXT), сгенерирован приложением при создании записи;
 // - каждая строка содержит created_at/updated_at (UTC) и deleted_at
@@ -39,8 +46,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v5.
-const int backupSchemaVersion = 5;
+/// дамп таблиц v6.
+const int backupSchemaVersion = 6;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -82,9 +89,12 @@ enum BackupFailure {
 /// требует — в v4 только необязательное поле строк categories, его
 /// отсутствие означает NULL (D-54). v4 → v5: правки не требует — в v5
 /// только необязательное поле строк accounts, его отсутствие означает
-/// NULL («учитывать», D-54).
+/// NULL («учитывать», D-54). v5 → v6: правки не требует — в v6 добавилась
+/// таблица attachments, её отсутствие в файле означает пустой список
+/// (D-64).
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
+    6 => (Map<String, dynamic> document) => document,
     5 => (Map<String, dynamic> document) => document,
     4 => (Map<String, dynamic> document) => document,
     3 => (Map<String, dynamic> document) => document,
@@ -258,6 +268,9 @@ Future<Map<String, dynamic>> exportToJson(AppDatabase db) async {
     'categories': await dumpTable('categories'),
     'transactions': await dumpTable('transactions'),
     'budgets': await dumpTable('budgets'),
+    // v6 (D-64): метаданные вложений в общем механизме дампа. Файлы
+    // вложений в бэкап не входят (D-63): JSON — данные, не blobs.
+    'attachments': await dumpTable('attachments'),
   };
   return <String, dynamic>{
     'schema_version': backupSchemaVersion,
@@ -274,6 +287,7 @@ const Set<String> dumpedTables = <String>{
   'categories',
   'transactions',
   'budgets',
+  'attachments',
 };
 
 /// Разбирает JSON-документ бэкапа в типизированный дамп с миграцией формата.
@@ -459,6 +473,48 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
       ),
   ];
 
+  // v6 (D-64): чтение v1–v5 не меняется — нет ключа `attachments` =
+  // пустой список (образец v1→v2 в каркасе миграций формата); ключ есть,
+  // но не массив — отказ invalidFormat по общему правилу _requireTable.
+  final List<BackupAttachment> attachments = <BackupAttachment>[
+    for (final Map<String, dynamic> row in data['attachments'] == null
+        ? const <Map<String, dynamic>>[]
+        : _requireTable(data['attachments'], 'attachments'))
+      BackupAttachment(
+        id: _requireString(row['id'], 'attachments.id'),
+        transactionId: _requireString(
+          row['transaction_id'],
+          'attachments.transaction_id',
+        ),
+        // Строгая валидация строки (D-64): mime — только из белого
+        // списка (широкий isMimeTypeAllowed), размер — неотрицательный
+        // int; отказ импорта, не тихая нормализация (прецедент D-25).
+        filePath: _requireString(row['file_path'], 'attachments.file_path'),
+        mimeType: switch (_requireString(row['mime_type'], 'attachments.mime_type')) {
+          final String mime when AttachmentsStorage.isMimeTypeAllowed(mime) =>
+            mime,
+          final String mime => throw BackupValidationException(
+              'attachments.mime_type: тип «$mime» вне белого списка '
+              '(image/*, application/pdf) — отказ импорта (D-64)',
+              kind: BackupFailure.invalidData,
+            ),
+        },
+        fileSize: switch (_requireInt(row['file_size'], 'attachments.file_size')) {
+          final int size when size >= 0 => size,
+          final int size => throw BackupValidationException(
+              'attachments.file_size: отрицательный размер $size — '
+              'отказ импорта (D-64)',
+              kind: BackupFailure.invalidData,
+            ),
+        },
+        createdAt: _requireDate(row['created_at'], 'attachments.created_at'),
+        updatedAt: _requireDate(row['updated_at'], 'attachments.updated_at'),
+        deletedAt: row['deleted_at'] == null
+            ? null
+            : _requireDate(row['deleted_at'], 'attachments.deleted_at'),
+      ),
+  ];
+
   return DecodedBackup(
     schemaVersion: version,
     exportedAt: exportedAt,
@@ -467,6 +523,7 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
     categories: categories,
     transactions: transactions,
     budgets: budgets,
+    attachments: attachments,
   );
 }
 
@@ -479,6 +536,7 @@ class DecodedBackup {
     required this.categories,
     required this.transactions,
     required this.budgets,
+    required this.attachments,
     this.exportedAt,
   });
 
@@ -490,6 +548,11 @@ class DecodedBackup {
   final List<BackupCategory> categories;
   final List<BackupTransaction> transactions;
   final List<BackupBudget> budgets;
+
+  /// Метаданные вложений (v6, D-64); у файлов v1–v5 ключа нет — пустой
+  /// список. Файлов на диске бэкап не переносит: импорт восстанавливает
+  /// только метаданные (D-63).
+  final List<BackupAttachment> attachments;
 }
 
 /// Валюта дампа.
@@ -590,6 +653,30 @@ class BackupBudget {
   final String id;
   final String categoryId;
   final int limitMinor;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+}
+
+/// Вложение дампа (v6, D-64): только метаданные — файл на диске бэкап
+/// не переносит (D-63), после импорта отсутствие файла — норма.
+class BackupAttachment {
+  const BackupAttachment({
+    required this.id,
+    required this.transactionId,
+    required this.filePath,
+    required this.mimeType,
+    required this.fileSize,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String transactionId;
+  final String filePath;
+  final String mimeType;
+  final int fileSize;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;

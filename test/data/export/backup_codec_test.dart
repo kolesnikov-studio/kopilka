@@ -604,6 +604,147 @@ void main() {
     );
   });
 
+  // --- v6: вложения в формате экспорта (D-64) ---
+
+  /// Минимальный документ v6 с одной строкой attachments (задаёт тест).
+  Map<String, dynamic> v6Document(Map<String, dynamic> attachment) =>
+      <String, dynamic>{
+        'schema_version': 6,
+        'data': <String, dynamic>{
+          'currencies': <dynamic>[],
+          'accounts': <dynamic>[],
+          'categories': <dynamic>[],
+          'transactions': <dynamic>[],
+          'budgets': <dynamic>[],
+          'attachments': <dynamic>[attachment],
+        },
+      };
+
+  final Map<String, dynamic> baseAttachment = <String, dynamic>{
+    'id': 'att-1',
+    'transaction_id': 'tx-1',
+    'file_path': 'e0abf12c-9.jpg',
+    'mime_type': 'image/jpeg',
+    'file_size': 123456,
+    'created_at': '2026-09-30T00:00:00.000Z',
+    'updated_at': '2026-09-30T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  test('v6: строка вложения читается типизированно (D-64)', () {
+    final DecodedBackup backup = decodeJson(v6Document(baseAttachment));
+    expect(backup.schemaVersion, 6);
+    expect(backup.attachments, hasLength(1));
+    expect(backup.attachments.single.id, 'att-1');
+    expect(backup.attachments.single.transactionId, 'tx-1');
+    expect(backup.attachments.single.filePath, 'e0abf12c-9.jpg');    expect(backup.attachments.single.mimeType, 'image/jpeg');
+    expect(backup.attachments.single.fileSize, 123456);
+    expect(backup.attachments.single.deletedAt, isNull);
+  });
+
+  test('v5-файл без ключа attachments: вложений ноль (D-64)', () {
+    final Map<String, dynamic> document = <String, dynamic>{
+      'schema_version': 5,
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[],
+        'accounts': <dynamic>[],
+        'categories': <dynamic>[],
+        'transactions': <dynamic>[],
+        'budgets': <dynamic>[],
+      },
+    };
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.schemaVersion, 5);
+    expect(
+      backup.attachments,
+      isEmpty,
+      reason: 'нет ключа = пустой список (образец v1→v2 в миграциях формата)',
+    );
+  });
+
+  test('attachments не массив — отказ invalidFormat (общее правило таблиц)', () {
+    final Map<String, dynamic> document = v6Document(baseAttachment);
+    (document['data'] as Map<String, dynamic>)['attachments'] = 'мусор';
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidFormat,
+        ),
+      ),
+    );
+  });
+
+  test('пустой file_path — отказ invalidData (D-64)', () {
+    final Map<String, dynamic> document = v6Document(<String, dynamic>{
+      ...baseAttachment,
+      'file_path': '',
+    });
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('mime вне белого списка — отказ invalidData (D-64)', () {
+    final Map<String, dynamic> document = v6Document(<String, dynamic>{
+      ...baseAttachment,
+      'mime_type': 'application/zip',
+    });
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('отрицательный file_size — отказ invalidData (D-64)', () {
+    final Map<String, dynamic> document = v6Document(<String, dynamic>{
+      ...baseAttachment,
+      'file_size': -1,
+    });
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('битый file_size (не число) — отказ invalidData (D-64)', () {
+    final Map<String, dynamic> document = v6Document(<String, dynamic>{
+      ...baseAttachment,
+      'file_size': 'много',
+    });
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
   test('импорт v5-файла восстанавливает флаг счёта (round-trip кодека)', () async {
     final AppDatabase database = db();
     addTearDown(database.close);
@@ -620,7 +761,9 @@ void main() {
     final Map<String, dynamic> document =
         jsonDecode(json) as Map<String, dynamic>;
     expect(document['schema_version'], backupSchemaVersion);
-    expect(backupSchemaVersion, 5);
+    // Замок версии формата (прецедент замков миграций D-55): экспорт
+    // обязан быть v6 — вложения в дампе (D-64).
+    expect(backupSchemaVersion, 6);
 
     final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(restored.close);
