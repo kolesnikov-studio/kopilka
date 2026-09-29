@@ -42,7 +42,7 @@ lib/
 
 Поток зависимостей: UI → Riverpod-контроллеры → сервисы/DAO → drift. UI не обращается к БД напрямую.
 
-## 3. Схема данных (v1, закладывается в M1)
+## 3. Схема данных (v1, закладывается в M1; текущая — v4)
 
 Общие правила (нарушать нельзя):
 - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа будущего слияния файлов/синка.
@@ -53,7 +53,7 @@ lib/
 Таблицы:
 - `currencies`: code TEXT PK (ISO 4217), symbol, is_base, rate_to_base
 - `accounts`: id, name, kind (cash|bank|card|other), currency_code FK, initial_balance_minor, sort_order
-- `categories`: id, name, kind (income|expense), parent_id NULL (вложенность), icon, color, is_system
+- `categories`: id, name, kind (income|expense), parent_id NULL (вложенность), icon, color, is_system; с v4 — `icon_code TEXT NULL`: код иконки из справочника `core/category_icons.dart` (NULL = иконка не выбрана; старое свободное поле `icon` не используется и не трогается; M5, D-54/D-55)
 - `transactions`: id, type (income|expense|transfer), account_id FK, target_account_id NULL (для transfer), category_id NULL, amount_minor, currency_code, date, note
 
 Балансы не хранятся — вычисляются запросом из транзакций + initial_balance. Единый источник истины.
@@ -62,7 +62,7 @@ lib/
 
 ## 4. Экспорт/импорт и бэкапы
 
-- Формат бэкапа: JSON `{ schema_version, exported_at, data: { таблицы } }`. Полный дамп, атомарная замена при импорте.
+- Формат бэкапа: JSON `{ schema_version, exported_at, data: { таблицы } }`. Полный дамп, атомарная замена при импорте. С v4 в строках categories необязательное поле `iconCode` (нет поля = NULL; чтение v1/v2/v3 не менялось); неизвестный справочнику код — отказ импорта, не тихий пропуск (прецедент D-25; M5, D-54/D-55).
 - Импорт обязан поддерживать старые schema_version (миграции формата экспорта).
 - CSV — экспорт транзакций (для Excel/таблиц); импорт CSV с маппингом колонок — опционален (M2).
 - Автобэкап при каждом запуске: JSON в выбранный пользователем каталог, хранить последние 10.
@@ -123,6 +123,7 @@ lib/
   паттерн, менять не нужно.
 - `DataLayerFixture` (тесты) — не переписывать; расширять точечно (S1).
 - Механизм миграций и `migration_v2/v3_test` — только новые версии схемы,
-  старые тесты не редактировать (правило эпох в ROADMAP.md).
-- Схема БД — v3; изменения только по правилу эпох (новая schema_version +
-  миграция + тест).
+  старые тесты не редактировать (правило эпох в ROADMAP.md); замки в них
+  поднимаются только вместе с новой версией схемы (прецедент v3→v4, D-55).
+- Схема БД — v4 (`categories.icon_code`); изменения только по правилу эпох
+  (новая schema_version + миграция + тест).
