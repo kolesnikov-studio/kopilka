@@ -30,9 +30,13 @@ class CategoriesController extends Notifier {
   CategoriesDao get _categories => ref.read(categoriesDaoProvider);
 
   /// Создаёт категорию.
+  ///
+  /// [iconCode] — код из справочника `core/category_icons.dart` (v4, D-54);
+  /// неизвестный код отвергается слоем данных (invalidInput).
   Future<Result<Category>> createCategory({
     required String name,
     required CategoryKind kind,
+    required String iconCode,
     String? parentId,
   }) async {
     try {
@@ -40,6 +44,7 @@ class CategoriesController extends Notifier {
         name: name,
         kind: kind,
         parentId: parentId,
+        iconCode: iconCode,
       );
       return Success<Category>(category);
     } on DataValidationException catch (error) {
@@ -49,16 +54,21 @@ class CategoriesController extends Notifier {
 
   /// Меняет категорию; вид (`kind`) не меняется — от него зависит смысл
   /// операций (DAO это и не позволяет).
+  ///
+  /// [iconCode] — код из справочника `core/category_icons.dart` (v4, D-54);
+  /// NULL снимает иконку, неизвестный код отвергается слоем данных.
   Future<Result<Category>> updateCategory(
     String id, {
     Value<String> name = const Value.absent(),
     Value<String?> parentId = const Value.absent(),
+    Value<String?> iconCode = const Value.absent(),
   }) async {
     try {
       final Category category = await _categories.updateCategory(
         id,
         name: name,
         parentId: parentId,
+        iconCode: iconCode,
       );
       return Success<Category>(category);
     } on DataValidationException catch (error) {

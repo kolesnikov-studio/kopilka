@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/app/widgets/error_state.dart';
+import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -48,6 +49,13 @@ class CategoriesScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Глиф категории: из справочника по коду; NULL (живые базы v0.4) и
+/// неизвестная строка — нейтральная заглушка «other» (D-55).
+Widget categoryIcon(Category category) => Icon(
+      categoryIconFor(category.iconCode).icon,
+      size: 20,
+    );
 
 class _KindSection extends StatelessWidget {
   const _KindSection({required this.kind, required this.all});
@@ -97,6 +105,8 @@ class _CategoryTile extends ConsumerWidget {
       ),
       title: Row(
         children: <Widget>[
+          categoryIcon(category),
+          const SizedBox(width: 8),
           Flexible(child: Text(category.name, overflow: TextOverflow.ellipsis)),
           if (category.isSystem) ...<Widget>[
             const SizedBox(width: 8),

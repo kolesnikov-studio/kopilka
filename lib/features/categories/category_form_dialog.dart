@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
+import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -13,6 +14,12 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 /// Вид (`kind`) задаётся только при создании: DAO не меняет его, потому что
 /// от вида зависит смысл операций. Родитель выбирается среди категорий того
 /// же вида, саму категорию и её потомков DAO исключит сам.
+///
+/// Иконка обязательна (D-54, идея 4): при создании предвыбран нейтральный
+/// «other» — форму можно сохранить сразу; при редактировании предвыбрана
+/// текущая (NULL живой базы показывается заглушкой «other»), смена — на
+/// любой код справочника. Выбор идёт сеткой глифов справочника, порядок —
+/// порядок справочника. Сохранение — через контроллер и DAO (iconCode).
 Future<void> showCategoryFormDialog(
   BuildContext context, {
   Category? category,
@@ -40,6 +47,11 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
   final TextEditingController _name = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late CategoryKind _kind = widget.initialKind;
+
+  /// Выбранный код иконки. Безопасен по построению: только коды справочника
+  /// (дефолт [defaultCategoryIconCode], сетка рисует только коды справочника).
+  late String _iconCode = widget.initial?.iconCode ?? defaultCategoryIconCode;
+
   String? _parentId;
 
   @override
@@ -71,6 +83,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
       result = await controller.createCategory(
         name: _name.text,
         kind: _kind,
+        iconCode: _iconCode,
         parentId: _parentId,
       );
     } else {
@@ -78,6 +91,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
         widget.initial!.id,
         name: Value<String>(_name.text),
         parentId: Value<String?>(_parentId),
+        iconCode: Value<String?>(_iconCode),
       );
     }
     if (!mounted) {
@@ -138,19 +152,33 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
                         setState(() => _kind = selection.first),
               ),
               const SizedBox(height: 12),
+              _CategoryIconPicker(
+                selectedCode: _iconCode,
+                onSelected: (String code) => setState(() => _iconCode = code),
+              ),
+              const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
                 initialValue: _parentId,
+                // isExpanded — конвенция dropdown'ов форм (счета, категории
+                // в форме операции): длинное имя в строке не раздвигает диалог.
+                isExpanded: true,
                 decoration: InputDecoration(
                   labelText: l10n.categoryParent,
                 ),
                 items: <DropdownMenuItem<String?>>[
                   DropdownMenuItem<String?>(
-                    child: Text(l10n.categoryParentNone),
+                    child: Text(
+                      l10n.categoryParentNone,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   for (final Category category in parentOptions)
                     DropdownMenuItem<String?>(
                       value: category.id,
-                      child: Text(category.name),
+                      child: Text(
+                        category.name,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: (String? value) => setState(() => _parentId = value),
@@ -169,6 +197,46 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
           child: Text(l10n.saveAction),
         ),
       ],
+    );
+  }
+}
+
+/// Сетка глифов выбора иконки: все коды справочника, выбранный подсвечен.
+///
+/// Сетка — Wrap с плитками фиксированного размера: AlertDialog вычисляет
+/// интринсик-размеры содержимого, а любые viewport'ы (GridView и даже
+/// ShrinkWrappingViewport) их не поддерживают — ловушка сетки в диалоге.
+/// Wrap интринсики умеет; вся сетка видна целиком, при нехватке высоты окна
+/// диалог скроллится целиком (SingleChildScrollView вокруг формы).
+class _CategoryIconPicker extends StatelessWidget {
+  const _CategoryIconPicker({required this.selectedCode, required this.onSelected});
+
+  final String selectedCode;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: AppLocalizations.of(context).categoryIconLabel,
+      ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: <Widget>[
+          for (final CategoryIcon entry in categoryIcons)
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: IconButton.filledTonal(
+                tooltip: entry.code,
+                icon: Icon(entry.icon),
+                isSelected: entry.code == selectedCode,
+                onPressed: () => onSelected(entry.code),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
