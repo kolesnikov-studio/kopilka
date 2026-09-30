@@ -40,6 +40,13 @@ class HomeShell extends StatelessWidget {
         icon: Icons.swap_horiz_outlined,
         selectedIcon: Icons.swap_horiz,
       ),
+      // Шестая ветка «Долги» (M6/D-89): между «Операциями» и «Категориями»,
+      // иконки handshake по спеке §0.
+      ShellDestination(
+        label: l10n.navDebts,
+        icon: Icons.handshake_outlined,
+        selectedIcon: Icons.handshake,
+      ),
       ShellDestination(
         label: l10n.navCategories,
         icon: Icons.category_outlined,

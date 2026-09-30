@@ -4,6 +4,8 @@ import 'package:kopilka/app/home_shell.dart';
 import 'package:kopilka/app/routes.dart';
 import 'package:kopilka/features/accounts/accounts_screen.dart';
 import 'package:kopilka/features/categories/categories_screen.dart';
+import 'package:kopilka/features/debts/debt_card_screen.dart';
+import 'package:kopilka/features/debts/debts_screen.dart';
 import 'package:kopilka/features/reports/reports_screen.dart';
 import 'package:kopilka/features/settings/currencies_screen.dart';
 import 'package:kopilka/features/settings/hidden_categories_screen.dart';
@@ -35,6 +37,27 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.transactions,
                 name: AppRoutes.transactionsName,
                 builder: (context, state) => const TransactionsScreen(),
+              ),
+            ],
+          ),
+          // Шестая ветка «Долги» (M6/D-89): между «Операциями» и «Категориями».
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.debts,
+                name: AppRoutes.debtsName,
+                builder: (context, state) => const DebtsScreen(),
+                // Карточка долга — вложенный маршрут ветки: tап из списка,
+                // живое состояние вкладки переживает навигацию.
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    name: AppRoutes.debtName,
+                    builder: (context, state) => DebtCardScreen(
+                      debtId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
