@@ -37,6 +37,7 @@ import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/data/rates/rate_sync_service.dart';
+import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/features/settings/rate_sync_controller.dart';
 import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
@@ -92,6 +93,11 @@ Future<(ProviderContainer, AppDatabase, Directory)> _pumpApp(
       ),
       rateSyncPreferencesStoreProvider.overrideWithValue(
         RateSyncPreferencesStore(baseDirectory: appDir),
+      ),
+      // Напоминания (M6/D-89): RemindersBinding при старте читает opt-in
+      // состояние — хранилище подменяется как остальные (D-43).
+      remindersPreferencesStoreProvider.overrideWithValue(
+        RemindersPreferencesStore(baseDirectory: appDir),
       ),
       rateSyncServiceProvider.overrideWithValue(
         RateSyncService(client: client),

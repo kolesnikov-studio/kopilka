@@ -23,6 +23,7 @@ import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/update_preferences.dart';
 import 'package:kopilka/features/transactions/attachments_controller.dart';
+import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 import '../file_picker_shim.dart' show FakeAttachmentsIo;
@@ -89,6 +90,11 @@ Future<AppHarness> pumpDialogApp(
           .overrideWithValue(AutoBackupDirectoryStore(baseDirectory: baseDir)),
       updatePreferencesStoreProvider
           .overrideWithValue(UpdatePreferencesStore(baseDirectory: baseDir)),
+      // Настройка напоминаний (M6/D-83/D-89): тот же приём каталога
+      // настроек, что у остальных store (D-43); дефолт — выкл.
+      remindersPreferencesStoreProvider.overrideWithValue(
+        RemindersPreferencesStore(baseDirectory: baseDir),
+      ),
       attachmentsStorageProvider.overrideWithValue(
         AttachmentsStorage(
           rootDirectory: Directory('${baseDir.path}${Platform.pathSeparator}attachments'),

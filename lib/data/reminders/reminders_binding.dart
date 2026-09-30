@@ -39,6 +39,14 @@ class RemindersBinding {
   final List<StreamSubscription<void>> _subscriptions =
       <StreamSubscription<void>>[];
 
+  /// Разовый пересчёт вне подписок (M6 шаг C, §7): явный запуск после
+  /// включения настройки пользователем — идемпотентная перезапись расписания
+  /// (D-83). Отказы канала глушит сервис.
+  Future<void> recalculateNow() => _service.recalculate(
+        _ref.read(accountsDaoProvider),
+        _ref.read(debtsDaoProvider),
+      );
+
   Future<void> start() async {
     final AccountsDao accountsDao = _ref.read(accountsDaoProvider);
     final DebtsDao debtsDao = _ref.read(debtsDaoProvider);

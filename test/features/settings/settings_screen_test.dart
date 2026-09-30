@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/settings_screen.dart';
 import 'package:kopilka/features/settings/update_preferences.dart';
@@ -49,6 +50,11 @@ void main() {
         appDatabaseProvider.overrideWithValue(db),
         autoBackupDirectoryStoreProvider.overrideWithValue(store),
         updatePreferencesStoreProvider.overrideWithValue(updatePreferences),
+        // Напоминания (M6/D-89): секция настроек читает opt-in состояние —
+        // хранилище подменяется как остальные (D-43).
+        remindersPreferencesStoreProvider.overrideWithValue(
+          RemindersPreferencesStore(baseDirectory: tempDir),
+        ),
       ],
     );
     addTearDown(container.dispose);

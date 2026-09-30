@@ -16,6 +16,7 @@ import 'package:kopilka/app/theme_presets.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/settings_screen.dart';
@@ -58,6 +59,10 @@ Future<(ProviderContainer, AppLocalizations)> _pump(WidgetTester tester) async {
       ),
       themePreferencesStoreProvider.overrideWithValue(
         ThemePreferencesStore(baseDirectory: tempDir),
+      ),
+      // Напоминания (M6/D-89): секция настроек читает opt-in состояние.
+      remindersPreferencesStoreProvider.overrideWithValue(
+        RemindersPreferencesStore(baseDirectory: tempDir),
       ),
     ],
   );

@@ -15,6 +15,7 @@ import 'package:kopilka/app/app.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
 import 'package:kopilka/features/settings/update_preferences.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -69,6 +70,11 @@ Future<AppLocalizations> pumpApp(
           .overrideWithValue(AutoBackupDirectoryStore(baseDirectory: backupBaseDir)),
       updatePreferencesStoreProvider.overrideWithValue(
         UpdatePreferencesStore(baseDirectory: backupBaseDir),
+      ),
+      // Напоминания (M6/D-89): RemindersBinding при старте читает opt-in
+      // состояние — хранилище подменяется как остальные (D-43).
+      remindersPreferencesStoreProvider.overrideWithValue(
+        RemindersPreferencesStore(baseDirectory: backupBaseDir),
       ),
     ],
   );
