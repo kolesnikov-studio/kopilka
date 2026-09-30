@@ -97,7 +97,8 @@ lib/
 ## 7. Качество и CI
 
 - Unit-тесты: денежная логика, импорт/экспорт, DAO (drift in-memory).
-- CI GitHub Actions: `analyze` + `test` на каждый PR; сборка артефактов (NSIS, portable, AppImage, APK) на тег релиза + черновик Release.
+- CI GitHub Actions: `analyze` + `test` на каждый PR; сборка артефактов (NSIS, portable, AppImage, APK) на тег релиза + черновик Release; публикация черновика — кнопкой Оператора «Publish release» (D-52/D-53).
+- Мониторинг релиза без `gh` (D-74, с 2026-09-30): git + REST API GitHub с токеном из сохранённого git-креденшела (`git credential fill`) — только чтение; токен не печатать, временные файлы удалять. Черновые релизы endpoint `GET /releases/tags/{tag}` не отдаёт (404) — читать `GET /releases` и фильтровать по `tag_name`.
 - Conventional commits; миграции drift — строго с первого релиза: у пользователей появятся данные с v0.1, ломать схему после — недопустимо.
 - Грабли среды и тестов (возвращены по итогам quality-ревью тестов, 2026-09-26):
   зависший `flutter_tester.exe` держит `build/native_assets/windows/sqlite3.dll`
