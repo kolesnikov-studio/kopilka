@@ -5,6 +5,7 @@ import 'package:kopilka/core/text.dart';
 import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
+// DebtDirection (v7, D-81) читается из enums.dart вместе с остальными.
 
 // Формат бэкапа (ARCHITECTURE.md §4):
 //
@@ -34,6 +35,16 @@ import 'package:kopilka/data/db/enums.dart';
 // ливает только метаданные, отсутствие файла на диске — норма. Чтение
 // v1–v5 не меняется: нет ключа `attachments` = пустой список (образец
 // v1→v2 в каркасе миграций формата).
+//
+// v7 (M6, D-85): в data появились таблицы debts и debt_payments (долги
+// и погашения, D-81) — строки таблиц БД в общем механизме дампа; в строках
+// accounts — необязательное поле interest_reminder_date (дата напоминания
+// о процентах накопительного счёта). Валидация строк долгов строгая
+// (прецедент D-25): person непустой, direction из двух значений,
+// amount_minor > 0, extra_minor >= 0, currency_code — известный код,
+// даты — валидный UTC или NULL; ссылки debt_id/transaction_id — в
+// _validateReferences по правилу остальных таблиц (D-64). Чтение v1–v6
+// не меняется: нет ключей = пустые списки, нет поля = NULL.
 // Правила §3, которые кодек обязан воспроизводить дословно:
 // - PK — UUID v4 (TEXT), сгенерирован приложением при создании записи;
 // - каждая строка содержит created_at/updated_at (UTC) и deleted_at
@@ -46,8 +57,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v6.
-const int backupSchemaVersion = 6;
+/// дамп таблиц v7.
+const int backupSchemaVersion = 7;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -91,9 +102,12 @@ enum BackupFailure {
 /// только необязательное поле строк accounts, его отсутствие означает
 /// NULL («учитывать», D-54). v5 → v6: правки не требует — в v6 добавилась
 /// таблица attachments, её отсутствие в файле означает пустой список
-/// (D-64).
+/// (D-64). v6 → v7: правки не требует — в v7 добавились таблицы
+/// debts/debt_payments и необязательное поле строк accounts; их отсутствие
+/// означает пустые списки и NULL (D-85).
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
+    7 => (Map<String, dynamic> document) => document,
     6 => (Map<String, dynamic> document) => document,
     5 => (Map<String, dynamic> document) => document,
     4 => (Map<String, dynamic> document) => document,
@@ -209,6 +223,10 @@ const Set<String> _dateColumns = <String>{
   'updated_at',
   'deleted_at',
   'date',
+  // v7 (D-81): сроки и факты долгов — тоже UTC-даты в ISO-тексте.
+  'due_date',
+  'paid_at',
+  'interest_reminder_date',
 };
 
 const Set<String> _boolColumns = <String>{
@@ -271,6 +289,10 @@ Future<Map<String, dynamic>> exportToJson(AppDatabase db) async {
     // v6 (D-64): метаданные вложений в общем механизме дампа. Файлы
     // вложений в бэкап не входят (D-63): JSON — данные, не blobs.
     'attachments': await dumpTable('attachments'),
+    // v7 (D-85): долги и погашения — в общем механизме дампа, включая
+    // мягко удалённые строки.
+    'debts': await dumpTable('debts'),
+    'debt_payments': await dumpTable('debt_payments'),
   };
   return <String, dynamic>{
     'schema_version': backupSchemaVersion,
@@ -288,6 +310,8 @@ const Set<String> dumpedTables = <String>{
   'transactions',
   'budgets',
   'attachments',
+  'debts',
+  'debt_payments',
 };
 
 /// Разбирает JSON-документ бэкапа в типизированный дамп с миграцией формата.
@@ -372,6 +396,16 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
               kind: BackupFailure.invalidData,
             ),
         },
+        // v7 (D-81/D-85): необязательное поле; нет поля = NULL (файлы
+        // v1–v6). Строгая валидация (D-25): нестроковое значение — отказ,
+        // строка — обязана разбираться как дата (UTC или нет — решает
+        // _requireDate, как остальные даты дампа).
+        interestReminderDate: row['interest_reminder_date'] == null
+            ? null
+            : _requireDate(
+                row['interest_reminder_date'],
+                'accounts.interest_reminder_date',
+              ),
         createdAt: _requireDate(row['created_at'], 'accounts.created_at'),
         updatedAt: _requireDate(row['updated_at'], 'accounts.updated_at'),
         deletedAt: row['deleted_at'] == null
@@ -473,6 +507,86 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
       ),
   ];
 
+  // v7 (D-85): чтение v1–v6 не меняется — нет ключа `debts`/
+  // `debt_payments` = пустой список (образец v1→v2 в каркасе миграций
+  // формата). Валидация строк долгов строгая (прецедент D-25/D-64):
+  // неизвестный direction, пустой person, суммы вне правил — отказ
+  // импорта, не тихая нормализация.
+  final List<BackupDebt> debts = <BackupDebt>[
+    for (final Map<String, dynamic> row in data['debts'] == null
+        ? const <Map<String, dynamic>>[]
+        : _requireTable(data['debts'], 'debts'))
+      BackupDebt(
+        id: _requireString(row['id'], 'debts.id'),
+        person: _requireString(row['person'], 'debts.person'),
+        direction: _enumFromDb(
+          DebtDirection.fromDb,
+          row['direction'],
+          'debts.direction',
+        ),
+        amountMinor: switch (
+            _requireInt(row['amount_minor'], 'debts.amount_minor')) {
+          final int amount when amount > 0 => amount,
+          final int amount => throw BackupValidationException(
+              'debts.amount_minor: тело долга $amount не положительно — '
+              'отказ импорта (D-85/D-25)',
+              kind: BackupFailure.invalidData,
+            ),
+        },
+        extraMinor: switch (
+            _requireInt(row['extra_minor'], 'debts.extra_minor')) {
+          final int extra when extra >= 0 => extra,
+          final int extra => throw BackupValidationException(
+              'debts.extra_minor: отрицательная переплата $extra — '
+              'отказ импорта (D-85/D-25)',
+              kind: BackupFailure.invalidData,
+            ),
+        },
+        currencyCode: _requireString(
+          row['currency_code'],
+          'debts.currency_code',
+        ),
+        dueDate: row['due_date'] == null
+            ? null
+            : _requireDate(row['due_date'], 'debts.due_date'),
+        note: _optionalString(row['note'], 'debts.note'),
+        createdAt: _requireDate(row['created_at'], 'debts.created_at'),
+        updatedAt: _requireDate(row['updated_at'], 'debts.updated_at'),
+        deletedAt: row['deleted_at'] == null
+            ? null
+            : _requireDate(row['deleted_at'], 'debts.deleted_at'),
+      ),
+  ];
+
+  final List<BackupDebtPayment> debtPayments = <BackupDebtPayment>[
+    for (final Map<String, dynamic> row in data['debt_payments'] == null
+        ? const <Map<String, dynamic>>[]
+        : _requireTable(data['debt_payments'], 'debt_payments'))
+      BackupDebtPayment(
+        id: _requireString(row['id'], 'debt_payments.id'),
+        debtId: _requireString(row['debt_id'], 'debt_payments.debt_id'),
+        transactionId: _optionalString(
+          row['transaction_id'],
+          'debt_payments.transaction_id',
+        ),
+        amountMinor: switch (
+            _requireInt(row['amount_minor'], 'debt_payments.amount_minor')) {
+          final int amount when amount > 0 => amount,
+          final int amount => throw BackupValidationException(
+              'debt_payments.amount_minor: сумма платежа $amount не '
+              'положительна — отказ импорта (D-85/D-25)',
+              kind: BackupFailure.invalidData,
+            ),
+        },
+        paidAt: _requireDate(row['paid_at'], 'debt_payments.paid_at'),
+        createdAt: _requireDate(row['created_at'], 'debt_payments.created_at'),
+        updatedAt: _requireDate(row['updated_at'], 'debt_payments.updated_at'),
+        deletedAt: row['deleted_at'] == null
+            ? null
+            : _requireDate(row['deleted_at'], 'debt_payments.deleted_at'),
+      ),
+  ];
+
   // v6 (D-64): чтение v1–v5 не меняется — нет ключа `attachments` =
   // пустой список (образец v1→v2 в каркасе миграций формата); ключ есть,
   // но не массив — отказ invalidFormat по общему правилу _requireTable.
@@ -524,6 +638,8 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
     transactions: transactions,
     budgets: budgets,
     attachments: attachments,
+    debts: debts,
+    debtPayments: debtPayments,
   );
 }
 
@@ -537,6 +653,8 @@ class DecodedBackup {
     required this.transactions,
     required this.budgets,
     required this.attachments,
+    required this.debts,
+    required this.debtPayments,
     this.exportedAt,
   });
 
@@ -553,6 +671,12 @@ class DecodedBackup {
   /// список. Файлов на диске бэкап не переносит: импорт восстанавливает
   /// только метаданные (D-63).
   final List<BackupAttachment> attachments;
+
+  /// Долги (v7, D-85); у файлов v1–v6 ключа нет — пустой список.
+  final List<BackupDebt> debts;
+
+  /// Погашения долгов (v7, D-85); у файлов v1–v6 ключа нет — пустой список.
+  final List<BackupDebtPayment> debtPayments;
 }
 
 /// Валюта дампа.
@@ -588,6 +712,7 @@ class BackupAccount {
     required this.createdAt,
     required this.updatedAt,
     this.excludeFromBalance,
+    this.interestReminderDate,
     this.deletedAt,
   });
 
@@ -601,6 +726,11 @@ class BackupAccount {
   /// Флаг «не учитывать в балансе» (v5, D-54): NULL/false = учитывать;
   /// у файлов v1–v4 поля нет — читается как NULL.
   final bool? excludeFromBalance;
+
+  /// Дата напоминания о процентах (v7, D-81/D-85): NULL = обычный счёт;
+  /// у файлов v1–v6 поля нет — читается как NULL.
+  final DateTime? interestReminderDate;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;
@@ -653,6 +783,62 @@ class BackupBudget {
   final String id;
   final String categoryId;
   final int limitMinor;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+}
+
+/// Долг дампа (v7, D-85).
+class BackupDebt {
+  const BackupDebt({
+    required this.id,
+    required this.person,
+    required this.direction,
+    required this.amountMinor,
+    required this.extraMinor,
+    required this.currencyCode,
+    required this.createdAt,
+    required this.updatedAt,
+    this.dueDate,
+    this.note,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String person;
+  final DebtDirection direction;
+  final int amountMinor;
+  final int extraMinor;
+  final String currencyCode;
+
+  /// Срок возврата (UTC) или NULL — без срока.
+  final DateTime? dueDate;
+  final String? note;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+}
+
+/// Погашение долга дампа (v7, D-85).
+class BackupDebtPayment {
+  const BackupDebtPayment({
+    required this.id,
+    required this.debtId,
+    required this.amountMinor,
+    required this.paidAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.transactionId,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String debtId;
+
+  /// Перевод гашения или NULL: платёж цел и без ссылки (D-81).
+  final String? transactionId;
+  final int amountMinor;
+  final DateTime paidAt;
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;

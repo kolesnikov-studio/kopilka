@@ -796,4 +796,375 @@ void main() {
     expect(result, isA<AutoBackupCreated>());
     expect(await nested.list().length, 1);
   });
+
+  // --- v7: долги и платежи в формате экспорта (D-85) ---
+
+  /// Документ v7 с одним долгом и платежом (задаёт тест); без проверок
+  /// формы перевода — для проверок ссылок и импорта.
+  Map<String, dynamic> v7WithDebt(
+    Map<String, dynamic> debt,
+    Map<String, dynamic> payment,
+  ) =>
+      <String, dynamic>{
+        'schema_version': 7,
+        'data': <String, dynamic>{
+          'currencies': <dynamic>[
+            <String, dynamic>{
+              'code': 'RUB',
+              'symbol': '₽',
+              'is_base': true,
+              'rate_to_base': 1,
+              'created_at': '2026-09-30T00:00:00.000Z',
+              'updated_at': '2026-09-30T00:00:00.000Z',
+            },
+          ],
+          'accounts': <dynamic>[
+            <String, dynamic>{
+              'id': 'acc-1',
+              'name': 'Карта',
+              'kind': 'card',
+              'currency_code': 'RUB',
+              'created_at': '2026-09-30T00:00:00.000Z',
+              'updated_at': '2026-09-30T00:00:00.000Z',
+            },
+          ],
+          'categories': <dynamic>[],
+          'transactions': <dynamic>[
+            <String, dynamic>{
+              'id': 'tx-1',
+              'type': 'transfer',
+              'account_id': 'acc-1',
+              'target_account_id': 'acc-1',
+              'amount_minor': 100,
+              'currency_code': 'RUB',
+              'date': '2026-09-30T00:00:00.000Z',
+              'created_at': '2026-09-30T00:00:00.000Z',
+              'updated_at': '2026-09-30T00:00:00.000Z',
+            },
+          ],
+          'budgets': <dynamic>[],
+          'attachments': <dynamic>[],
+          'debts': <dynamic>[debt],
+          'debt_payments': <dynamic>[payment],
+        },
+      };
+
+  final Map<String, dynamic> serviceDebt = <String, dynamic>{
+    'id': 'debt-1',
+    'person': 'Алексей',
+    'direction': 'they_owe_me',
+    'amount_minor': 500000,
+    'extra_minor': 25000,
+    'currency_code': 'RUB',
+    'due_date': '2026-11-01T00:00:00.000Z',
+    'note': 'под расписку',
+    'created_at': '2026-09-30T00:00:00.000Z',
+    'updated_at': '2026-09-30T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  final Map<String, dynamic> servicePayment = <String, dynamic>{
+    'id': 'pay-1',
+    'debt_id': 'debt-1',
+    'transaction_id': 'tx-1',
+    'amount_minor': 100000,
+    'paid_at': '2026-10-02T00:00:00.000Z',
+    'created_at': '2026-09-30T00:00:00.000Z',
+    'updated_at': '2026-09-30T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  test('импорт v7 восстанавливает долги и платежи (D-85)', () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final String json = jsonEncode(
+      v7WithDebt(serviceDebt, servicePayment),
+    );
+
+    await BackupService(database).importJson(json);
+
+    final List<QueryRow> debts = await database.customSelect(
+      'SELECT id, person, direction, amount_minor, extra_minor, '
+      'currency_code, due_date, note FROM debts',
+    ).get();
+    expect(debts, hasLength(1));
+    expect(debts.single.data['person'], 'Алексей');
+    expect(debts.single.data['direction'], 'they_owe_me');
+    expect(debts.single.data['amount_minor'], 500000);
+    expect(debts.single.data['extra_minor'], 25000);
+    expect(debts.single.data['due_date'], '2026-11-01T00:00:00.000Z');
+    final List<QueryRow> payments = await database.customSelect(
+      'SELECT id, debt_id, transaction_id, amount_minor, paid_at '
+      'FROM debt_payments',
+    ).get();
+    expect(payments, hasLength(1));
+    expect(payments.single.data['debt_id'], 'debt-1');
+    expect(payments.single.data['transaction_id'], 'tx-1');
+    expect(payments.single.data['amount_minor'], 100000);
+  });
+
+  test('экспорт v7 включает долг и платёж; interest_reminder_date в accounts',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    await database.accountsDao.create(
+      name: 'Накопительный',
+      kind: AccountKind.bank,
+      currencyCode: 'RUB',
+      interestReminderDate: DateTime.utc(2026, 10, 30),
+    );
+    final Debt debt = await database.debtsDao.create(
+      person: 'Мария',
+      direction: DebtDirection.iOweThem,
+      amountMinor: 250000,
+      currencyCode: 'RUB',
+    );
+    await database.debtsDao.addPayment(
+      debt.id,
+      amountMinor: 50000,
+      paidAt: DateTime.utc(2026, 10, 1),
+    );
+
+    final Map<String, dynamic> data =
+        (jsonDecode(await BackupService(database).exportJson())
+                as Map<String, dynamic>)['data'] as Map<String, dynamic>;
+    final List<dynamic> debts = data['debts'] as List<dynamic>;
+    expect(debts, hasLength(1));
+    expect((debts.single as Map<String, dynamic>)['person'], 'Мария');
+    final List<dynamic> payments = data['debt_payments'] as List<dynamic>;
+    expect(payments, hasLength(1));
+    final List<dynamic> accounts = data['accounts'] as List<dynamic>;
+    final Map<String, dynamic> savings = accounts
+        .map((dynamic row) => row as Map<String, dynamic>)
+        .singleWhere((Map<String, dynamic> row) => row['name'] == 'Накопительный');
+    expect(savings['interest_reminder_date'], '2026-10-30T00:00:00.000Z');
+  });
+
+  test('битое направление долга — отказ invalidData (D-85/D-25)', () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final String json = jsonEncode(
+      v7WithDebt(<String, dynamic>{...serviceDebt, 'direction': 'кто-кого'},
+          servicePayment),
+    );
+    expect(
+      () => BackupService(database).importJson(json),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('пустой person и неположительные суммы — отказ invalidData (D-85)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    for (final Map<String, dynamic> broken in <Map<String, dynamic>>[
+      <String, dynamic>{...serviceDebt, 'person': ''},
+      <String, dynamic>{...serviceDebt, 'amount_minor': 0},
+      <String, dynamic>{...serviceDebt, 'extra_minor': -1},
+      <String, dynamic>{...serviceDebt, 'amount_minor': 'много'},
+    ]) {
+      await expectLater(
+        BackupService(database).importJson(
+          jsonEncode(v7WithDebt(broken, servicePayment)),
+        ),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException e) => e.kind,
+            'kind',
+            BackupFailure.invalidData,
+          ),
+        ),
+      );
+    }
+  });
+
+  test('битые даты долга (due_date, paid_at) — отказ invalidData (D-85)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    await expectLater(
+      BackupService(database).importJson(
+        jsonEncode(v7WithDebt(
+          <String, dynamic>{...serviceDebt, 'due_date': 'завтра'},
+          servicePayment,
+        )),
+      ),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+    await expectLater(
+      BackupService(database).importJson(
+        jsonEncode(v7WithDebt(
+          serviceDebt,
+          <String, dynamic>{...servicePayment, 'paid_at': 42},
+        )),
+      ),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('битый interest_reminder_date счёта — отказ invalidData (D-85)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final Map<String, dynamic> document = jsonDecode(
+      await BackupService(database).exportJson(),
+    ) as Map<String, dynamic>;
+    final List<dynamic> accounts =
+        (document['data'] as Map<String, dynamic>)['accounts'] as List<dynamic>;
+    (accounts.single as Map<String, dynamic>)['interest_reminder_date'] =
+        'не дата';
+
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('платёж с битой ссылкой на долг — отказ до транзакции (D-85/D-64)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final String json = jsonEncode(
+      v7WithDebt(
+        serviceDebt,
+        <String, dynamic>{...servicePayment, 'debt_id': 'debt-нет-такой'},
+      ),
+    );
+    expect(
+      () => BackupService(database).importJson(json),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+    // Отказ до транзакции: база не тронута.
+    expect(await database.transactionsDao.getFiltered(), hasLength(0));
+  });
+
+  test('платёж без ссылки на перевод и с битой ссылкой — по правилу таблиц',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    // transaction_id = NULL валиден: платёж цел и без перевода (D-81).
+    final String withoutLink = jsonEncode(
+      v7WithDebt(
+        serviceDebt,
+        <String, dynamic>{...servicePayment, 'transaction_id': null},
+      ),
+    );
+    await BackupService(database).importJson(withoutLink);
+    expect(
+      (await database.customSelect('SELECT transaction_id FROM debt_payments')
+              .get())
+          .single
+          .data['transaction_id'],
+      isNull,
+    );
+
+    // Битая ссылка на операцию — отказ (по правилу остальных таблиц, D-64).
+    final AppDatabase fresh = await seeded();
+    addTearDown(fresh.close);
+    await expectLater(
+      BackupService(fresh).importJson(
+        jsonEncode(
+          v7WithDebt(
+            serviceDebt,
+            <String, dynamic>{...servicePayment, 'transaction_id': 'tx-нет'},
+          ),
+        ),
+      ),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('платёж на мягко удалённый долг импортируется без падения (D-85/D-25)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    // Ссылки проверяются по правилу остальных таблиц: существование PK;
+    // мягко удалённый владелец импорту не препятствует.
+    final Map<String, dynamic> document = jsonDecode(
+      jsonEncode(v7WithDebt(serviceDebt, servicePayment)),
+    ) as Map<String, dynamic>;
+    final List<dynamic> debts =
+        (document['data'] as Map<String, dynamic>)['debts'] as List<dynamic>;
+    (debts.single as Map<String, dynamic>)['deleted_at'] =
+        '2026-09-30T12:00:00.000Z';
+
+    await BackupService(database).importJson(jsonEncode(document));
+
+    expect(
+      (await database.customSelect(
+        'SELECT COUNT(*) AS c FROM debt_payments',
+      ).get())
+          .single
+          .read<int>('c'),
+      1,
+    );
+  });
+
+  test('импорт v6-файла: долгов нет (нет ключей — пустые списки, D-85)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final Map<String, dynamic> document = v7WithDebt(serviceDebt, servicePayment);
+    final Map<String, dynamic> data = document['data'] as Map<String, dynamic>;
+    data
+      ..remove('debts')
+      ..remove('debt_payments');
+    document['schema_version'] = 6;
+    final String json = jsonEncode(document);
+
+    await BackupService(database).importJson(json);
+
+    expect(
+      (await database.customSelect('SELECT COUNT(*) AS c FROM debts').get())
+          .single
+          .read<int>('c'),
+      0,
+    );
+    expect(
+      (await database
+              .customSelect('SELECT COUNT(*) AS c FROM debt_payments')
+              .get())
+          .single
+          .read<int>('c'),
+      0,
+    );
+    // Данные v6 при этом восстановлены.
+    expect(await database.transactionsDao.getFiltered(), hasLength(1));
+  });
 }

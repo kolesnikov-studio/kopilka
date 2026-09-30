@@ -166,6 +166,41 @@ Future<
     fileSize: 2048,
   );
 
+  // Накопительный счёт (v7, D-81): дата напоминания о процентах
+  // переживает round-trip дословно.
+  await database.accountsDao.create(
+    name: 'Накопительный RUB',
+    kind: AccountKind.bank,
+    currencyCode: 'RUB',
+    initialBalanceMinor: 9900000,
+    excludeFromBalance: true,
+    interestReminderDate: DateTime.utc(2026, 10, 30),
+  );
+
+  // Долг (v7, D-81/D-85): живой с платежом-переводом и мягко удалённый.
+  final Debt debt = await database.debtsDao.create(
+    person: 'Алексей',
+    direction: DebtDirection.theyOweMe,
+    amountMinor: 500000,
+    currencyCode: 'RUB',
+    extraMinor: 25000,
+    dueDate: DateTime.utc(2026, 11, 1),
+    note: 'под расписку',
+  );
+  await database.debtsDao.addPayment(
+    debt.id,
+    transactionId: groceriesExpense.id,
+    amountMinor: 100000,
+    paidAt: DateTime.utc(2026, 10, 2),
+  );
+  final Debt deadDebt = await database.debtsDao.create(
+    person: 'Мария',
+    direction: DebtDirection.iOweThem,
+    amountMinor: 300000,
+    currencyCode: 'RUB',
+  );
+  await database.debtsDao.softDelete(deadDebt.id);
+
   return (
     db: database,
     groceriesId: groceriesId,
@@ -251,7 +286,7 @@ void main() {
 
     // Деньги в минорных единицах не искажаются.
     final List<Account> accounts = await restored.accountsDao.getAlive();
-    expect(accounts, hasLength(3)); // один счёт мягко удалён
+    expect(accounts, hasLength(4)); // один счёт мягко удалён + накопительный v7
     final Account card = accounts.singleWhere((Account a) => a.name == 'Карта');
     expect(card.initialBalanceMinor, 150000);
     final Account savings = accounts.singleWhere((Account a) => a.name == 'Накопления');
@@ -345,6 +380,34 @@ void main() {
       'SELECT COUNT(*) AS c FROM attachments',
     ).get();
     expect(attachmentsCount.single.read<int>('c'), 1);
+
+    // Долги (v7, D-85): живой долг с телом/переплатой/сроком пережил
+    // round-trip дословно; платёж сохранил ссылку на перевод; мягко
+    // удалённый долг остался физически.
+    final List<Debt> aliveDebts = await restored.debtsDao.watchAlive().first;
+    expect(aliveDebts, hasLength(1));
+    final Debt restoredDebt = aliveDebts.single;
+    expect(restoredDebt.person, 'Алексей');
+    expect(restoredDebt.direction, 'they_owe_me');
+    expect(restoredDebt.amountMinor, 500000);
+    expect(restoredDebt.extraMinor, 25000);
+    expect(restoredDebt.dueDate, '2026-11-01T00:00:00.000Z');
+    expect(restoredDebt.note, 'под расписку');
+    final List<DebtPayment> payments =
+        await restored.debtsDao.watchPayments(restoredDebt.id).first;
+    expect(payments, hasLength(1));
+    expect(payments.single.amountMinor, 100000);
+    expect(payments.single.transactionId, attachmentTransactionId);
+    final List<QueryRow> deadDebts = await restored.customSelect(
+      "SELECT COUNT(*) AS c FROM debts WHERE deleted_at IS NOT NULL",
+    ).get();
+    expect(deadDebts.single.read<int>('c'), 1);
+
+    // Накопительный счёт (v7, D-81): дата напоминания восстановлена.
+    final Account restoredSavings = accounts
+        .singleWhere((Account a) => a.name == 'Накопительный RUB');
+    expect(restoredSavings.interestReminderDate,
+        '2026-10-30T00:00:00.000Z');
   });
 
   test('round-trip мягко удалённых строк: удалённые остаются удалёнными', () async {

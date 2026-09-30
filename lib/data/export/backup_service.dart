@@ -21,7 +21,7 @@ class BackupService {
   final AppDatabase db;
   final Clock clock;
 
-  /// Экспорт полного дампа в JSON-строку (формат v6, см. кодек).
+  /// Экспорт полного дампа в JSON-строку (формат v7, см. кодек).
   Future<String> exportJson() async =>
       jsonEncode(await exportToJson(db));
 
@@ -56,11 +56,14 @@ class BackupService {
     await db.transaction(() async {
       await db.customStatement('PRAGMA foreign_keys = OFF');
       try {
-        await db.customUpdate('DELETE FROM budgets');
-        await db.customUpdate('DELETE FROM transactions');
-        await db.customUpdate('DELETE FROM categories');
-        await db.customUpdate('DELETE FROM accounts');
-        await db.customUpdate('DELETE FROM currencies');
+      await db.customUpdate('DELETE FROM debt_payments');
+      await db.customUpdate('DELETE FROM debts');
+      await db.customUpdate('DELETE FROM attachments');
+      await db.customUpdate('DELETE FROM budgets');
+      await db.customUpdate('DELETE FROM transactions');
+      await db.customUpdate('DELETE FROM categories');
+      await db.customUpdate('DELETE FROM accounts');
+      await db.customUpdate('DELETE FROM currencies');
 
         for (final BackupCurrency row in backup.currencies) {
           await db.into(db.currencies).insert(
@@ -85,6 +88,11 @@ class BackupService {
                   initialBalanceMinor: Value(row.initialBalanceMinor),
                   sortOrder: Value(row.sortOrder),
                   excludeFromBalance: Value(row.excludeFromBalance),
+                  // v7 (D-81/D-85): дата напоминания о процентах; у
+                  // файлов v1–v6 поля нет — NULL.
+                  interestReminderDate: Value(
+                    row.interestReminderDate?.toUtc().toIso8601String(),
+                  ),
                   createdAt: row.createdAt,
                   updatedAt: row.updatedAt,
                   deletedAt: Value(row.deletedAt),
@@ -121,6 +129,38 @@ class BackupService {
                   currencyCode: row.currencyCode,
                   date: row.date,
                   note: Value(row.note),
+                  createdAt: row.createdAt,
+                  updatedAt: row.updatedAt,
+                  deletedAt: Value(row.deletedAt),
+                ),
+              );
+        }
+        // v7 (D-85): долги и погашения — после операций (FK на них).
+        for (final BackupDebt row in backup.debts) {
+          await db.into(db.debts).insert(
+                DebtsCompanion.insert(
+                  id: row.id,
+                  person: row.person,
+                  direction: row.direction.dbValue,
+                  amountMinor: row.amountMinor,
+                  extraMinor: row.extraMinor,
+                  currencyCode: row.currencyCode,
+                  dueDate: Value(row.dueDate?.toUtc().toIso8601String()),
+                  note: Value(row.note),
+                  createdAt: row.createdAt,
+                  updatedAt: row.updatedAt,
+                  deletedAt: Value(row.deletedAt),
+                ),
+              );
+        }
+        for (final BackupDebtPayment row in backup.debtPayments) {
+          await db.into(db.debtPayments).insert(
+                DebtPaymentsCompanion.insert(
+                  id: row.id,
+                  debtId: row.debtId,
+                  transactionId: Value(row.transactionId),
+                  amountMinor: row.amountMinor,
+                  paidAt: row.paidAt.toUtc().toIso8601String(),
                   createdAt: row.createdAt,
                   updatedAt: row.updatedAt,
                   deletedAt: Value(row.deletedAt),
@@ -275,6 +315,36 @@ class BackupService {
       if (!categoryIds.contains(row.categoryId)) {
         throw BackupValidationException(
           'бюджет ссылается на отсутствующую категорию ${row.categoryId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+    }
+    // v7 (D-85): ссылки долгов — по правилу остальных таблиц (D-64):
+    // существование PK, мягко удалённые строки не препятствуют (D-25).
+    final Set<String> debtIds = <String>{
+      for (final BackupDebt row in backup.debts) row.id,
+    };
+    for (final BackupDebt row in backup.debts) {
+      if (!currencyCodes.contains(row.currencyCode)) {
+        throw BackupValidationException(
+          'долг ${row.id} ссылается на отсутствующую валюту '
+          '${row.currencyCode}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+    }
+    for (final BackupDebtPayment row in backup.debtPayments) {
+      if (!debtIds.contains(row.debtId)) {
+        throw BackupValidationException(
+          'платёж ${row.id} ссылается на отсутствующий долг ${row.debtId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+      if (row.transactionId != null &&
+          !transactionIds.contains(row.transactionId)) {
+        throw BackupValidationException(
+          'платёж ${row.id} ссылается на отсутствующую операцию '
+          '${row.transactionId}',
           kind: BackupFailure.invalidData,
         );
       }

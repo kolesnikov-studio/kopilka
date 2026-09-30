@@ -745,6 +745,189 @@ void main() {
     );
   });
 
+  // --- v7: долги и платежи в формате экспорта (D-85) ---
+
+  /// Минимальный документ v7 с одной строкой долгов (задаёт тест).
+  Map<String, dynamic> v7Document({
+    Map<String, dynamic>? debt,
+    Map<String, dynamic>? payment,
+    List<dynamic>? accounts,
+  }) =>
+      <String, dynamic>{
+        'schema_version': 7,
+        'data': <String, dynamic>{
+          'currencies': <dynamic>[],
+          'accounts': accounts ?? <dynamic>[],
+          'categories': <dynamic>[],
+          'transactions': <dynamic>[],
+          'budgets': <dynamic>[],
+          'attachments': <dynamic>[],
+          if (debt != null) 'debts': <dynamic>[debt],
+          if (payment != null) 'debt_payments': <dynamic>[payment],
+        },
+      };
+
+  final Map<String, dynamic> baseDebt = <String, dynamic>{
+    'id': 'debt-1',
+    'person': 'Алексей',
+    'direction': 'they_owe_me',
+    'amount_minor': 500000,
+    'extra_minor': 25000,
+    'currency_code': 'RUB',
+    'due_date': '2026-11-01T00:00:00.000Z',
+    'note': 'под расписку',
+    'created_at': '2026-09-30T00:00:00.000Z',
+    'updated_at': '2026-09-30T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  final Map<String, dynamic> basePayment = <String, dynamic>{
+    'id': 'pay-1',
+    'debt_id': 'debt-1',
+    'transaction_id': 'tx-1',
+    'amount_minor': 100000,
+    'paid_at': '2026-10-02T00:00:00.000Z',
+    'created_at': '2026-09-30T00:00:00.000Z',
+    'updated_at': '2026-09-30T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  test('v7: долг и платёж читаются типизированно (D-85)', () {
+    final DecodedBackup backup =
+        decodeJson(v7Document(debt: baseDebt, payment: basePayment));
+    expect(backup.schemaVersion, 7);
+    expect(backup.debts, hasLength(1));
+    expect(backup.debts.single.id, 'debt-1');
+    expect(backup.debts.single.person, 'Алексей');
+    expect(backup.debts.single.direction, DebtDirection.theyOweMe);
+    expect(backup.debts.single.amountMinor, 500000);
+    expect(backup.debts.single.extraMinor, 25000);
+    expect(backup.debts.single.currencyCode, 'RUB');
+    expect(backup.debts.single.dueDate?.toUtc(), DateTime.utc(2026, 11, 1));
+    expect(backup.debts.single.note, 'под расписку');
+    expect(backup.debtPayments, hasLength(1));
+    expect(backup.debtPayments.single.debtId, 'debt-1');
+    expect(backup.debtPayments.single.transactionId, 'tx-1');
+    expect(backup.debtPayments.single.amountMinor, 100000);
+    expect(
+      backup.debtPayments.single.paidAt.toUtc(),
+      DateTime.utc(2026, 10, 2),
+    );
+  });
+
+  test('v7: долг без срока и заметки, платёж без перевода — NULL (D-85)', () {
+    final DecodedBackup backup = decodeJson(v7Document(
+      debt: <String, dynamic>{
+        ...baseDebt,
+        'due_date': null,
+        'note': null,
+      },
+      payment: <String, dynamic>{
+        ...basePayment,
+        'transaction_id': null,
+      },
+    ));
+    expect(backup.debts.single.dueDate, isNull);
+    expect(backup.debts.single.note, isNull);
+    expect(backup.debtPayments.single.transactionId, isNull);
+  });
+
+  test('v6-файл без ключей debts/debt_payments: пустые списки (D-85)', () {
+    final Map<String, dynamic> document = v7Document(debt: baseDebt);
+    (document['data'] as Map<String, dynamic>)
+      ..remove('debts')
+      ..remove('debt_payments')
+      ..remove('attachments');
+    document['schema_version'] = 6;
+    final DecodedBackup backup = decodeJson(document);
+    expect(backup.schemaVersion, 6);
+    expect(backup.debts, isEmpty);
+    expect(backup.debtPayments, isEmpty);
+  });
+
+  test('неизвестный direction — отказ invalidData (D-85/D-25)', () {
+    final Map<String, dynamic> document = v7Document(
+      debt: <String, dynamic>{...baseDebt, 'direction': 'both'},
+    );
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('пустой person — отказ invalidData (D-85)', () {
+    final Map<String, dynamic> document = v7Document(
+      debt: <String, dynamic>{...baseDebt, 'person': ''},
+    );
+    expect(
+      () => decodeJson(document),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException error) => error.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test('amount_minor = 0 и отрицательный extra_minor — отказ invalidData', () {
+    for (final Map<String, dynamic> broken in <Map<String, dynamic>>[
+      <String, dynamic>{...baseDebt, 'amount_minor': 0},
+      <String, dynamic>{...baseDebt, 'extra_minor': -1},
+      <String, dynamic>{...basePayment, 'amount_minor': -5},
+    ]) {
+      final Map<String, dynamic> document = broken.containsKey('debt_id')
+          ? v7Document(payment: broken)
+          : v7Document(debt: broken);
+      expect(
+        () => decodeJson(document),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException error) => error.kind,
+            'kind',
+            BackupFailure.invalidData,
+          ),
+        ),
+        reason: 'строка ${broken['id']}',
+      );
+    }
+  });
+
+  test('v7: interest_reminder_date счёта читается, v6-строка — NULL (D-85)', () {
+    final Map<String, dynamic> accountRow = <String, dynamic>{
+      'id': 'acc-1',
+      'name': 'Накопительный',
+      'kind': 'bank',
+      'currency_code': 'RUB',
+      'initial_balance_minor': 9900000,
+      'sort_order': 0,
+      'interest_reminder_date': '2026-10-30T00:00:00.000Z',
+      'created_at': '2026-09-30T00:00:00.000Z',
+      'updated_at': '2026-09-30T00:00:00.000Z',
+    };
+    final DecodedBackup backup =
+        decodeJson(v7Document(accounts: <dynamic>[accountRow]));
+    expect(
+      backup.accounts.single.interestReminderDate?.toUtc(),
+      DateTime.utc(2026, 10, 30),
+    );
+
+    // Нет поля (v1–v6) = NULL.
+    final Map<String, dynamic> withoutField =
+        Map<String, dynamic>.from(accountRow)
+          ..remove('interest_reminder_date');
+    final DecodedBackup oldFile =
+        decodeJson(v7Document(accounts: <dynamic>[withoutField]));
+    expect(oldFile.accounts.single.interestReminderDate, isNull);
+  });
+
   test('импорт v5-файла восстанавливает флаг счёта (round-trip кодека)', () async {
     final AppDatabase database = db();
     addTearDown(database.close);
@@ -762,8 +945,8 @@ void main() {
         jsonDecode(json) as Map<String, dynamic>;
     expect(document['schema_version'], backupSchemaVersion);
     // Замок версии формата (прецедент замков миграций D-55): экспорт
-    // обязан быть v6 — вложения в дампе (D-64).
-    expect(backupSchemaVersion, 6);
+    // обязан быть v7 — долги и платежи в дампе (M6, D-85).
+    expect(backupSchemaVersion, 7);
 
     final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(restored.close);
