@@ -9,6 +9,8 @@ import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/data/reminders/reminders_binding.dart';
+import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/features/settings/rate_sync_controller.dart';
 import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
@@ -66,6 +68,9 @@ Future<void> main() async {
       updatePreferencesStoreProvider.overrideWithValue(updatePreferences),
       rateSyncPreferencesStoreProvider.overrideWithValue(rateSyncPreferences),
       themePreferencesStoreProvider.overrideWithValue(themePreferences),
+      remindersPreferencesStoreProvider.overrideWithValue(
+        RemindersPreferencesStore(baseDirectory: supportDirectory),
+      ),
     ],
   );
   // Тема (M5, D-58): пресет и основа читаются из файла настроек до runApp
@@ -95,6 +100,19 @@ Future<void> main() async {
     container
         .read(rateSyncControllerProvider.notifier)
         .syncOnLaunch()
+        .then((_) {}, onError: (Object _) {}),
+  );
+
+  // Механика напоминаний (M6, D-83): запускается после инициализации БД
+  // и посева — пересчёт расписания при старте (opt-in: внутри сервиса
+  // по файлу настроек) и при каждом изменении источников; это же закрывает
+  // перезапись расписания после импорта бэкапа. Отказы канала/ФС глушит
+  // сам сервис — запуск от уведомлений не зависит (D-43-дух). Подписка
+  // живёт в контейнере и гасится при его закрытии (remindersBindingProvider).
+  unawaited(
+    container
+        .read(remindersBindingProvider)
+        .start()
         .then((_) {}, onError: (Object _) {}),
   );
 
