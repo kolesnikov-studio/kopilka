@@ -72,11 +72,6 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     accounts,
   )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
 
-  /// Поток одного счёта — обновляется при его изменении.
-  Stream<Account?> watchById(String id) => (select(
-    accounts,
-  )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).watchSingleOrNull();
-
   /// Живые счета в порядке отображения (`sort_order`, затем название).
   Future<List<Account>> getAlive() => _aliveQuery().get();
 

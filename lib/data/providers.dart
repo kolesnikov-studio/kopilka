@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:kopilka/data/attachments_repository.dart';
 import 'package:kopilka/data/attachments_service.dart';
+import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
 import 'package:kopilka/data/db/dao/attachments_dao.dart';

@@ -255,11 +255,6 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     return _requireAlive(id);
   }
 
-  /// Скрытые системные категории (для возврата из настроек, M5/D-54 идея 3):
-  /// `is_system` + `deleted_at`, по виду и имени — как в живых списках.
-  Future<List<Category>> getHiddenSystem({CategoryKind? kind}) =>
-      _hiddenSystemQuery(kind).get();
-
   /// Поток скрытых системных категорий.
   Stream<List<Category>> watchHiddenSystem({CategoryKind? kind}) =>
       _hiddenSystemQuery(kind).watch();

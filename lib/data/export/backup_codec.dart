@@ -2,7 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:kopilka/core/category_icons.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/text.dart';
-import 'package:kopilka/data/attachments_service.dart';
+import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 

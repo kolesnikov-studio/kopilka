@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/core/errors.dart';
-import 'package:kopilka/data/attachments_service.dart';
+import 'package:kopilka/data/attachments_storage.dart';
 
 void main() {
   late Directory tempDir;

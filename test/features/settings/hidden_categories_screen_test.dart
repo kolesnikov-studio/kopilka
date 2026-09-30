@@ -103,8 +103,9 @@ void main() {
       final List<Category> alive =
           await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
       expect(alive.any((Category c) => c.name == 'Транспорт'), isTrue);
-      final List<Category> hidden =
-          await app.db.categoriesDao.getHiddenSystem();
+      final List<Category> hidden = (await tester.runAsync(
+        () => app.db.categoriesDao.watchHiddenSystem().first,
+      ))!;
       expect(hidden.map((Category c) => c.name), <String>['Зарплата']);
     },
   );

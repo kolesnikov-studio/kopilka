@@ -169,7 +169,7 @@ class Transactions extends Table {
 /// Вложения к операциям (v6, D-63): фото или PDF рядом с операцией.
 ///
 /// Сами файлы хранятся вне БД — в каталоге `attachments/` рядом с
-/// `kopilka.sqlite` (см. `data/attachments_service.dart`); здесь — только
+/// `kopilka.sqlite` (см. `data/attachments_storage.dart`); здесь — только
 /// метаданные. FK на операции без каскада: мягкое удаление операции
 /// файл не трогает (§3 — удаление только soft delete).
 /// Ровно один живой файл на операцию — правило DAO, не SQL (образец
@@ -187,7 +187,7 @@ class Attachments extends Table {
   /// MIME-тип из белого списка: image/* или application/pdf (D-63).
   TextColumn get mimeType => text()();
 
-  /// Размер файла в байтах; лимит — константа в `data/attachments_service.dart`.
+  /// Размер файла в байтах; лимит — константа в `data/attachments_storage.dart`.
   IntColumn get fileSize => integer()();
 
   DateTimeColumn get createdAt => dateTime()();

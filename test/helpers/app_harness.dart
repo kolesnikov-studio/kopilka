@@ -14,9 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/app/app.dart';
-import 'package:kopilka/data/attachments_repository.dart'
+import 'package:kopilka/data/attachments_service.dart'
     show AttachmentsService;
-import 'package:kopilka/data/attachments_service.dart';
+import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';

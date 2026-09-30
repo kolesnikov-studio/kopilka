@@ -20,7 +20,7 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/export/backup_service.dart';
-import 'package:kopilka/data/attachments_service.dart';
+import 'package:kopilka/data/attachments_storage.dart';
 
 /// Богатая база: максимум различимых случаев формата v1. Возвращает базу,
 /// идентификаторы категорий с иконкой/без и id операции с вложением —

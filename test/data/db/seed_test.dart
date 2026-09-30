@@ -55,7 +55,8 @@ void main() {
       await db.categoriesDao.hide(c.id);
     }
     expect(await db.categoriesDao.getAlive(), isEmpty);
-    final int hiddenRows = (await db.categoriesDao.getHiddenSystem()).length;
+    final int hiddenRows =
+        (await db.categoriesDao.watchHiddenSystem().first).length;
     expect(hiddenRows, presetExpenseCategories.length + presetIncomeCategories.length);
 
     // «Рестарт»: повторный посев на той же базе.
@@ -64,7 +65,10 @@ void main() {
     // Набор НЕ вернулся, скрытые остались скрытыми, новых строк нет.
     expect(await db.categoriesDao.getAlive(kind: CategoryKind.expense), isEmpty);
     expect(await db.categoriesDao.getAlive(kind: CategoryKind.income), isEmpty);
-    expect(await db.categoriesDao.getHiddenSystem(), hasLength(hiddenRows));
+    expect(
+      await db.categoriesDao.watchHiddenSystem().first,
+      hasLength(hiddenRows),
+    );
   });
 
   test('посев не восстанавливает пользовательски удалённые категории', () async {

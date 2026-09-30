@@ -202,11 +202,6 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     transactions,
   )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
 
-  /// Поток одной операции.
-  Stream<Transaction?> watchById(String id) => (select(
-    transactions,
-  )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).watchSingleOrNull();
-
   /// Живые операции по фильтру, новые сверху.
   Future<List<Transaction>> getFiltered([
     TransactionFilter filter = const TransactionFilter(),
@@ -215,18 +210,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
           transactions.map(row.data),
       ];
 
-  /// Поток живых операций по фильтру — для списка операций.
-  Stream<List<Transaction>> watchFiltered([
-    TransactionFilter filter = const TransactionFilter(),
-  ]) => _filteredSelect(filter).watch().map(
-        (List<QueryRow> rows) => <Transaction>[
-          for (final QueryRow row in rows) transactions.map(row.data),
-        ],
-      );
-
   /// Поток операций с именами счетов и категории (R7/R8): один
   /// JOIN-запрос вместо двух watch-подписок на каждую плитку списка.
-  /// Сортировка и фильтр — те же, что у [watchFiltered].
+  /// Сортировка и фильтр — те же, что у [getFiltered].
   Stream<List<TransactionView>> watchFilteredView([
     TransactionFilter filter = const TransactionFilter(),
   ]) {

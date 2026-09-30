@@ -1,144 +1,96 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:kopilka/core/errors.dart';
-import 'package:path/path.dart' as p;
+import 'package:kopilka/core/ids.dart';
+import 'package:kopilka/data/attachments_storage.dart';
+import 'package:kopilka/data/db/dao/attachments_dao.dart';
+import 'package:kopilka/data/db/database.dart';
 
-/// Хранилище файлов вложений (v6, D-63): файлы живут вне БД, в каталоге
-/// `attachments/` рядом с `kopilka.sqlite`. Запись — атомарная: сначала во
-/// временный файл в том же каталоге, затем rename на имя `<uuid>.<ext>`
-/// (id = имя файла; после записи имя не меняется). Любой отказ файловой
-/// системы — машиночитаемый `DataValidationException` с видом
-/// [DataFailure.storageFailure]: решение «операция создаётся без вложения»
-/// принимает вызывающий код, хранилище отказ не глушит.
+/// Сервис вложений (v6, D-63): единый метод «запись файла + запись БД».
 ///
-/// Без новых зависимостей (фаза 1, D-63): расширение и MIME — чистые
-/// функции этого файла.
-class AttachmentsStorage {
-  AttachmentsStorage({required this.rootDirectory, Random? random})
-    : _random = random ?? Random.secure();
+/// Правило D-63: при отказе файловой системы операция **создаётся без
+/// вложения**, не падает — «сначала файл, затем БД» (иначе файл был бы
+/// потерян до отката записи). Успех — вложение целиком (файл + метаданные),
+/// отказ — чистое состояние: хранилище убирает временные файлы, БД не
+/// тронута. Замена прежнего вложения (правило DAO «один живой на
+/// операцию») удаляет и старый файл.
+///
+/// Проверка размера — здесь (лимит — константа [AttachmentsStorage.maxFileSizeBytes],
+/// не настройка): превышение — [DataValidationException.invalidInput],
+/// до касания файловой системы.
+class AttachmentsService {
+  AttachmentsService(this._storage, this._dao, {IdGenerator? idGenerator})
+    : _idGenerator = idGenerator ?? newId;
 
-  /// Каталог вложений: `attachments/` рядом с `kopilka.sqlite` (D-63).
-  final Directory rootDirectory;
+  final AttachmentsStorage _storage;
+  final AttachmentsDao _dao;
+  final IdGenerator _idGenerator;
 
-  /// Источник имён временных файлов записи.
-  final Random _random;
+  /// Каталог вложений (для путей просмотра в UI шага 6в).
+  Directory get directory => _storage.rootDirectory;
 
-  /// Лимит размера файла — константа, не настройка (D-63): ~10 МБ.
-  /// Контролируется вызывающим кодом (сервисом вложений), хранилище пишет
-  /// то, что ему дали.
-  static const int maxFileSizeBytes = 10 * 1024 * 1024;
-
-  /// MIME → расширение имени файла (нижний регистр, с точкой). Расширение
-  /// обязано однозначно восстанавливаться из MIME, поэтому список
-  /// изображений конечен — «image/*» без конкретного подтипа сюда не
-  /// попадает и в записи отвергается.
-  static const Map<String, String> _extensionByMime = <String, String>{
-    'application/pdf': '.pdf',
-    'image/jpeg': '.jpg',
-    'image/png': '.png',
-    'image/gif': '.gif',
-    'image/webp': '.webp',
-    'image/heic': '.heic',
-    'image/heif': '.heif',
-  };
-
-  /// Белый список D-63 дословно: MIME из `image/*` или ровно
-  /// `application/pdf`. Двухступенчатая проверка: сначала белый список
-  /// (широкий, для валидации данных из бэкапа и UI), затем карта расширений
-  /// (узкая, для записи файла) — см. [extensionForMimeType].
-  static bool isMimeTypeAllowed(String mimeType) {
-    final String normalized = mimeType.trim().toLowerCase();
-    return normalized == 'application/pdf' || normalized.startsWith('image/');
-  }
-
-  /// Расширение файла по MIME из карты выше; тип вне белого списка или
-  /// generic `image/*` без конкретного подтипа — null.
-  static String? extensionForMimeType(String mimeType) =>
-      _extensionByMime[mimeType.trim().toLowerCase()];
-
-  /// MIME по расширению имени файла (обратная карта [_extensionByMime]);
-  /// неизвестное расширение — null.
-  static String? mimeTypeForFileName(String fileName) {
-    final String extension = p.extension(fileName).toLowerCase();
-    for (final MapEntry<String, String> entry in _extensionByMime.entries) {
-      if (entry.value == extension) {
-        return entry.key;
-      }
-    }
-    return null;
-  }
-
-  /// Записывает байты вложения атомарно (tmp + rename) и возвращает имя
-  /// файла `<id><расширение>`. MIME вне белого списка — отказ
-  /// [DataFailure.invalidInput] до касания файловой системы. Отказ ФС на
-  /// любом шаге (каталог не создать, tmp не записать, rename не удался) —
-  /// [DataFailure.storageFailure]; временный файл при этом убирается.
-  Future<String> writeAtomically({
-    required String id,
+  /// Прикладывает файл к операции: валидация размера → запись файла
+  /// (атомарно) → запись БД (правило «один живой на операцию» внутри DAO)
+  /// → удаление старого файла, если вложение было заменой.
+  /// При отказе ФС пробрасывает [DataFailure.storageFailure] — вызывающий
+  /// код обязан продолжить создание операции без вложения (D-63).
+  Future<Attachment> attach({
+    required String transactionId,
     required String mimeType,
     required List<int> bytes,
   }) async {
-    final String? extension = extensionForMimeType(mimeType);
-    if (extension == null) {
+    if (bytes.length > AttachmentsStorage.maxFileSizeBytes) {
       throw DataValidationException(
-        'mime-тип «$mimeType» вне белого списка вложений '
-        '(image/*, application/pdf)',
+        'файл ${bytes.length} байт превышает лимит вложения '
+        '${AttachmentsStorage.maxFileSizeBytes} байт',
         kind: DataFailure.invalidInput,
       );
     }
+    // Прежнее вложение читаем до записи: его файл удаляется после
+    // успешной замены записи в БД (см. ниже).
+    final Attachment? previous = await _dao.findByTransaction(transactionId);
+    final String fileName = await _storage.writeAtomically(
+      id: _idGenerator(),
+      mimeType: mimeType,
+      bytes: bytes,
+    );
+    final Attachment created;
     try {
-      await rootDirectory.create(recursive: true);
-      // Имена tmp-файлов с префиксом «tmp-» не пересекаются с именами
-      // вложений (id — UUID, имена `<uuid>.<ext>`).
-      final File tmp = File(
-        p.join(rootDirectory.path, 'tmp-${_random.nextInt(0x7fffffff)}'),
+      created = await _dao.create(
+        transactionId: transactionId,
+        filePath: fileName,
+        mimeType: mimeType,
+        fileSize: bytes.length,
       );
-      try {
-        await tmp.writeAsBytes(bytes, flush: true);
-        // rename поверх существующего имени заменяет файл (dart:io) —
-        // содержимое меняется атомарно, имя постоянно (D-63).
-        await tmp.rename(p.join(rootDirectory.path, '$id$extension'));
-      } on Exception {
-        // rename не удался — tmp остался; убираем, чтобы не копить мусор.
-        try {
-          if (await tmp.exists()) {
-            await tmp.delete();
-          }
-        } on IOException {
-          // Не сумели убрать tmp — первая ошибка важнее.
-        }
-        rethrow;
-      }
-      return '$id$extension';
-    } on IOException {
-      throw DataValidationException(
-        'каталог вложений недоступен для записи: ${rootDirectory.path}',
-        kind: DataFailure.storageFailure,
-      );
+    } on Exception {
+      // БД-запись не прошла (операция не найдена, MIME не прошёл вторую
+      // линию защиты DAO, сбой БД): файл без записи — мусор; убираем и
+      // пробрасываем причину дальше.
+      await _storage.deleteFile(fileName);
+      rethrow;
     }
+    // Замена (D-63): старая запись уже мягко удалена правилом DAO,
+    // удаляем её файл. Вне try: отказ ФС здесь не должен задевать новый
+    // файл — вложение уже заменено, а файл-сирота безвреден (как в
+    // [delete]).
+    if (previous != null) {
+      await _storage.deleteFile(previous.filePath);
+    }
+    return created;
   }
 
-  /// Удаляет файл по относительному имени (как в `attachments.file_path`).
-  /// Отсутствующий файл — не отказ (после сбоя или ручной чистки запись
-  /// должна удаляться, а не застревать); путь, занятый не файлом (каталог),
-  /// и любой другой отказ ФС — [DataFailure.storageFailure].
-  Future<void> deleteFile(String fileName) async {
-    try {
-      final String path = p.join(rootDirectory.path, fileName);
-      // File.exists() различает тип: для каталога и «нет пути» он false,
-      // поэтому тип пути смотрим отдельно — занятое не файлом имя не
-      // должно тихо пропускаться.
-      final FileSystemEntityType type = await FileSystemEntity.type(path);
-      if (type == FileSystemEntityType.notFound) {
-        return;
-      }
-      await File(path).delete();
-    } on IOException {
-      throw DataValidationException(
-        'файл вложения не удаётся удалить: $fileName',
-        kind: DataFailure.storageFailure,
-      );
-    }
+  /// Живое вложение операции (или NULL).
+  Future<Attachment?> findForTransaction(String transactionId) =>
+      _dao.findByTransaction(transactionId);
+
+  /// Удаляет вложение: soft delete записи + удаление файла с диска (D-63).
+  /// Файл без живой записи — мусор, его потеря не страшна: удаление
+  /// продолжается. Отказ ФС при удалении файла — [DataFailure.storageFailure].
+  Future<void> delete(String attachmentId) async {
+    final Attachment attachment = await _dao.requireAliveById(attachmentId);
+    await _dao.softDelete(attachment.id);
+    // Файл удаляем последним: при отказе ФС запись уже мягко удалена —
+    // состояние «файл-сирота», но UI живое вложение уже не видит.
+    await _storage.deleteFile(attachment.filePath);
   }
 }

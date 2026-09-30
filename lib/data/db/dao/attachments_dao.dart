@@ -3,7 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/ids.dart';
-import 'package:kopilka/data/attachments_service.dart';
+import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/tables.dart';
 
@@ -147,7 +147,7 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
 
 /// Константы правил вложений (D-63), доступные DAO без импорта сервиса
 /// файлов: белый список MIME и лимит размера. Единый источник —
-/// `AttachmentsStorage` (`data/attachments_service.dart`); здесь —
+/// `AttachmentsStorage` (`data/attachments_storage.dart`); здесь —
 /// перенаправление, чтобы слой DAO не зависел от dart:io.
 abstract final class AttachmentsStorageRules {
   /// Лимит размера файла вложения — константа, не настройка (D-63).

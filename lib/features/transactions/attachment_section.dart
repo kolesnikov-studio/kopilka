@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/core/errors.dart';
-import 'package:kopilka/data/attachments_repository.dart';
+import 'package:kopilka/data/attachments_service.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/transactions/attachments_controller.dart';

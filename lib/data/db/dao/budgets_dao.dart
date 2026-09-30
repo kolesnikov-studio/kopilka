@@ -83,9 +83,6 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
   /// Все живые бюджеты, в порядке создания.
   Future<List<Budget>> getAlive() => _aliveQuery().get();
 
-  /// Поток живых бюджетов.
-  Stream<List<Budget>> watchAlive() => _aliveQuery().watch();
-
   /// Меняет лимит бюджета.
   Future<Budget> updateLimit(String id, {required int limitMinor}) async {
     if (limitMinor <= 0) {

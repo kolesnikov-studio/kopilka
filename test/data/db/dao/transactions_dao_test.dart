@@ -565,34 +565,6 @@ void main() {
     );
   });
 
-  test('watchFiltered отдаёт изменения списка операций', () async {
-    final Stream<List<Transaction>> stream = f.transactions.watchFiltered(
-      const TransactionFilter(type: TransactionType.expense),
-    );
-
-    await f.transactions.create(
-      type: TransactionType.income,
-      accountId: cash.id,
-      amountMinor: 1000,
-    );
-    await f.transactions.create(
-      type: TransactionType.expense,
-      accountId: cash.id,
-      amountMinor: 2000,
-    );
-
-    await expectLater(
-      stream,
-      emitsThrough(
-        predicate<List<Transaction>>(
-          (List<Transaction> list) =>
-              list.length == 1 && list.single.amountMinor == 2000,
-          'одна живая операция расхода',
-        ),
-      ),
-    );
-  });
-
   group('агрегаты в базовой валюте (M3-шаг 5, D-18)', () {
     test('донат: построчная конвертация RUB, USD и JPY в базовую', () async {
       final DataLayerFixture f = DataLayerFixture();

@@ -339,7 +339,8 @@ void main() {
     expect(await f.categories.findById(system.id), isNull);
     // Но осталась в БД (soft delete, §3) и видна в списке скрытых.
     expect(await rawRowCount(f.db, 'categories'), 1);
-    final List<Category> hiddenList = await f.categories.getHiddenSystem();
+    final List<Category> hiddenList =
+        await f.categories.watchHiddenSystem().first;
     expect(hiddenList.single.id, system.id);
   });
 
@@ -397,7 +398,7 @@ void main() {
       hasLength(1),
     );
     expect(await f.categories.findById(system.id), isNotNull);
-    expect(await f.categories.getHiddenSystem(), isEmpty);
+    expect(await f.categories.watchHiddenSystem().first, isEmpty);
   });
 
   test('restore: не скрытые (живая, не-системная, удалённая) не возвращаются', () async {
