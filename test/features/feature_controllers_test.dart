@@ -490,6 +490,78 @@ void main() {
     },
   );
 
+  test(
+    'DoD v0.5: флаг «не учитывать в балансе» не трогает донат и динамику — '
+    'операции исключённого счёта считаются в отчётах (D-54/D-60)',
+    () async {
+      final Fixture f = Fixture();
+      await seedDefaultsIfEmpty(f.db);
+      f.container.listen(totalBalanceProvider, (_, _) {});
+      f.container.listen(expensesByCategoryProvider, (_, _) {});
+      f.container.listen(monthTotalsProvider, (_, _) {});
+
+      // Отчётный месяц зафиксирован — тест не зависит от реальной даты.
+      final DateTime month = DateTime.utc(2026, 9, 15);
+      f.container.read(reportsMonthProvider.notifier).state = month;
+
+      final Account excluded = await f.db.accountsDao.create(
+        name: 'Накопительный',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+        excludeFromBalance: true,
+      );
+      final String hobby = await f.newCategory('Хобби', CategoryKind.expense);
+      await f.db.transactionsDao.create(
+        type: TransactionType.expense,
+        accountId: excluded.id,
+        categoryId: hobby,
+        amountMinor: 50000,
+        date: month,
+      );
+
+      // Расход исключённого счёта виден в донате и динамике: исключение
+      // по D-60 живёт только в общем балансе, отчёты честные.
+      await waitUntil(
+        () => (f.container.read(expensesByCategoryProvider).value ??
+                    const <CategoryExpenseBase>[])
+                .length ==
+            1,
+      );
+      expect(
+        f.container.read(expensesByCategoryProvider).value!.single.amountMinor,
+        50000,
+      );
+      expect(
+        f.container.read(expensesByCategoryProvider).value!.single.categoryName,
+        'Хобби',
+      );
+      final MonthTotalsBase september =
+          (f.container.read(monthTotalsProvider).value ?? const <MonthTotalsBase>[])
+              .singleWhere((MonthTotalsBase t) => t.monthKey == '2026-09');
+      expect(september.expenseMinor, 50000);
+      expect(september.incomeMinor, 0);
+
+      // Переключение флага общий баланс меняет, агрегаты отчётов — нет:
+      // граница решения D-60, SQL отчётов флаг не читает.
+      await f.db.accountsDao.updateAccount(
+        excluded.id,
+        excludeFromBalance: const Value<bool>(false),
+      );
+      await waitUntil(
+        () => f.container.read(totalBalanceProvider).value == -50000,
+      );
+      expect(
+        f.container.read(expensesByCategoryProvider).value!.single.amountMinor,
+        50000,
+        reason: 'донат считает операции и учитываемого счёта так же',
+      );
+      final MonthTotalsBase septemberAfter =
+          (f.container.read(monthTotalsProvider).value ?? const <MonthTotalsBase>[])
+              .singleWhere((MonthTotalsBase t) => t.monthKey == '2026-09');
+      expect(septemberAfter.expenseMinor, 50000);
+    },
+  );
+
   test('reportsMultiCurrencyProvider: одна валюта — false, две — true (B5)',
       () async {
     final Fixture f = Fixture();
