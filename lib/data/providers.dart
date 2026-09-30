@@ -5,6 +5,7 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/dao/accounts_dao.dart';
 import 'package:kopilka/data/db/dao/attachments_dao.dart';
 import 'package:kopilka/data/db/dao/budgets_dao.dart';
+import 'package:kopilka/data/db/dao/debts_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
@@ -44,6 +45,11 @@ final budgetsDaoProvider = Provider<BudgetsDao>(
 
 final attachmentsDaoProvider = Provider<AttachmentsDao>(
   (ref) => ref.watch(appDatabaseProvider).attachmentsDao,
+);
+
+/// Долги и погашения (v7, M6/D-82).
+final debtsDaoProvider = Provider<DebtsDao>(
+  (ref) => ref.watch(appDatabaseProvider).debtsDao,
 );
 
 /// Хранилище файлов вложений (v6, D-63): каталог `attachments/` рядом с

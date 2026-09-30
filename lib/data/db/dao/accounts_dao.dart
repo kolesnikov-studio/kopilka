@@ -33,6 +33,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   final Clock clock;
 
   /// Создаёт счёт. `sortOrder` по умолчанию — в конец списка.
+  ///
+  /// [interestReminderDate] — дата напоминания о процентах (v7, D-81):
+  /// NULL = обычный счёт, дата = накопительный; UTC (§3).
   Future<Account> create({
     required String name,
     required AccountKind kind,
@@ -40,6 +43,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     int initialBalanceMinor = 0,
     int? sortOrder,
     bool excludeFromBalance = false,
+    DateTime? interestReminderDate,
   }) async {
     final String trimmedName = name.trim();
     if (trimmedName.isEmpty) {
@@ -61,6 +65,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
         // Флаг «не учитывать в балансе» (v5/D-54): null и false
         // равнозначны («учитывать»), поэтому храним именно bool.
         excludeFromBalance: Value(excludeFromBalance),
+        // Дата напоминания о процентах (v7/D-81): UTC-строка или NULL.
+        interestReminderDate:
+            Value(interestReminderDate?.toUtc().toIso8601String()),
         createdAt: now,
         updatedAt: now,
       ),
@@ -122,6 +129,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   ///
   /// Смена валюты запрещена, пока на счёт ссылаются живые операции: операция
   /// наследует валюту счёта (§3), и её сумма стала бы бессмысленной.
+  /// [interestReminderDate] (v7, D-81) — Companion-параметр: не передан —
+  /// не тронут; передан — перезаписывается (в т.ч. на NULL: сброс даты
+  /// возвращает счёту статус обычного, D-81).
   Future<Account> updateAccount(
     String id, {
     Value<String> name = const Value.absent(),
@@ -130,6 +140,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     Value<int> initialBalanceMinor = const Value.absent(),
     Value<int> sortOrder = const Value.absent(),
     Value<bool> excludeFromBalance = const Value.absent(),
+    Value<DateTime?> interestReminderDate = const Value.absent(),
   }) async {
     final Account current = await _requireAlive(id);
     Value<String>? newName;
@@ -162,6 +173,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
         initialBalanceMinor: initialBalanceMinor,
         sortOrder: sortOrder,
         excludeFromBalance: excludeFromBalance,
+        interestReminderDate: interestReminderDate.present
+            ? Value<String?>(
+                interestReminderDate.value?.toUtc().toIso8601String(),
+              )
+            : const Value.absent(),
         updatedAt: Value(clock()),
       ),
     );

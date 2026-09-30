@@ -10,6 +10,7 @@ import 'package:kopilka/data/db/dao/accounts_dao.dart';
 import 'package:kopilka/data/db/dao/attachments_dao.dart';
 import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
+import 'package:kopilka/data/db/dao/debts_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/database.dart';
@@ -66,6 +67,11 @@ class DataLayerFixture {
       idGenerator: sequentialIds('att'),
       clock: clock.read,
     );
+    debts = DebtsDao(
+      db,
+      idGenerator: sequentialIds('debt'),
+      clock: clock.read,
+    );
   }
 
   final AppDatabase db;
@@ -76,6 +82,7 @@ class DataLayerFixture {
   late final TransactionsDao transactions;
   late final BudgetsDao budgets;
   late final AttachmentsDao attachments;
+  late final DebtsDao debts;
 
   Future<void> dispose() => db.close();
 

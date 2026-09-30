@@ -449,4 +449,49 @@ void main() {
     expect(untouched.excludeFromBalance, isFalse);
     expect(untouched.name, 'Переименованный');
   });
+
+  test('create: дата напоминания о процентах сохраняется (v7/D-81)', () async {
+    await f.ensureRub();
+    final Account savings = await f.accounts.create(
+      name: 'Накопительный',
+      kind: AccountKind.bank,
+      currencyCode: 'RUB',
+      interestReminderDate: DateTime.utc(2026, 10, 30, 9),
+    );
+    expect(savings.interestReminderDate, '2026-10-30T09:00:00.000Z');
+
+    // Дефолт: даты нет — NULL = обычный счёт (D-81).
+    final Account normal = await f.seedAccount(name: 'Обычный');
+    expect(normal.interestReminderDate, isNull);
+  });
+
+  test('updateAccount правит дату напоминания Companion-параметром (v7/D-81)',
+      () async {
+    await f.ensureRub();
+    final Account account = await f.seedAccount(name: 'Накопительный');
+    expect(account.interestReminderDate, isNull);
+
+    f.clock.advance(const Duration(days: 1));
+    final Account withDate = await f.accounts.updateAccount(
+      account.id,
+      interestReminderDate: Value<DateTime?>(DateTime.utc(2026, 11, 30)),
+    );
+    expect(withDate.interestReminderDate, '2026-11-30T00:00:00.000Z');
+    expect(withDate.updatedAt.toUtc(), f.clock.read());
+
+    // Сброс даты возвращает статус обычного счёта (D-81).
+    final Account reset = await f.accounts.updateAccount(
+      account.id,
+      interestReminderDate: const Value<DateTime?>(null),
+    );
+    expect(reset.interestReminderDate, isNull);
+
+    // Value.absent() — поле не менять (семантика частичных обновлений A1).
+    final Account untouched = await f.accounts.updateAccount(
+      account.id,
+      name: const Value<String>('Переименованный'),
+    );
+    expect(untouched.interestReminderDate, isNull);
+    expect(untouched.name, 'Переименованный');
+  });
 }
