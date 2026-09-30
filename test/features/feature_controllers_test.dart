@@ -27,8 +27,10 @@ class Fixture {
     container = ProviderContainer(
       overrides: [appDatabaseProvider.overrideWithValue(db)],
     );
-    addTearDown(container.dispose);
+    // §7: db.close регистрируется первым — LIFO-демонтаж: сперва
+    // container.dispose (останавливает потоки drift), потом db.close.
     addTearDown(db.close);
+    addTearDown(container.dispose);
   }
 
   late final AppDatabase db;
