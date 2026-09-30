@@ -11,7 +11,9 @@
 // файловый I/O хранилища/чтения внутри fake_async-зоны не завершается
 // (§7); логика отказов фейка повторяет AttachmentsService (лимит до
 // записи, storageFailure по флагу), ранние отказы хранилища покрыты
-// юнит-тестами слоя 6а.
+// юнит-тестами слоя 6а. BUSY-замок (D-63): фейк умеет откладывать attach
+// (attachGate): повторный тап во время записи не даёт повторную запись.
+import 'dart:async';
 import 'dart:io';
 
 import 'dart:typed_data';
@@ -80,6 +82,13 @@ class _FakeAttachmentsService extends AttachmentsService {
 
   bool failStorage = false;
 
+  /// Замок BUSY (D-63): при holdAttach attach замирает до [attachGate];
+  /// между вызовом и завершением секция обязана быть занята (кнопки
+  /// не активны, второй вызов не проходит). По умолчанию — без гейта.
+  bool holdAttach = false;
+  final Completer<void> attachGate = Completer<void>();
+  int attachCalls = 0;
+
   @override
   Future<Attachment> attach({
     required String transactionId,
@@ -88,6 +97,7 @@ class _FakeAttachmentsService extends AttachmentsService {
   }) async {
     final AttachmentsDao dao = this.dao!;
     final int limit = AttachmentsStorage.maxFileSizeBytes;
+    attachCalls++;
     if (failStorage) {
       throw DataValidationException(
         'тестовый отказ хранилища',
@@ -107,6 +117,9 @@ class _FakeAttachmentsService extends AttachmentsService {
         'тестовый отказ mime',
         kind: DataFailure.invalidInput,
       );
+    }
+    if (holdAttach && !attachGate.isCompleted) {
+      await attachGate.future;
     }
     final Attachment? previous = await dao.findByTransaction(transactionId);
     final Attachment created = await dao.create(
@@ -251,6 +264,22 @@ void main() {
       expect(fake.files[att.filePath], isNotNull);
     },
   );
+
+  test('formatAttachmentSize: RU-локаль — запятая-разделитель, «977 KB»', () {
+    // RU: дробная часть — через запятую (NumberFormat.decimalPattern('ru')).
+    // Единицы KB/MB не локализуются (контракт функции). KB-ветка: целые
+    // килобайты (ceil), группировка в ней недостижима (KB < 1024).
+    expect(formatAttachmentSize(977 * 1024, locale: 'ru'), '977 KB');
+    // MB-ветка: RU — запятая в дробной части, EN — точка.
+    expect(
+      formatAttachmentSize(5 * 1024 * 1024 + 512 * 1024, locale: 'ru'),
+      '5,5 MB',
+    );
+    expect(
+      formatAttachmentSize(5 * 1024 * 1024 + 512 * 1024, locale: 'en'),
+      '5.5 MB',
+    );
+  });
 
   testWidgets(
     'лимит: файл больше 10 МБ отклоняется до подтверждения, записи нет',
@@ -541,6 +570,66 @@ void main() {
       expect(
         await app.db.transactionsDao.findById(tx.id),
         isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
+    'BUSY-замок: двойной тап во время записи не даёт повторную запись (D-63)',
+    (WidgetTester tester) async {
+      final (AppHarness app, _FakeAttachmentsService fake) =
+          await _pumpAppWithFake(tester);
+      final Transaction tx = await _seedTransaction(app);
+      final File picked = await _tempFile(tester, 'check.png', _pngBytes);
+      installFilePickerShim(path: picked.path, bytes: _pngBytes);
+      addTearDown(restoreFilePickerPlatform);
+
+      await _pumpSection(tester, app, tx.id);
+
+      // Первый тап: пикер → подтверждение → attach замирает в фейке
+      // (holdAttach + незавершённый attachGate). Фреймы прокручиваем
+      // pump (не pumpAndSettle: Future от attachGate в fake_async не
+      // завершится — таймера нет, ждём именно Completer).
+      fake.holdAttach = true;
+      await tester.tap(find.text(app.l10n.attachmentPickAction));
+      await tester.pump();
+      await _confirmAttach(tester, app);
+      expect(fake.attachCalls, 1);
+      expect(
+        await app.db.attachmentsDao.findByTransaction(tx.id),
+        isNull,
+        reason: 'attach ещё не завершён — записи нет',
+      );
+
+      // Кнопка секции занята: тап по ней ничего не делает (onPressed:
+      // null), второй attach не вызывается.
+      final OutlinedButton pickButton = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, app.l10n.attachmentPickAction),
+      );
+      expect(pickButton.onPressed, isNull, reason: 'секция занята (_busy)');
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, app.l10n.attachmentPickAction),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(fake.attachCalls, 1);
+
+      // Завершаем attach: ровно одна запись с данными первого тапа.
+      fake.attachGate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text(app.l10n.attachmentSaved), findsOneWidget);
+      final Attachment saved =
+          await app.db.attachmentsDao.findByTransaction(tx.id)
+              as Attachment;
+      expect(saved.fileSize, _pngBytes.length);
+      expect(
+        (await app.db.customSelect(
+          'SELECT COUNT(*) AS c FROM attachments',
+        ).get())
+            .single
+            .read<int>('c'),
+        1,
+        reason: 'повторной записи нет — двойной тап поглощён BUSY',
       );
     },
   );

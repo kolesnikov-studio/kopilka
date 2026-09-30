@@ -679,6 +679,48 @@ void main() {
     'deleted_at': null,
   };
 
+  test('вложение при мягко удалённой операции — импорт не падает (D-64/D-25)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    // Ссылка вложения проверяется по правилу остальных таблиц: только
+    // существование PK (строки могут ссылаться на мягко удалённые записи).
+    // Мягко удалённая операция (deleted_at != NULL) остаётся в дампе,
+    // вложение на неё импортируется без падения.
+    final String json = jsonEncode(v6WithAttachment(<String, dynamic>{
+      ...serviceAttachment,
+      'file_path': 'soft-deleted-tx.jpg',
+      'mime_type': 'image/jpeg',
+    }));
+    final Map<String, dynamic> document =
+        jsonDecode(json) as Map<String, dynamic>;
+    final List<dynamic> transactions =
+        (document['data'] as Map<String, dynamic>)['transactions']
+            as List<dynamic>;
+    (transactions.single as Map<String, dynamic>)['deleted_at'] =
+        '2026-09-30T12:00:00.000Z';
+
+    await BackupService(database).importJson(jsonEncode(document));
+
+    // Метаданные вложения восстановлены, операция осталась мягко удалённой.
+    expect(
+      (await database.customSelect(
+        'SELECT COUNT(*) AS c FROM attachments',
+      ).get())
+          .single
+          .read<int>('c'),
+      1,
+    );
+    expect(
+      (await database.customSelect(
+        "SELECT deleted_at FROM transactions WHERE id = 'tx-1'",
+      ).get())
+          .single
+          .data['deleted_at'],
+      isNotNull,
+    );
+  });
+
   test('вложение с битой ссылкой на операцию — отказ invalidData (D-64)',
       () async {
     final AppDatabase database = await seeded();
