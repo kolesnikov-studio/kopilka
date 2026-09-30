@@ -46,6 +46,27 @@ enum CategoryKind {
   };
 }
 
+/// Направление долга: `debts.direction` (v7, D-81).
+enum DebtDirection {
+  /// Мне должны.
+  theyOweMe,
+
+  /// Я должен.
+  iOweThem;
+
+  /// Значение для колонки в БД.
+  String get dbValue => switch (this) {
+    DebtDirection.theyOweMe => 'they_owe_me',
+    DebtDirection.iOweThem => 'i_owe_them',
+  };
+
+  static DebtDirection fromDb(String value) => switch (value) {
+    'they_owe_me' => DebtDirection.theyOweMe,
+    'i_owe_them' => DebtDirection.iOweThem,
+    _ => throw DataValidationException('неизвестное направление долга: «$value»'),
+  };
+}
+
 /// Тип операции: `transactions.type`.
 enum TransactionType {
   income,

@@ -8,8 +8,11 @@ import 'package:drift/drift.dart';
 // константного справочника core (M5, D-54). v5 добавляет nullable-колонку
 // accounts.exclude_from_balance — флаг «не учитывать в балансе» (M5, D-54).
 // v6 добавляет таблицу attachments — вложения фото/PDF к операциям
-// (M5, D-63); сами файлы живут вне БД (см. data/attachments_service.dart);
-// см. миграцию в database.dart.
+// (M5, D-63); сами файлы живут вне БД (см. data/attachments_service.dart).
+// v7 добавляет таблицы debts и debt_payments — долги и их погашения
+// (M6, D-81), и nullable-колонку accounts.interest_reminder_date — дату
+// напоминания о процентах накопительного счёта (M6, D-81).
+// См. миграцию в database.dart.
 //
 // Общие правила (нарушать нельзя):
 // - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа
@@ -70,6 +73,13 @@ class Accounts extends Table {
   /// Исключение касается только агрегата: персональный баланс счёта
   /// считается как раньше (§3, [_balanceExpression] не тронут).
   BoolColumn get excludeFromBalance => boolean().nullable()();
+
+  /// Дата напоминания о процентах (v7, M6/D-81): UTC-дата или NULL.
+  /// NULL = обычный счёт; непустая дата = накопительный счёт (выводить
+  /// «накопительный» из exclude_from_balance запрещено — флаг
+  /// настраивается явно). Начисление процентов — вручную по напоминанию,
+  /// деньгами-переводом (D-81); сам флаг не влияет на балансы.
+  TextColumn get interestReminderDate => text().nullable()();
 
   DateTimeColumn get createdAt => dateTime()();
 
@@ -189,6 +199,81 @@ class Attachments extends Table {
 
   /// Размер файла в байтах; лимит — константа в `data/attachments_storage.dart`.
   IntColumn get fileSize => integer()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Долги (v7, D-81): кто, сколько, в какой валюте и к когда возврат.
+///
+/// Отдельная таблица, не операции: долги не идут через счета/категории
+/// (§3), а погашение связывается с переводом через `debt_payments`
+/// (таблица транзакций фиче-колонками не расширяется, D-81).
+class Debts extends Table {
+  /// UUID v4, генерирует приложение.
+  TextColumn get id => text()();
+
+  /// Имя человека, непустое.
+  TextColumn get person => text()();
+
+  /// `they_owe_me` (мне должны) | `i_owe_them` (я должен).
+  TextColumn get direction => text()();
+
+  /// Тело долга в минорных единицах, строго положительное.
+  IntColumn get amountMinor => integer()();
+
+  /// Переплата суммой в минорных единицах (>= 0): проценты или штраф,
+  /// согласованные сторонами одной суммой. Переплата процентом вводится
+  /// в UI и сохраняется суммой — производные не храним (D-81).
+  IntColumn get extraMinor => integer()();
+
+  /// Валюта долга (FK на `currencies.code`); у платежей та же валюта.
+  TextColumn get currencyCode => text().references(Currencies, #code)();
+
+  /// Срок возврата (UTC-дата) или NULL — без срока.
+  TextColumn get dueDate => text().nullable()();
+
+  TextColumn get note => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Погашения долга (v7, D-81): факт возврата деньгами.
+///
+/// FK на долг и операцию без каскада (§3, D-25): мягкое удаление
+/// долга или операции-перевода платёж не трогает. Ссылка на операцию
+/// необязательна: перевод можно записать позже — платёж цел и без неё.
+class DebtPayments extends Table {
+  /// UUID v4, генерирует приложение.
+  TextColumn get id => text()();
+
+  /// Долг, к которому относится платёж (FK на `debts.id`, без каскада).
+  TextColumn get debtId => text().references(Debts, #id)();
+
+  /// Перевод гашения (FK на `transactions.id`, без каскада) или NULL:
+  /// платёж можно связать с переводом позже или не связывать вовсе.
+  TextColumn get transactionId =>
+      text().nullable().references(Transactions, #id)();
+
+  /// Сумма платежа в минорных единицах, строго положительная, в валюте
+  /// долга (конвертация — решение пользователя, D-81).
+  IntColumn get amountMinor => integer()();
+
+  /// Дата факта платежа (UTC).
+  TextColumn get paidAt => text()();
 
   DateTimeColumn get createdAt => dateTime()();
 
