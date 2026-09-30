@@ -160,7 +160,7 @@ void main() {
     final int version =
         (await db.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version');
-    expect(version, 6, reason: 'после открытия база должна быть на v6');
+    expect(version, 7, reason: 'после открытия база должна быть на v7');
 
     // Таблица attachments существует; структурные колонки §3 на месте
     // (S3-инвариант). file_path/mime_type/file_size — из D-63 дословно.
@@ -226,7 +226,7 @@ void main() {
     expect(
       (await db.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      6,
+      7,
     );
 
     // Все шаги цепочки исполнены: budgets создана, колонки добавлены,
@@ -275,7 +275,7 @@ void main() {
     );
     await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 6),
+    // Повторное открытие: onUpgrade не выполняется (версия уже 7),
     // данные живы, вложение читается.
     final AppDatabase second =
         AppDatabase.forTesting(NativeDatabase(dbFile));
@@ -283,7 +283,7 @@ void main() {
     expect(
       (await second.customSelect('PRAGMA user_version').getSingle())
           .read<int>('user_version'),
-      6,
+      7,
     );
     final Attachment? att = await second.attachmentsDao
         .findByTransaction(tx.id);

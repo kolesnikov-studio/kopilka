@@ -26,14 +26,14 @@ void main() {
     await db.close();
   });
 
-  test('schemaVersion = 6', () {
-    expect(db.schemaVersion, 6);
+  test('schemaVersion = 7', () {
+    expect(db.schemaVersion, 7);
   });
 
-  test('схема создаёт шесть таблиц: пять прежних плюс attachments (v6)', () async {
+  test('схема создаёт семь таблиц: пять прежних, attachments и долги (v7)', () async {
     expect(
       await tableNames(db),
-      containsAll(expectedTablesPlusAttachments),
+      containsAll(expectedTablesV7),
     );
   });
 
@@ -51,7 +51,7 @@ void main() {
 
   test('в каждой таблице есть created_at, updated_at и deleted_at (S3)',
       () async {
-    await expectTimestampColumns(db, expectedTablesPlusAttachments);
+    await expectTimestampColumns(db, expectedTablesV7);
   });
 
   test('индексы транзакций созданы', () async {
