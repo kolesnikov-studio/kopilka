@@ -3,6 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:kopilka/core/money.dart';
 
 void main() {
+  // Контракт парсера (P2-2 аудита D-75, зафиксирован заголовком группы):
+  // лимит целой части — 15 разрядов (~10^15, укладывается в int64);
+  // некорректный ввод — null, FormatException не бросается никогда;
+  // у валют с экспонентом 0 дробная часть запрещена целиком.
   group('parseAmountToMinor', () {
     test('целая сумма', () {
       expect(parseAmountToMinor('250'), 25000);

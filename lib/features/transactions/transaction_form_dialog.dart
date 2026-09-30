@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/amount_field.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/core/currency.dart';
+import 'package:kopilka/core/dates.dart';
 // Глиф в пунктах выбора категории (M5-шаг 2): categories_screen — экран,
 // но categoryIcon — единственный рендер глифа с заглушкой NULL (D-55);
 // категории при этом по-прежнему приходят через categoriesByKindProvider.
@@ -50,7 +51,11 @@ class _TransactionFormDialogState
   String? _accountId;
   String? _targetAccountId;
   String? _categoryId;
-  DateTime _date = DateTime.now();
+  // Время формы — через шов [formClock] (§7, образец DAO `clock: utcNow`):
+  // дата новой операции — UTC (D-78). Локальный `DateTime.now()` записывал
+  // бы локальные секунды: операция, созданная в 23:00 MSK, уезжала в чужой
+  // месяц отчётов (месяцы считаются из UTC-секунд).
+  DateTime _date = formClock();
   bool _busy = false;
   // 6в: после успешного сохранения диалог не закрывается, а переключается
   // в режим вложения (id операции появляется только после записи в БД).

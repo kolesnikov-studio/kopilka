@@ -6,3 +6,8 @@ typedef Clock = DateTime Function();
 
 /// Текущий момент в UTC: все штампы времени хранятся в UTC (§3).
 DateTime utcNow() => DateTime.now().toUtc();
+
+/// Часы формы быстрого ввода (§7, образец DAO `clock: utcNow`): тест
+/// подменяет присвоением (`formClock = () => ...`), живой код не меняется.
+/// Дата новой операции — UTC (D-78), замок месяца зависит от этого шва.
+Clock formClock = utcNow;
