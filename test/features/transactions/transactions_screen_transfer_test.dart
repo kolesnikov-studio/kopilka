@@ -241,4 +241,81 @@ void main() {
       expect(find.textContaining(_amount(app, 2000000)), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'S3 (D-70/D-71): мультивалютный перевод со скрепкой на 600×1000 — '
+    'скрепка и обе суммы в trailing, заголовок не сжат',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        size: const Size(600, 1000),
+        tempDirPrefix: 'kopilka_tx_tile_test',
+      );
+      // Маркер-скрепка смотрит только метаданные (D-63); провайдер через
+      // I/O-шов харнесса проверяет файл — по умолчанию фейк отвечает
+      // «файл есть» (missingSuffix не совпадает), реальный диск не нужен.
+      // Запись вложения создаём напрямую в DAO.
+      await app.db.currenciesDao.create(
+        code: 'USD',
+        symbol: r'$',
+        rateToBase: 97.5,
+      );
+      final Account rub = await app.db.accountsDao.create(
+        name: 'Руб',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+      final Account usd = await app.db.accountsDao.create(
+        name: 'Дол',
+        kind: AccountKind.bank,
+        currencyCode: 'USD',
+      );
+      // Подбор сумм под метрики тестового шрифта (Ahem: 16px/символ,
+      // tile = 600-32 = 568px): «− 1 234 567 890,12 ₽» (320px) + «→» +
+      // «$ 98 765 432,10» (240px) = 584px — шире места под trailing
+      // (~546px), поэтому Wrap переносит вторую сумму на новую строку,
+      // а сжатый trailing (≈362px) оставляет заголовку ширину больше
+      // нуля. Большие суммы ловили бы assert ListTile «trailing
+      // consumes the entire tile width» — замер, а не сценарий.
+      final Transaction transfer = await app.db.transactionsDao.create(
+        type: TransactionType.transfer,
+        accountId: rub.id,
+        targetAccountId: usd.id,
+        amountMinor: 123456789012,
+        targetAmountMinor: 9876543210,
+      );
+      await app.db.attachmentsDao.create(
+        transactionId: transfer.id,
+        filePath: 's3-lock.png',
+        mimeType: 'image/png',
+        fileSize: 42,
+      );
+      await tester.pumpAndSettle();
+      await _openTransactionsTab(tester, app);
+
+      // Скрепка и обе суммы — на месте (в trailing плитки).
+      expect(find.byIcon(Icons.attach_file), findsOneWidget);
+      final String rubAmount = _amount(app, 123456789012);
+      final String usdAmount =
+          _amount(app, 9876543210, symbol: r'$');
+      expect(find.textContaining(rubAmount), findsOneWidget);
+      expect(find.textContaining(usdAmount), findsOneWidget);
+
+      // Заголовок не сжат в ноль переносом trailing.
+      final Size titleSize =
+          tester.getSize(find.text('Руб → Дол'));
+      expect(titleSize.width, greaterThan(0));
+
+      // Wrap переносит: суммы не влезли в одну строку trailing —
+      // вторая сумма ниже первой.
+      final double firstDy = tester
+          .getTopLeft(find.textContaining(rubAmount)).dy;
+      final double secondDy = tester
+          .getTopLeft(find.textContaining(usdAmount)).dy;
+      expect(secondDy, greaterThan(firstDy));
+      // Нет исключений — assert'ы ListTile/Wrap держат layout
+      // корректным.
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

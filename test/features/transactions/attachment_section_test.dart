@@ -334,6 +334,51 @@ void main() {
   );
 
   testWidgets(
+    'S2 (D-71): тап «Заменить» после pumpAndSettle — подтверждение с текстом замены',
+    (WidgetTester tester) async {
+      final (AppHarness app, _FakeAttachmentsService fake) =
+          await _pumpAppWithFake(tester);
+      final Transaction tx = await _seedTransaction(app);
+      final File second = await _tempFile(tester, 'second.jpg', <int>[9, 9, 9]);
+      // Вложение существует до первого кадра секции: именно на таком
+      // состоянии гонка S2 — подтверждение замены не должно показывать
+      // «Прикрепить» ни при какой загрузке future провайдера.
+      final Attachment att1 = await fake.attach(
+        transactionId: tx.id,
+        mimeType: 'image/png',
+        bytes: _pngBytes,
+      );
+
+      await _pumpSection(tester, app, tx.id);
+
+      installFilePickerShim(path: second.path, bytes: <int>[9, 9, 9]);
+      addTearDown(restoreFilePickerPlatform);
+      await tester.tap(find.byIcon(Icons.published_with_changes));
+      await tester.pumpAndSettle();
+
+      // Диалог замены: и заголовок, и кнопка действия — тексты замены.
+      expect(find.text(app.l10n.attachmentReplaceTitle), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, app.l10n.attachmentReplaceAction),
+        findsOneWidget,
+      );
+
+      // Подтверждение выполняет замену: одна живая запись, файл новый,
+      // старый убран.
+      await tester.tap(
+        find.widgetWithText(FilledButton, app.l10n.attachmentReplaceAction),
+      );
+      await tester.pumpAndSettle();
+      final Attachment? att2 =
+          await app.db.attachmentsDao.findByTransaction(tx.id);
+      expect(att2, isNotNull);
+      expect(att2!.id, isNot(att1.id));
+      expect(fake.files[att2.filePath], isNotNull);
+      expect(fake.files[att1.filePath], isNull);
+    },
+  );
+
+  testWidgets(
     'удаление: подтверждение — запись мягко удалена, файл убран',
     (WidgetTester tester) async {
       final (AppHarness app, _FakeAttachmentsService fake) =

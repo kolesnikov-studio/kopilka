@@ -71,45 +71,54 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
       case AttachmentPickLoaded(:final fileName, :final bytes):
         // Диалог подтверждения строится без await до показа: в тестовой
         // зоне (fake_async) любой реальный await до showDialog не даст
-        // кадру построиться. Вложение читается синхронно из состояния
-        // провайдера (оно уже загружено построением секции).
-        if (!mounted) {
-          return;
-        }
-        final bool replace =
-            ref.read(transactionAttachmentProvider(widget.transactionId))
-                .value !=
-            null;
+        // кадру построиться.
+        //
+        // S2 (D-70/D-71): факт вложения для текста подтверждения берём
+        // на момент показа диалога, а не из состояния провайдера в момент
+        // тапа: FutureProvider.autoDispose может быть ещё не загружен на
+        // первом кадре секции (переход в режим вложения) — тогда `.value`
+        // до показа давал null и подтверждение замены ложно показывало
+        // «Прикрепить». Билдер выполняется синхронно внутри showDialog
+        // (await до показа нет — требование §7), и к этому моменту кадр
+        // секции построен: виден либо чип «Прикрепить», либо карточка.
+        // Читаем `.value` так же, как build секции. Исходы контроллера и
+        // контракт секции не меняются.
         final bool? result = await showDialog<bool>(
           context: context,
-          builder: (BuildContext dialogContext) => AlertDialog(
-            title: Text(
-              replace
-                  ? AppLocalizations.of(context).attachmentReplaceTitle
-                  : AppLocalizations.of(context).attachmentPickTitle,
-            ),
-            content: Text(
-              '$fileName · '
-              '${formatAttachmentSize(bytes.length, locale: _locale())}\n\n'
-              '${replace
-                  ? AppLocalizations.of(context).attachmentReplaceBody
-                  : AppLocalizations.of(context).attachmentPickBody}',
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(AppLocalizations.of(context).cancelAction),
+          builder: (BuildContext dialogContext) {
+            final bool replace = ref
+                .read(transactionAttachmentProvider(widget.transactionId))
+                .value !=
+            null;
+            return AlertDialog(
+              title: Text(
+                replace
+                    ? AppLocalizations.of(context).attachmentReplaceTitle
+                    : AppLocalizations.of(context).attachmentPickTitle,
               ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: Text(
-                  replace
-                      ? AppLocalizations.of(context).attachmentReplaceAction
-                      : AppLocalizations.of(context).attachmentPickAction,
+              content: Text(
+                '$fileName · '
+                '${formatAttachmentSize(bytes.length, locale: _locale())}\n\n'
+                '${replace
+                    ? AppLocalizations.of(context).attachmentReplaceBody
+                    : AppLocalizations.of(context).attachmentPickBody}',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: Text(AppLocalizations.of(context).cancelAction),
                 ),
-              ),
-            ],
-          ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(
+                    replace
+                        ? AppLocalizations.of(context).attachmentReplaceAction
+                        : AppLocalizations.of(context).attachmentPickAction,
+                  ),
+                ),
+              ],
+            );
+          },
         );
         if (!mounted) {
           return;

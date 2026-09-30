@@ -818,7 +818,7 @@ class AppLocalizationsRu extends AppLocalizations {
       'Вложение и его файл на диске будут удалены.';
 
   @override
-  String get attachmentOpenAction => 'Открыть';
+  String get attachmentOpenAction => 'Просмотр';
 
   @override
   String get attachmentFileMissing => 'Файл не найден на диске.';

@@ -46,11 +46,12 @@ void main() {
   testWidgets(
     'D-68.б: CTA пустого результата снимает тип, счёт и поиск',
     (WidgetTester tester) async {
-      // Окно 800px: с чипом «Все» (D-68.а) лента на 600px уводит чип
-      // счёта за экран — меню недостижимо тапом.
+      // Окно 600×1000 (H1, D-70.б: чип счёта прижат Spacer'ом к правому
+      // краю ленты и виден на узком окне; раньше ради этого ленты нужен
+      // был тест-стенд 800px).
       final AppHarness app = await pumpDialogApp(
         tester,
-        size: const Size(800, 1000),
+        size: const Size(600, 1000),
         tempDirPrefix: 'kopilka_tx_chips_test',
       );
       final Account rub = await app.db.accountsDao.create(
@@ -119,6 +120,60 @@ void main() {
       expect(_chipByText(tester, app, app.l10n.filterAll).selected, isTrue);
       // Текст пустого отфильтрованного состояния ушёл.
       expect(find.text(app.l10n.transactionsEmptyFiltered), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'H1 (D-70.б): чип счёта видим на 600×1000 без прокрутки ленты',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        size: const Size(600, 1000),
+        tempDirPrefix: 'kopilka_tx_chips_test',
+      );
+      final Account rub = await app.db.accountsDao.create(
+        name: 'Рубли',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+      await app.db.transactionsDao.create(
+        type: TransactionType.income,
+        accountId: rub.id,
+        amountMinor: 70000,
+      );
+      await _openTransactionsTab(tester, app);
+
+      // Чип счёта в видимой зоне ленты: прижат к правому краю (вне
+      // зоны прокрутки чипов типа) и доступен тапу без прокрутки —
+      // до H1 на 600px он уходил за край за чипами типа.
+      final Finder accountChip = find.text(app.l10n.filterAllAccounts);
+      expect(accountChip, findsOneWidget);
+      final Rect chipRect = tester.getRect(accountChip);
+      expect(chipRect.right, lessThanOrEqualTo(600 - 16));
+      expect(chipRect.left, greaterThanOrEqualTo(16));
+
+      // И меню фильтра счёта действительно открывается тапом (пункт
+      // меню ищем в PopupMenuItem: текст «Рубли» есть и в плитке
+      // операции под меню).
+      await tester.tap(accountChip);
+      await tester.pumpAndSettle();
+      final Finder menuRub =
+          find.widgetWithText(PopupMenuItem<String>, 'Рубли');
+      expect(menuRub, findsOneWidget);
+      await tester.tap(menuRub);
+      await tester.pumpAndSettle();
+
+      // Фильтр применился: чип показывает имя счёта и подсвечен
+      // (текст «Рубли» и в заголовке плитки — ищем внутри Chip).
+      final Finder chipRub = find.descendant(
+        of: find.byType(Chip),
+        matching: find.text('Рубли'),
+      );
+      expect(chipRub, findsOneWidget);
+      final Chip chip = tester.widget<Chip>(
+        find.ancestor(of: chipRub, matching: find.byType(Chip)),
+      );
+      expect(chip.backgroundColor, isNotNull);
     },
   );
 

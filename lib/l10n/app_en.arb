@@ -889,7 +889,7 @@
   "@attachmentDeleteBody": {
     "description": "Body of the confirmation dialog for deleting an attachment (D-63)"
   },
-  "attachmentOpenAction": "Open",
+  "attachmentOpenAction": "View",
   "@attachmentOpenAction": {
     "description": "Button or tooltip that opens the attached file for viewing (D-63)"
   },

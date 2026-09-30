@@ -811,7 +811,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'The attachment and its file on disk will be deleted.';
 
   @override
-  String get attachmentOpenAction => 'Open';
+  String get attachmentOpenAction => 'View';
 
   @override
   String get attachmentFileMissing => 'File not found on disk.';

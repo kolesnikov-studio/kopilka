@@ -248,7 +248,7 @@
   "attachmentSaved": "Вложение сохранено.",
   "attachmentDeleteTitle": "Удалить вложение",
   "attachmentDeleteBody": "Вложение и его файл на диске будут удалены.",
-  "attachmentOpenAction": "Открыть",
+  "attachmentOpenAction": "Просмотр",
   "attachmentFileMissing": "Файл не найден на диске.",
   "attachmentTooLarge": "Файл слишком большой. Максимальный размер — {maxSize}.",
   "attachmentPdfUnsupported": "Просмотр PDF пока недоступен. Файл прикреплён к операции.",

@@ -1481,7 +1481,7 @@ abstract class AppLocalizations {
   /// Button or tooltip that opens the attached file for viewing (D-63)
   ///
   /// In en, this message translates to:
-  /// **'Open'**
+  /// **'View'**
   String get attachmentOpenAction;
 
   /// Shown when attachment metadata exists but the file is missing on disk, e.g. after restoring a backup (D-64: metadata without files is normal)

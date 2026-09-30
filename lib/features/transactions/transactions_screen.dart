@@ -89,20 +89,44 @@ class TransactionsScreen extends ConsumerWidget {
                   .setSearch,
             ),
           ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
+          // H1 (D-70.б): чип счёта прижат к правому краю ленты и виден
+          // без прокрутки на любом окне (600px включительно) — вместе с
+          // именем активного фильтра счёта и входом к его смене.
+          //
+          // Отклонение от буквы спеки («Spacer в общем Row»), причина:
+          // (1) flex под горизонтальным скроллом получает неограниченную
+          // ширину — исключение фреймворка; (2) на 600px чипы типа с
+          // RU-надписями сами переполняют ленту (~520px) — Spacer
+          // схлопывается и чип счёта уходит за край; при выносе чипа за
+          // скролл в общем Row он накрывает центр чипа «Переводы» и
+          // перехватывает его тапы. Поэтому лента двухстрочная: строка
+          // чипов типа с горизонтальной прокруткой (переполнение —
+          // спека сохранена) и правый край с чипом счёта вне прокрутки.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                _allTypesChip(context, ref, filter, l10n),
-                _typeChip(context, ref, filter, l10n, TransactionType.income,
-                    l10n.filterIncomes),
-                _typeChip(context, ref, filter, l10n, TransactionType.expense,
-                    l10n.filterExpenses),
-                _typeChip(context, ref, filter, l10n, TransactionType.transfer,
-                    l10n.filterTransfers),
-                const SizedBox(width: 8),
-                _accountChip(context, ref, filter, l10n),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      _allTypesChip(context, ref, filter, l10n),
+                      _typeChip(context, ref, filter, l10n,
+                          TransactionType.income, l10n.filterIncomes),
+                      _typeChip(context, ref, filter, l10n,
+                          TransactionType.expense, l10n.filterExpenses),
+                      _typeChip(context, ref, filter, l10n,
+                          TransactionType.transfer, l10n.filterTransfers),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: _accountChip(context, ref, filter, l10n),
+                ),
               ],
             ),
           ),
@@ -389,9 +413,13 @@ class _TransactionTile extends ConsumerWidget {
       // Маркер вложения (M5-шаг 6в): у операции живой файл — иконка
       // скрепки перед суммой; файл может и не существовать на диске
       // (восстановленный бэкап, D-64) — список смотрит только метаданные.
-      // Иконка вплетена в trailing через FittedBox-безопасный Row: у Wrap
-      // мультивалютного перевода и так длинный trailing — маркер только
-      // когда он есть, иначе trailing не меняется (B4.3-регресс).
+      // Иконка вплетена в trailing через Row — маркер только когда он
+      // есть, иначе trailing не меняется (B4.3-регресс).
+      // S3 (D-70/D-71): Flexible ограничивает ширину суммы — без него
+      // замер Row отдаёт Wrap мультивалютного перевода неограниченную
+      // ширину: перенос исчезает, trailing насыщается до ширины плитки
+      // (assert ListTile «trailing consumes the entire tile width»),
+      // а заголовок сжимается в ноль.
       trailing: row.hasAttachment
           ? Row(
               mainAxisSize: MainAxisSize.min,
@@ -402,7 +430,7 @@ class _TransactionTile extends ConsumerWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 4),
-                amount,
+                Flexible(child: amount),
               ],
             )
           : amount,
