@@ -10,6 +10,7 @@ import 'package:kopilka/data/export/backup_service.dart';
 import 'package:kopilka/data/rates/rate_sync_service.dart';
 import 'package:kopilka/data/update/update_service.dart';
 import 'package:kopilka/data/db/database.dart';
+import 'package:kopilka/features/debts/debts_reminders.dart';
 import 'package:kopilka/features/categories/categories_controller.dart';
 import 'package:kopilka/features/settings/csv_import_flow.dart';
 import 'package:kopilka/features/settings/currencies_controller.dart';
@@ -36,6 +37,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(autoBackupDirectoryProvider.notifier).load();
       ref.read(autoUpdateCheckEnabledProvider.notifier).load();
+      // Напоминания (M6 шаг C, §7): текущее opt-in состояние из файла
+      // настроек (D-43) — в состояние тумблера секции.
+      ref.read(remindersToggleProvider.notifier).load();
       ref.read(updateOfferControllerProvider.notifier).load().then((_) {
         if (mounted) {
           _maybeShowUpdateOffer();
@@ -317,6 +321,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 label: Text(rateSyncing ? l10n.rateSyncing : l10n.rateSyncNow),
               ),
             ),
+          ),
+          const Divider(),
+          // Секция «Напоминания» (M6 шаг C, §7): после «Синхронизации
+          // курсов», тумблер + подписи времени и Linux-ограничения. Включение
+          // из тумблера — тот же UX-поток с запросом разрешения (D-88.1);
+          // выключение — setEnabled(false), без запросов.
+          _SectionHeader(title: l10n.remindersSectionTitle),
+          SwitchListTile(
+            key: const ValueKey<String>('remindersToggleTile'),
+            secondary: const Icon(Icons.notifications_none),
+            title: Text(l10n.remindersToggle),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(l10n.remindersTimeNote),
+                if (Theme.of(context).platform == TargetPlatform.linux)
+                  Text(l10n.remindersLinuxHint),
+              ],
+            ),
+            value: ref.watch(remindersToggleProvider),
+            onChanged: (bool value) async {
+              final RemindersToggleController controller =
+                  ref.read(remindersToggleProvider.notifier);
+              if (value) {
+                await controller.enable(context);
+              } else {
+                await controller.disable();
+              }
+              if (mounted) {
+                setState(() {});
+              }
+            },
           ),
           const Divider(),
           ListTile(
