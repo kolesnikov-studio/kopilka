@@ -15,6 +15,7 @@ class AmountField extends StatelessWidget {
     this.onSubmitted,
     this.onChanged,
     this.allowZero = false,
+    this.allowEmpty = false,
     this.exponent = defaultCurrencyExponent,
     this.hintText,
     this.suffixText,
@@ -26,6 +27,11 @@ class AmountField extends StatelessWidget {
 
   /// Разрешает ноль как корректное значение (по умолчанию — только > 0).
   final bool allowZero;
+
+  /// Разрешает пустое поле как корректное — для необязательных сумм
+  /// («пустое = 0», D-82: переплата долга): вызывающий код сам трактует
+  /// пустоту как ноль/отсутствие. По умолчанию пустота — ошибка.
+  final bool allowEmpty;
 
   /// Число знаков после разделителя у валюты поля (D-15): 2 — копейки,
   /// 0 — без дробной части, 3 — динары. По умолчанию 2.
@@ -63,26 +69,38 @@ class AmountField extends StatelessWidget {
         errorMaxLines: 2,
       ),
       autovalidateMode: AutovalidateMode.onUserInteraction,
-      validator: (String? value) => parseAmountToMinor(
-            value ?? '',
-            allowZero: allowZero,
-            exponent: exponent,
-          ) ==
-          null
-          ? l10n.amountInvalid
-          : null,
+      validator: (String? value) {
+        final String text = value ?? '';
+        if (allowEmpty && text.trim().isEmpty) {
+          return null;
+        }
+        return parseAmountToMinor(
+              text,
+              allowZero: allowZero,
+              exponent: exponent,
+            ) ==
+            null
+        ? l10n.amountInvalid
+        : null;
+      },
       onFieldSubmitted: onSubmitted,
     );
   }
 }
 
-/// Пропускает только цифры, пробелы, запятую и точку; не более одного
-/// разделителя и не более [exponent] знаков после него (D-15: экспонент
-/// валюты управляет вводом; экспонент 0 запрещает разделитель целиком).
+/// Пропускает только цифры, пробелы, запятую и точку; при экспонентах > 0
+/// пробел — разделитель групп любой длины (парсер снимает все пробелы:
+/// «4 000» = 4000), разделитель не более одного и не более [exponent]
+/// знаков после него (D-15: экспонент валюты управляет вводом); экспонент
+/// 0 (целые валюты) — жёстче: только цифры, без разделителя и пробелов.
 class AmountInputFormatter extends TextInputFormatter {
   AmountInputFormatter({this.exponent = defaultCurrencyExponent})
     : _allowed = exponent > 0
-          ? RegExp(r'^\d*[\s.,]?\d{0,' + exponent.toString() + r'}$')
+          ? RegExp(
+              r'^\d+([ \u00A0\u202F]\d+)*(\.\d{0,' +
+              exponent.toString() +
+              r'})?$',
+            )
           : RegExp(r'^\d*$');
 
   final RegExp _allowed;
