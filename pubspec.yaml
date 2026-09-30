@@ -49,6 +49,11 @@ dependencies:
   http: ^1.6.0
   package_info_plus: ^10.2.1
   url_launcher: ^6.3.2
+  # Локальные напоминания (M6, D-83): opt-in, расписание пересчитывается
+  # при запуске и при изменении источников (D-81). Таймзонная библиотека
+  # нужна самому API плагина: zonedSchedule принимает TZDateTime.
+  flutter_local_notifications: ^22.3.1
+  timezone: ^0.11.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

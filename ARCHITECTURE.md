@@ -14,7 +14,7 @@
 | Файлы/пути | path_provider, file_picker, share_plus |
 | Сеть (проверка обновлений; opt-in синхронизация курсов) | http + package_info_plus |
 | Открытие ссылки релиза | url_launcher |
-| Локальные напоминания (M6) | flutter_local_notifications (Android/Windows/Linux; opt-in, D-83) |
+| Локальные напоминания (M6) | flutter_local_notifications (D-83: единственная новая зависимость M6 — один пакет закрывает все целевые платформы D-02, Android/Windows/Linux; opt-in) + timezone (обязательная типовая зависимость: API плагина принимает TZDateTime; база tzdatabase не включается — зона строится из текущего смещения устройства) |
 | UUID | uuid |
 | Тесты | flutter_test, drift in-memory |
 
@@ -39,7 +39,8 @@ lib/
     db/           — drift: таблицы, DAO, миграции
     export/       — JSON/CSV импорт-экспорт
     update/       — проверка обновлений
-    reminders/    — локальные напоминания (M6, D-83)
+    reminders/    — локальные напоминания (M6, D-83): service (механика),
+                    plugin (шов над плагином), preferences (D-43), binding
   core/           — деньги (minor units), uuid, даты, ошибки
   l10n/           — .arb файлы
 ```
