@@ -835,4 +835,175 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get doneAction => 'Done';
+
+  @override
+  String get navDebts => 'Debts';
+
+  @override
+  String get debtsEmpty => 'No debts yet. Record who owes what.';
+
+  @override
+  String get debtsEmptyCta => 'Add debt';
+
+  @override
+  String get debtAddTooltip => 'Add debt';
+
+  @override
+  String get debtSectionTheyOweMe => 'Owed to me';
+
+  @override
+  String get debtSectionIOweThem => 'I owe';
+
+  @override
+  String debtSectionTotalTheyOweMe(String amount) {
+    return 'Owed to me: $amount';
+  }
+
+  @override
+  String debtSectionTotalIOweThem(String amount) {
+    return 'I owe: $amount';
+  }
+
+  @override
+  String debtRemainingLine(String amount) {
+    return 'Remaining: $amount';
+  }
+
+  @override
+  String get debtDueDateLabel => 'Due date';
+
+  @override
+  String get debtOverdueBadge => 'Overdue';
+
+  @override
+  String get debtPaidOffBadge => 'Paid off';
+
+  @override
+  String get debtDirectionTheyOweMe => 'Owed to me';
+
+  @override
+  String get debtDirectionIOweThem => 'I owe';
+
+  @override
+  String get debtPersonLabel => 'Person';
+
+  @override
+  String get debtDirectionLabel => 'Direction';
+
+  @override
+  String get debtAmountLabel => 'Principal';
+
+  @override
+  String get debtExtraLabel => 'Extra';
+
+  @override
+  String get debtExtraHelper => 'Included in the total due';
+
+  @override
+  String get debtCurrencyLabel => 'Currency';
+
+  @override
+  String get debtDueDateOptional => 'Due date (optional)';
+
+  @override
+  String get debtNoteLabel => 'Note';
+
+  @override
+  String get debtPersonRequired => 'Enter a name';
+
+  @override
+  String get debtAmountInvalid => 'The amount must be greater than zero';
+
+  @override
+  String get debtExtraInvalid => 'The extra amount cannot be negative';
+
+  @override
+  String get debtEditTitle => 'Edit debt';
+
+  @override
+  String get debtDeleteTitle => 'Delete debt?';
+
+  @override
+  String get debtDeleteBody =>
+      'The debt will disappear from the lists. Its payments and the attachment file remain in the data.';
+
+  @override
+  String get debtAddTitle => 'New debt';
+
+  @override
+  String get debtPaymentsTitle => 'Payments';
+
+  @override
+  String get debtPaymentsEmpty => 'No payments yet.';
+
+  @override
+  String get debtRecordPaymentAction => 'Record payment';
+
+  @override
+  String get debtPaymentAmountLabel => 'Payment amount';
+
+  @override
+  String get debtPaymentDateLabel => 'Actual date';
+
+  @override
+  String get debtPaymentLinkTransfer => 'Link to a transfer';
+
+  @override
+  String get debtPaymentFormTitle => 'Record a payment';
+
+  @override
+  String get debtPaymentDeleteTitle => 'Delete payment?';
+
+  @override
+  String get debtPaymentDeleteBody =>
+      'The amount returns to the debt remainder. The linked transfer transaction is not deleted.';
+
+  @override
+  String get debtTransferOutAccount => 'Source account';
+
+  @override
+  String get debtTransferInAccount => 'Target account';
+
+  @override
+  String get debtTransferNote => 'Transfer note';
+
+  @override
+  String get debtTransferRecordAction => 'Record';
+
+  @override
+  String get attachmentDebtPickBody =>
+      'The file will be stored with this debt.';
+
+  @override
+  String get remindersBannerTitle => 'Payment reminders are off';
+
+  @override
+  String get remindersBannerBody =>
+      'Turn on and Kopilka will remind you of due dates at 9:00.';
+
+  @override
+  String get remindersEnableAction => 'Turn on';
+
+  @override
+  String get remindersDismissAction => 'Not now';
+
+  @override
+  String get remindersEnabledSnackbar => 'Reminders are on';
+
+  @override
+  String get remindersPermissionDenied =>
+      'Notification permission was not granted — enable it in system settings.';
+
+  @override
+  String get remindersLinuxHint =>
+      'On Linux, reminders appear only when the app is running.';
+
+  @override
+  String get remindersSectionTitle => 'Reminders';
+
+  @override
+  String get remindersToggle => 'Payment reminders';
+
+  @override
+  String get remindersTimeNote => 'A reminder is shown at 9:00 local time.';
 }

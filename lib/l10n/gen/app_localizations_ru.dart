@@ -842,4 +842,177 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get doneAction => 'Готово';
+
+  @override
+  String get navDebts => 'Долги';
+
+  @override
+  String get debtsEmpty =>
+      'Долгов пока нет. Записывайте, кто и сколько должен.';
+
+  @override
+  String get debtsEmptyCta => 'Добавить долг';
+
+  @override
+  String get debtAddTooltip => 'Добавить долг';
+
+  @override
+  String get debtSectionTheyOweMe => 'Мне должны';
+
+  @override
+  String get debtSectionIOweThem => 'Я должен';
+
+  @override
+  String debtSectionTotalTheyOweMe(String amount) {
+    return 'Мне должны: $amount';
+  }
+
+  @override
+  String debtSectionTotalIOweThem(String amount) {
+    return 'Я должен: $amount';
+  }
+
+  @override
+  String debtRemainingLine(String amount) {
+    return 'Остаток: $amount';
+  }
+
+  @override
+  String get debtDueDateLabel => 'Срок возврата';
+
+  @override
+  String get debtOverdueBadge => 'Просрочено';
+
+  @override
+  String get debtPaidOffBadge => 'Погашен';
+
+  @override
+  String get debtDirectionTheyOweMe => 'Мне должны';
+
+  @override
+  String get debtDirectionIOweThem => 'Я должен';
+
+  @override
+  String get debtPersonLabel => 'Человек';
+
+  @override
+  String get debtDirectionLabel => 'Направление';
+
+  @override
+  String get debtAmountLabel => 'Тело долга';
+
+  @override
+  String get debtExtraLabel => 'Переплата';
+
+  @override
+  String get debtExtraHelper => 'Включается в сумму к возврату';
+
+  @override
+  String get debtCurrencyLabel => 'Валюта';
+
+  @override
+  String get debtDueDateOptional => 'Срок возврата (необязательно)';
+
+  @override
+  String get debtNoteLabel => 'Примечание';
+
+  @override
+  String get debtPersonRequired => 'Введите имя';
+
+  @override
+  String get debtAmountInvalid => 'Сумма должна быть больше нуля';
+
+  @override
+  String get debtExtraInvalid => 'Переплата не может быть отрицательной';
+
+  @override
+  String get debtEditTitle => 'Изменить долг';
+
+  @override
+  String get debtDeleteTitle => 'Удалить долг?';
+
+  @override
+  String get debtDeleteBody =>
+      'Долг исчезнет из списков. Платежи и файл вложения останутся в данных.';
+
+  @override
+  String get debtAddTitle => 'Новый долг';
+
+  @override
+  String get debtPaymentsTitle => 'Платежи';
+
+  @override
+  String get debtPaymentsEmpty => 'Платежей ещё нет.';
+
+  @override
+  String get debtRecordPaymentAction => 'Записать гашение';
+
+  @override
+  String get debtPaymentAmountLabel => 'Сумма гашения';
+
+  @override
+  String get debtPaymentDateLabel => 'Дата факта';
+
+  @override
+  String get debtPaymentLinkTransfer => 'Связать с переводом';
+
+  @override
+  String get debtPaymentFormTitle => 'Запись гашения';
+
+  @override
+  String get debtPaymentDeleteTitle => 'Удалить платёж?';
+
+  @override
+  String get debtPaymentDeleteBody =>
+      'Сумма вернётся в остаток долга. Связанная операция-перевод не удаляется.';
+
+  @override
+  String get debtTransferOutAccount => 'Счёт списания';
+
+  @override
+  String get debtTransferInAccount => 'Счёт зачисления';
+
+  @override
+  String get debtTransferNote => 'Примечание перевода';
+
+  @override
+  String get debtTransferRecordAction => 'Записать';
+
+  @override
+  String get attachmentDebtPickBody =>
+      'Файл будет сохранён вместе с этим долгом.';
+
+  @override
+  String get remindersBannerTitle => 'Напоминания о сроках выключены';
+
+  @override
+  String get remindersBannerBody =>
+      'Включите — и Kopilka напомнит о сроках возврата в 9:00.';
+
+  @override
+  String get remindersEnableAction => 'Включить';
+
+  @override
+  String get remindersDismissAction => 'Не сейчас';
+
+  @override
+  String get remindersEnabledSnackbar => 'Напоминания включены';
+
+  @override
+  String get remindersPermissionDenied =>
+      'Разрешение на уведомления не выдано — включите его в настройках системы.';
+
+  @override
+  String get remindersLinuxHint =>
+      'На Linux напоминания приходят только при запуске приложения.';
+
+  @override
+  String get remindersSectionTitle => 'Напоминания';
+
+  @override
+  String get remindersToggle => 'Напоминания о сроках';
+
+  @override
+  String get remindersTimeNote =>
+      'Напоминание приходит в 9:00 локального времени.';
 }

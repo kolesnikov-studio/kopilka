@@ -921,5 +921,228 @@
   "doneAction": "Done",
   "@doneAction": {
     "description": "Button that closes the transaction dialog after saving, in the attachment mode (M5 step 6v)"
+  },
+
+  "navDebts": "Debts",
+  "@navDebts": {
+    "description": "Bottom bar / rail label of the debts tab, sixth navigation branch (M6, D-89)"
+  },
+  "debtsEmpty": "No debts yet. Record who owes what.",
+  "@debtsEmpty": {
+    "description": "Empty state text of the debts list (D-89 §1)"
+  },
+  "debtsEmptyCta": "Add debt",
+  "@debtsEmptyCta": {
+    "description": "CTA button of the empty debts list, opens the debt form (D-89 §1)"
+  },
+  "debtAddTooltip": "Add debt",
+  "@debtAddTooltip": {
+    "description": "Tooltip of the add-debt FAB on the debts screen (D-89 §1)"
+  },
+  "debtSectionTheyOweMe": "Owed to me",
+  "@debtSectionTheyOweMe": {
+    "description": "Header of the they-owe-me section of the debts list (D-89 §1)"
+  },
+  "debtSectionIOweThem": "I owe",
+  "@debtSectionIOweThem": {
+    "description": "Header of the i-owe-them section of the debts list (D-89 §1)"
+  },
+  "debtSectionTotalTheyOweMe": "Owed to me: {amount}",
+  "@debtSectionTotalTheyOweMe": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    },
+    "description": "Section total under the they-owe-me list; {amount} is the sum of debt totals formatted by formatMoneyMinor (D-89 §1)"
+  },
+  "debtSectionTotalIOweThem": "I owe: {amount}",
+  "@debtSectionTotalIOweThem": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    },
+    "description": "Section total under the i-owe-them list; {amount} is the sum of debt totals formatted by formatMoneyMinor (D-89 §1)"
+  },
+  "debtRemainingLine": "Remaining: {amount}",
+  "@debtRemainingLine": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    },
+    "description": "Remaining amount line on a debt tile/card; {amount} formatted by formatMoneyMinor (D-89 §1/§2)"
+  },
+  "debtDueDateLabel": "Due date",
+  "@debtDueDateLabel": {
+    "description": "Label of the debt due date (D-89 §2)"
+  },
+  "debtOverdueBadge": "Overdue",
+  "@debtOverdueBadge": {
+    "description": "Shown next to a due date that is already past (red, D-89 §2)"
+  },
+  "debtPaidOffBadge": "Paid off",
+  "@debtPaidOffBadge": {
+    "description": "Green chip when the debt remainder is exactly zero (D-89 §2)"
+  },
+  "debtDirectionTheyOweMe": "Owed to me",
+  "@debtDirectionTheyOweMe": {
+    "description": "Text of the they-owe-me direction on the debt card header (D-89 §2)"
+  },
+  "debtDirectionIOweThem": "I owe",
+  "@debtDirectionIOweThem": {
+    "description": "Text of the i-owe-them direction on the debt card header (D-89 §2)"
+  },
+  "debtPersonLabel": "Person",
+  "@debtPersonLabel": {
+    "description": "Label of the person field in the debt form (D-89 §3)"
+  },
+  "debtDirectionLabel": "Direction",
+  "@debtDirectionLabel": {
+    "description": "Label of the direction segmented button in the debt form (D-89 §3)"
+  },
+  "debtAmountLabel": "Principal",
+  "@debtAmountLabel": {
+    "description": "Label of the debt principal amount field (D-89 §3)"
+  },
+  "debtExtraLabel": "Extra",
+  "@debtExtraLabel": {
+    "description": "Label of the optional extra amount field (interest/penalty as a lump sum, D-81/D-89 §3)"
+  },
+  "debtExtraHelper": "Included in the total due",
+  "@debtExtraHelper": {
+    "description": "Helper under the extra field: extra is part of the total due (D-89 §3)"
+  },
+  "debtCurrencyLabel": "Currency",
+  "@debtCurrencyLabel": {
+    "description": "Label of the currency dropdown in the debt form (D-89 §3)"
+  },
+  "debtDueDateOptional": "Due date (optional)",
+  "@debtDueDateOptional": {
+    "description": "Label of the optional due-date row in the debt form; empty means no due date (D-89 §3)"
+  },
+  "debtNoteLabel": "Note",
+  "@debtNoteLabel": {
+    "description": "Label of the optional note field in the debt form (D-89 §3)"
+  },
+  "debtPersonRequired": "Enter a name",
+  "@debtPersonRequired": {
+    "description": "Field error when the person name is empty after trim (D-82 validation in UI, D-89 §3)"
+  },
+  "debtAmountInvalid": "The amount must be greater than zero",
+  "@debtAmountInvalid": {
+    "description": "Field error when the debt principal is not greater than zero (D-82 validation in UI, D-89 §3)"
+  },
+  "debtExtraInvalid": "The extra amount cannot be negative",
+  "@debtExtraInvalid": {
+    "description": "Field error when the extra amount is negative (D-82 validation in UI, D-89 §3)"
+  },
+  "debtEditTitle": "Edit debt",
+  "@debtEditTitle": {
+    "description": "Title of the debt form dialog in edit mode (D-89 §3)"
+  },
+  "debtDeleteTitle": "Delete debt?",
+  "@debtDeleteTitle": {
+    "description": "Title of the delete-debt confirmation (soft delete, D-89 §2)"
+  },
+  "debtDeleteBody": "The debt will disappear from the lists. Its payments and the attachment file remain in the data.",
+  "@debtDeleteBody": {
+    "description": "Body of the delete-debt confirmation: payments and the attachment file are kept (D-89 §2)"
+  },
+  "debtAddTitle": "New debt",
+  "@debtAddTitle": {
+    "description": "Title of the debt form dialog in create mode (D-89 §3)"
+  },
+  "debtPaymentsTitle": "Payments",
+  "@debtPaymentsTitle": {
+    "description": "Header of the payments list on the debt card (D-89 §2)"
+  },
+  "debtPaymentsEmpty": "No payments yet.",
+  "@debtPaymentsEmpty": {
+    "description": "Empty payments list on the debt card (D-89 §2)"
+  },
+  "debtRecordPaymentAction": "Record payment",
+  "@debtRecordPaymentAction": {
+    "description": "Button on the debt card that opens the payment dialog (D-89 §4)"
+  },
+  "debtPaymentAmountLabel": "Payment amount",
+  "@debtPaymentAmountLabel": {
+    "description": "Label of the payment amount field, in the debt currency (D-89 §4)"
+  },
+  "debtPaymentDateLabel": "Actual date",
+  "@debtPaymentDateLabel": {
+    "description": "Label of the payment actual-date row (D-89 §4)"
+  },
+  "debtPaymentLinkTransfer": "Link to a transfer",
+  "@debtPaymentLinkTransfer": {
+    "description": "Switch label: create a transfer and link the payment to it in one flow; off = payment without a transfer (D-89 §4)"
+  },
+  "debtPaymentFormTitle": "Record a payment",
+  "@debtPaymentFormTitle": {
+    "description": "Title of the payment dialog (D-89 §4)"
+  },
+  "debtPaymentDeleteTitle": "Delete payment?",
+  "@debtPaymentDeleteTitle": {
+    "description": "Title of the delete-payment confirmation (soft delete, D-89 §2)"
+  },
+  "debtPaymentDeleteBody": "The amount returns to the debt remainder. The linked transfer transaction is not deleted.",
+  "@debtPaymentDeleteBody": {
+    "description": "Body of the delete-payment confirmation: the linked transfer stays (D-89 §2)"
+  },
+  "debtTransferOutAccount": "Source account",
+  "@debtTransferOutAccount": {
+    "description": "Label of the outflow account dropdown in the payment-with-transfer flow (D-89 §4)"
+  },
+  "debtTransferInAccount": "Target account",
+  "@debtTransferInAccount": {
+    "description": "Label of the inflow account dropdown in the payment-with-transfer flow (D-89 §4)"
+  },
+  "debtTransferNote": "Transfer note",
+  "@debtTransferNote": {
+    "description": "Label of the note field of the linked transfer (D-89 §4)"
+  },
+  "debtTransferRecordAction": "Record",
+  "@debtTransferRecordAction": {
+    "description": "Confirm button of the payment-with-transfer flow: transfer + payment in one pass (D-89 §4)"
+  },
+  "attachmentDebtPickBody": "The file will be stored with this debt.",
+  "@attachmentDebtPickBody": {
+    "description": "Body of the attach confirmation on a debt, replaces attachmentPickBody whose text lies about a transaction (D-89 §6.2)"
+  },
+
+  "remindersBannerTitle": "Payment reminders are off",
+  "@remindersBannerTitle": {
+    "description": "Title of the opt-in banner above the debts list (D-89 §7)"
+  },
+  "remindersBannerBody": "Turn on and Kopilka will remind you of due dates at 9:00.",
+  "@remindersBannerBody": {
+    "description": "Body of the opt-in banner above the debts list (D-89 §7)"
+  },
+  "remindersEnableAction": "Turn on",
+  "@remindersEnableAction": {
+    "description": "Banner/settings action that enables reminders (D-89 §7)"
+  },
+  "remindersDismissAction": "Not now",
+  "@remindersDismissAction": {
+    "description": "Banner action that hides it until the end of the session, without persisting a refusal (D-89 §7)"
+  },
+  "remindersEnabledSnackbar": "Reminders are on",
+  "@remindersEnabledSnackbar": {
+    "description": "Snackbar after reminders were enabled (D-89 §7)"
+  },
+  "remindersPermissionDenied": "Notification permission was not granted — enable it in system settings.",
+  "@remindersPermissionDenied": {
+    "description": "Snackbar when the OS notification permission was refused; the setting stays off (D-88.1/D-89 §7)"
+  },
+  "remindersLinuxHint": "On Linux, reminders appear only when the app is running.",
+  "@remindersLinuxHint": {
+    "description": "Honest Linux limitation: scheduling is not supported, only the overdue-on-launch fallback (D-88.3/D-89 §5/§7)"
+  },
+  "remindersSectionTitle": "Reminders",
+  "@remindersSectionTitle": {
+    "description": "Settings section header for reminders, after rate sync (D-89 §7)"
+  },
+  "remindersToggle": "Payment reminders",
+  "@remindersToggle": {
+    "description": "Title of the persistent reminders toggle in settings (D-89 §7)"
+  },
+  "remindersTimeNote": "A reminder is shown at 9:00 local time.",
+  "@remindersTimeNote": {
+    "description": "Note under the reminders toggle: reminder moment is 9:00 local (D-83/D-89 §7)"
   }
 }

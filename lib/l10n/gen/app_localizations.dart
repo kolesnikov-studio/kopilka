@@ -1519,6 +1519,324 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get doneAction;
+
+  /// Bottom bar / rail label of the debts tab, sixth navigation branch (M6, D-89)
+  ///
+  /// In en, this message translates to:
+  /// **'Debts'**
+  String get navDebts;
+
+  /// Empty state text of the debts list (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'No debts yet. Record who owes what.'**
+  String get debtsEmpty;
+
+  /// CTA button of the empty debts list, opens the debt form (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Add debt'**
+  String get debtsEmptyCta;
+
+  /// Tooltip of the add-debt FAB on the debts screen (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Add debt'**
+  String get debtAddTooltip;
+
+  /// Header of the they-owe-me section of the debts list (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Owed to me'**
+  String get debtSectionTheyOweMe;
+
+  /// Header of the i-owe-them section of the debts list (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'I owe'**
+  String get debtSectionIOweThem;
+
+  /// Section total under the they-owe-me list; {amount} is the sum of debt totals formatted by formatMoneyMinor (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Owed to me: {amount}'**
+  String debtSectionTotalTheyOweMe(String amount);
+
+  /// Section total under the i-owe-them list; {amount} is the sum of debt totals formatted by formatMoneyMinor (D-89 §1)
+  ///
+  /// In en, this message translates to:
+  /// **'I owe: {amount}'**
+  String debtSectionTotalIOweThem(String amount);
+
+  /// Remaining amount line on a debt tile/card; {amount} formatted by formatMoneyMinor (D-89 §1/§2)
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining: {amount}'**
+  String debtRemainingLine(String amount);
+
+  /// Label of the debt due date (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Due date'**
+  String get debtDueDateLabel;
+
+  /// Shown next to a due date that is already past (red, D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Overdue'**
+  String get debtOverdueBadge;
+
+  /// Green chip when the debt remainder is exactly zero (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Paid off'**
+  String get debtPaidOffBadge;
+
+  /// Text of the they-owe-me direction on the debt card header (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Owed to me'**
+  String get debtDirectionTheyOweMe;
+
+  /// Text of the i-owe-them direction on the debt card header (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'I owe'**
+  String get debtDirectionIOweThem;
+
+  /// Label of the person field in the debt form (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Person'**
+  String get debtPersonLabel;
+
+  /// Label of the direction segmented button in the debt form (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Direction'**
+  String get debtDirectionLabel;
+
+  /// Label of the debt principal amount field (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Principal'**
+  String get debtAmountLabel;
+
+  /// Label of the optional extra amount field (interest/penalty as a lump sum, D-81/D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Extra'**
+  String get debtExtraLabel;
+
+  /// Helper under the extra field: extra is part of the total due (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Included in the total due'**
+  String get debtExtraHelper;
+
+  /// Label of the currency dropdown in the debt form (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get debtCurrencyLabel;
+
+  /// Label of the optional due-date row in the debt form; empty means no due date (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Due date (optional)'**
+  String get debtDueDateOptional;
+
+  /// Label of the optional note field in the debt form (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get debtNoteLabel;
+
+  /// Field error when the person name is empty after trim (D-82 validation in UI, D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name'**
+  String get debtPersonRequired;
+
+  /// Field error when the debt principal is not greater than zero (D-82 validation in UI, D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'The amount must be greater than zero'**
+  String get debtAmountInvalid;
+
+  /// Field error when the extra amount is negative (D-82 validation in UI, D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'The extra amount cannot be negative'**
+  String get debtExtraInvalid;
+
+  /// Title of the debt form dialog in edit mode (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Edit debt'**
+  String get debtEditTitle;
+
+  /// Title of the delete-debt confirmation (soft delete, D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete debt?'**
+  String get debtDeleteTitle;
+
+  /// Body of the delete-debt confirmation: payments and the attachment file are kept (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'The debt will disappear from the lists. Its payments and the attachment file remain in the data.'**
+  String get debtDeleteBody;
+
+  /// Title of the debt form dialog in create mode (D-89 §3)
+  ///
+  /// In en, this message translates to:
+  /// **'New debt'**
+  String get debtAddTitle;
+
+  /// Header of the payments list on the debt card (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Payments'**
+  String get debtPaymentsTitle;
+
+  /// Empty payments list on the debt card (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'No payments yet.'**
+  String get debtPaymentsEmpty;
+
+  /// Button on the debt card that opens the payment dialog (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Record payment'**
+  String get debtRecordPaymentAction;
+
+  /// Label of the payment amount field, in the debt currency (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Payment amount'**
+  String get debtPaymentAmountLabel;
+
+  /// Label of the payment actual-date row (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Actual date'**
+  String get debtPaymentDateLabel;
+
+  /// Switch label: create a transfer and link the payment to it in one flow; off = payment without a transfer (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Link to a transfer'**
+  String get debtPaymentLinkTransfer;
+
+  /// Title of the payment dialog (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Record a payment'**
+  String get debtPaymentFormTitle;
+
+  /// Title of the delete-payment confirmation (soft delete, D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete payment?'**
+  String get debtPaymentDeleteTitle;
+
+  /// Body of the delete-payment confirmation: the linked transfer stays (D-89 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'The amount returns to the debt remainder. The linked transfer transaction is not deleted.'**
+  String get debtPaymentDeleteBody;
+
+  /// Label of the outflow account dropdown in the payment-with-transfer flow (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Source account'**
+  String get debtTransferOutAccount;
+
+  /// Label of the inflow account dropdown in the payment-with-transfer flow (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Target account'**
+  String get debtTransferInAccount;
+
+  /// Label of the note field of the linked transfer (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer note'**
+  String get debtTransferNote;
+
+  /// Confirm button of the payment-with-transfer flow: transfer + payment in one pass (D-89 §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Record'**
+  String get debtTransferRecordAction;
+
+  /// Body of the attach confirmation on a debt, replaces attachmentPickBody whose text lies about a transaction (D-89 §6.2)
+  ///
+  /// In en, this message translates to:
+  /// **'The file will be stored with this debt.'**
+  String get attachmentDebtPickBody;
+
+  /// Title of the opt-in banner above the debts list (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Payment reminders are off'**
+  String get remindersBannerTitle;
+
+  /// Body of the opt-in banner above the debts list (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on and Kopilka will remind you of due dates at 9:00.'**
+  String get remindersBannerBody;
+
+  /// Banner/settings action that enables reminders (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on'**
+  String get remindersEnableAction;
+
+  /// Banner action that hides it until the end of the session, without persisting a refusal (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get remindersDismissAction;
+
+  /// Snackbar after reminders were enabled (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders are on'**
+  String get remindersEnabledSnackbar;
+
+  /// Snackbar when the OS notification permission was refused; the setting stays off (D-88.1/D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Notification permission was not granted — enable it in system settings.'**
+  String get remindersPermissionDenied;
+
+  /// Honest Linux limitation: scheduling is not supported, only the overdue-on-launch fallback (D-88.3/D-89 §5/§7)
+  ///
+  /// In en, this message translates to:
+  /// **'On Linux, reminders appear only when the app is running.'**
+  String get remindersLinuxHint;
+
+  /// Settings section header for reminders, after rate sync (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get remindersSectionTitle;
+
+  /// Title of the persistent reminders toggle in settings (D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'Payment reminders'**
+  String get remindersToggle;
+
+  /// Note under the reminders toggle: reminder moment is 9:00 local (D-83/D-89 §7)
+  ///
+  /// In en, this message translates to:
+  /// **'A reminder is shown at 9:00 local time.'**
+  String get remindersTimeNote;
 }
 
 class _AppLocalizationsDelegate
