@@ -9,6 +9,34 @@ import 'package:kopilka/data/db/tables.dart';
 
 part 'attachments_dao.g.dart';
 
+/// Ключ владельца вложения в колонке `transaction_id` (M6/D-82: обобщение
+/// на долга без миграции таблицы). Живой прецедент «владелец за
+/// строкой-ссылкой» — чтение v1–v6 в `BackupCodec` (D-64/D-87).
+abstract final class AttachmentOwner {
+  /// Владелец — операция (M5): значение без префикса — сырой PK операции.
+  /// Префиксов у UUID (§3) нет, двоеточие однозначно.
+  static const String _transactionPrefix = 't:';
+
+  /// Владелец — долг (M6): `d:<uuid>` в той же колонке.
+  static const String _debtPrefix = 'd:';
+
+  /// Владелец — операция: ключ из [AttachmentOwner.transaction] и
+  /// его же id (обратное преобразование).
+  static String? transactionOwner(String? value) =>
+      value == null || value.startsWith(_transactionPrefix)
+          ? null
+          : value;
+
+  /// Владелец — долг; NULL — в значении нет ключа долга.
+  static String? debtOwner(String? value) =>
+      value == null || !value.startsWith(_debtPrefix)
+          ? null
+          : value.substring(_debtPrefix.length);
+
+  /// Ключ владельца-долга для записи в колонку.
+  static String debt(String debtId) => '$_debtPrefix$debtId';
+}
+
 /// Вложения к операциям (v6, D-63): метаданные файла рядом с операцией.
 ///
 /// Правила:
@@ -23,7 +51,7 @@ part 'attachments_dao.g.dart';
 /// - удаление — только soft delete записи, без каскадов (§3): мягкое
 ///   удаление операции файл не трогает. Файл на диске удаляет сервис
 ///   вложений ([AttachmentsService.delete]) — слой БД файлами не ведает.
-@DriftAccessor(tables: [Attachments, Transactions])
+@DriftAccessor(tables: [Attachments, Transactions, Debts])
 class AttachmentsDao extends DatabaseAccessor<AppDatabase>
     with _$AttachmentsDaoMixin {
   AttachmentsDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -66,14 +94,24 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.invalidInput,
       );
     }
-    final Transaction? transaction = await (select(transactions)
-          ..where(
-            (t) => t.id.equals(transactionId) & t.deletedAt.isNull(),
-          ))
-        .getSingleOrNull();
-    if (transaction == null) {
+    final Transaction? transaction = _transactionOf(transactionId) == null
+        ? null
+        : await (select(transactions)
+              ..where(
+                (t) =>
+                    t.id.equals(transactionId) & t.deletedAt.isNull(),
+              ))
+            .getSingleOrNull();
+    if (_transactionOf(transactionId) != null && transaction == null) {
       throw DataValidationException(
         'операция $transactionId не найдена',
+        kind: DataFailure.notFound,
+      );
+    }
+    if (_transactionOf(transactionId) == null &&
+        await _requireAliveDebtOwner(transactionId) == null) {
+      throw DataValidationException(
+        'владелец вложения $transactionId не найден (операция или долг)',
         kind: DataFailure.notFound,
       );
     }
@@ -101,13 +139,22 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  /// Живое вложение операции (или NULL).
+  /// Живое вложение операции (или NULL): без префикса и с ним — истории
+  /// M5 старые ключи не имеют.
   Future<Attachment?> findByTransaction(String transactionId) =>
-      (select(attachments)..where(
-            (t) =>
-                t.transactionId.equals(transactionId) & t.deletedAt.isNull(),
-          ))
-          .getSingleOrNull();
+      _findByOwner(AttachmentOwner.transactionOwner(transactionId));
+
+  /// Живое вложение долга (или NULL): ключ с префиксом `d:` (M6/D-82).
+  Future<Attachment?> findByDebt(String debtId) =>
+      _findByOwner(AttachmentOwner.debt(debtId));
+
+  Future<Attachment?> _findByOwner(String? owner) =>
+      owner == null
+          ? Future<Attachment?>.value()
+          : (select(attachments)..where(
+                (t) => t.transactionId.equals(owner) & t.deletedAt.isNull(),
+              ))
+              .getSingleOrNull();
 
   /// Живое вложение по id (или NULL).
   Future<Attachment?> findById(String id) =>
@@ -142,6 +189,103 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
       );
     }
     return attachment;
+  }
+
+  /// Ид операции из ключа владельца; NULL — ключ долга.
+  static String? _transactionOf(String ownerValue) =>
+      AttachmentOwner.transactionOwner(ownerValue);
+
+  /// Живой долг-владелец по ключу `d:<id>`; NULL — ключ не долговой или
+  /// долг не живой (см. живой прецедент D-87: мягко удалённый владелец
+  /// импорту вложения не препятствует).
+  Future<Debt?> _requireAliveDebtOwner(String ownerValue) async {
+    final String? debtId = AttachmentOwner.debtOwner(ownerValue);
+    if (debtId == null) {
+      return null;
+    }
+    return (select(debts)
+          ..where((t) => t.id.equals(debtId) & t.deletedAt.isNull()))
+        .getSingleOrNull();
+  }
+
+  /// Записывает вложение на владельца-долг (M6/D-82): та же строка
+  /// `attachments`, ключ `d:<id>` в той же колонке.
+  ///
+  /// FK `transaction_id → transactions` не выполняется для нот-фолнера
+  /// (пробник шага C: FOREIGN KEY constraint failed при `foreign_keys = ON`;
+  /// выключение внутри транзакции — no-op). Живой прецедент записи мимо
+  /// FK — импорт бэкапа: окно `PRAGMA foreign_keys = OFF` вокруг одной
+  /// вставки, **вне** [DatabaseAccessor.transaction]. Отказ посреди
+  /// невозможен: проверки (владелец, MIME, размер, дубликат «один живой»)
+  /// выше — сам INSERT упасть уже не может, ошибку FK сюда сознательно не
+  /// глушим.
+  Future<Attachment> createForDebt({
+    required String debtId,
+    required String filePath,
+    required String mimeType,
+    required int fileSize,
+  }) async {
+    if (!AttachmentsStorageRules.isMimeTypeAllowed(mimeType)) {
+      throw DataValidationException(
+        'mime-тип «$mimeType» вне белого списка вложений '
+        '(image/*, application/pdf)',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    if (fileSize <= 0 || fileSize > AttachmentsStorageRules.maxFileSizeBytes) {
+      throw DataValidationException(
+        'размер вложения $fileSize вне допустимого диапазона '
+        '(лимит ${AttachmentsStorageRules.maxFileSizeBytes} байт)',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    if (filePath.trim().isEmpty) {
+      throw DataValidationException(
+        'путь файла вложения пуст',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    final Debt? debt = await _requireAliveDebtOwner(
+      AttachmentOwner.debt(debtId),
+    );
+    if (debt == null) {
+      throw DataValidationException(
+        'долг $debtId не найден',
+        kind: DataFailure.notFound,
+      );
+    }
+    // Правило «один живой файл на владельца» (D-63): прежнее вложение
+    // мягко удаляется — замена, как у операций.
+    final Attachment? existing = await findByDebt(debt.id);
+    final DateTime now = clock();
+    if (existing != null) {
+      await (update(attachments)..where((t) => t.id.equals(existing.id))).write(
+        AttachmentsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+      );
+    }
+    await customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await into(attachments).insert(
+        AttachmentsCompanion.insert(
+          id: idGenerator(),
+          transactionId: AttachmentOwner.debt(debt.id),
+          filePath: filePath,
+          mimeType: mimeType,
+          fileSize: fileSize,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+    } finally {
+      await customStatement('PRAGMA foreign_keys = ON');
+    }
+    return (select(attachments)
+          ..where(
+            (t) =>
+                t.transactionId.equals(AttachmentOwner.debt(debt.id)) &
+                t.deletedAt.isNull(),
+          ))
+        .getSingle();
   }
 }
 

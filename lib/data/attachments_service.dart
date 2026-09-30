@@ -6,6 +6,17 @@ import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/dao/attachments_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 
+/// Владелец вложения (M6/D-82): обобщение сервиса на долга без миграции
+/// таблицы — владелец кодируется ключом в колонке `transaction_id`
+/// (см. [AttachmentOwner] в `attachments_dao.dart`).
+enum AttachmentOwnerKind {
+  /// Вложение к операции (M5, D-63).
+  transaction,
+
+  /// Вложение к долгу (M6, D-81/D-82).
+  debt,
+}
+
 /// Сервис вложений (v6, D-63): единый метод «запись файла + запись БД».
 ///
 /// Правило D-63: при отказе файловой системы операция **создаётся без
@@ -38,6 +49,25 @@ class AttachmentsService {
     required String transactionId,
     required String mimeType,
     required List<int> bytes,
+  }) =>
+      attachToOwner(
+        owner: AttachmentOwnerKind.transaction,
+        ownerId: transactionId,
+        mimeType: mimeType,
+        bytes: bytes,
+      );
+
+  /// Единый путь записи вложения для владельца [owner] (M6/D-82):
+  /// валидация размера → запись файла (атомарно) → запись БД («один живой
+  /// на владельца») → удаление старого файла при замене. Отказ ФС —
+  /// [DataFailure.storageFailure] чистым состоянием (файл не записан или
+  /// убран, БД не тронута). Владелец-долг: владелец задаётся ключом
+  /// `d:<id>` в колонке `transaction_id` (таблица не мигрирует, D-25/D-82).
+  Future<Attachment> attachToOwner({
+    required AttachmentOwnerKind owner,
+    required String ownerId,
+    required String mimeType,
+    required List<int> bytes,
   }) async {
     if (bytes.length > AttachmentsStorage.maxFileSizeBytes) {
       throw DataValidationException(
@@ -48,7 +78,9 @@ class AttachmentsService {
     }
     // Прежнее вложение читаем до записи: его файл удаляется после
     // успешной замены записи в БД (см. ниже).
-    final Attachment? previous = await _dao.findByTransaction(transactionId);
+    final Attachment? previous = owner == AttachmentOwnerKind.debt
+        ? await _dao.findByDebt(ownerId)
+        : await _dao.findByTransaction(ownerId);
     final String fileName = await _storage.writeAtomically(
       id: _idGenerator(),
       mimeType: mimeType,
@@ -56,14 +88,21 @@ class AttachmentsService {
     );
     final Attachment created;
     try {
-      created = await _dao.create(
-        transactionId: transactionId,
-        filePath: fileName,
-        mimeType: mimeType,
-        fileSize: bytes.length,
-      );
+      created = owner == AttachmentOwnerKind.debt
+          ? await _dao.createForDebt(
+              debtId: ownerId,
+              filePath: fileName,
+              mimeType: mimeType,
+              fileSize: bytes.length,
+            )
+          : await _dao.create(
+              transactionId: ownerId,
+              filePath: fileName,
+              mimeType: mimeType,
+              fileSize: bytes.length,
+            );
     } on Exception {
-      // БД-запись не прошла (операция не найдена, MIME не прошёл вторую
+      // БД-запись не прошла (владелец не найден, MIME не прошёл вторую
       // линию защиты DAO, сбой БД): файл без записи — мусор; убираем и
       // пробрасываем причину дальше.
       await _storage.deleteFile(fileName);
@@ -82,6 +121,9 @@ class AttachmentsService {
   /// Живое вложение операции (или NULL).
   Future<Attachment?> findForTransaction(String transactionId) =>
       _dao.findByTransaction(transactionId);
+
+  /// Живое вложение долга (или NULL) (M6/D-82).
+  Future<Attachment?> findForDebt(String debtId) => _dao.findByDebt(debtId);
 
   /// Удаляет вложение: soft delete записи + удаление файла с диска (D-63).
   /// Файл без живой записи — мусор, его потеря не страшна: удаление

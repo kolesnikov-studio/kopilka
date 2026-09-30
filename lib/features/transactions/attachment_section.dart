@@ -11,9 +11,11 @@ import 'package:kopilka/features/transactions/attachments_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 import 'package:path/path.dart' as p;
 
-/// Секция «Вложение» формы операции (M5-шаг 6в, D-63): после сохранения
-/// живой операции файл можно прикрепить, заменить (правило «один живой
-/// файл на операцию» — замена, не отказ) или удалить (с подтверждением).
+/// Секция «Вложение» (M5-шаг 6в, D-63; M6/D-82 — обобщение на долга):
+/// после сохранения живого владельца файл можно прикрепить, заменить
+/// (правило «один живой файл на владельца» — замена, не отказ) или удалить
+/// (с подтверждением). Каркас D-67.а — канон UX вложений, перенесён на
+/// «Долги» без пересмотра (D-67.а/D-89).
 ///
 /// Три состояния: пустое (кнопка «Прикрепить»), с вложением (карточка:
 /// имя файла, размер, тип, кнопки «Открыть»/«Удалить») и BUSY — признак
@@ -21,10 +23,21 @@ import 'package:path/path.dart' as p;
 /// (восстановленный бэкап, D-64) — вложение видно с текстом «файл
 /// отсутствует», без падения (D-63/64: метаданные без файла — норма).
 class AttachmentSection extends ConsumerStatefulWidget {
-  const AttachmentSection({required this.transactionId, super.key});
+  const AttachmentSection({required this.ownerKind, required this.ownerId, super.key});
 
-  /// Живая операция-владелец вложения.
-  final String transactionId;
+  /// Владелец вложения: операция (M5) или долг (M6, D-82).
+  final AttachmentOwnerKind ownerKind;
+
+  /// Живой владелец вложения (PK операции или долга).
+  final String ownerId;
+
+  /// Секция над операцией — вызов M5 без изменения поведения.
+  factory AttachmentSection.forTransaction(String transactionId, {Key? key}) =>
+      AttachmentSection(
+        ownerKind: AttachmentOwnerKind.transaction,
+        ownerId: transactionId,
+        key: key,
+      );
 
   @override
   ConsumerState<AttachmentSection> createState() => _AttachmentSectionState();
@@ -87,9 +100,15 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
           context: context,
           builder: (BuildContext dialogContext) {
             final bool replace = ref
-                .read(transactionAttachmentProvider(widget.transactionId))
+                .read(ownerAttachmentProvider((widget.ownerKind, widget.ownerId)))
                 .value !=
             null;
+            // D-89 §6.2: текст «…с этой операцией» на долге лжёт — у
+            // долга свой ключ; у замены общий текст про удаление прежнего
+            // файла, владелец в нём не назван.
+            final String pickBody = widget.ownerKind == AttachmentOwnerKind.debt
+                ? AppLocalizations.of(context).attachmentDebtPickBody
+                : AppLocalizations.of(context).attachmentPickBody;
             return AlertDialog(
               title: Text(
                 replace
@@ -101,7 +120,7 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
                 '${formatAttachmentSize(bytes.length, locale: _locale())}\n\n'
                 '${replace
                     ? AppLocalizations.of(context).attachmentReplaceBody
-                    : AppLocalizations.of(context).attachmentPickBody}',
+                    : pickBody}',
               ),
               actions: <Widget>[
                 TextButton(
@@ -133,16 +152,22 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
 
 
   Future<void> _attach(AttachmentPickLoaded picked) async {
-    final AttachOutcome outcome = await _controller.attachSelected(
-      transactionId: widget.transactionId,
-      bytes: picked.bytes,
-      mimeType: picked.mimeType,
-    );
+    final AttachOutcome outcome = widget.ownerKind == AttachmentOwnerKind.debt
+        ? await _controller.attachToDebt(
+            debtId: widget.ownerId,
+            bytes: picked.bytes,
+            mimeType: picked.mimeType,
+          )
+        : await _controller.attachSelected(
+            transactionId: widget.ownerId,
+            bytes: picked.bytes,
+            mimeType: picked.mimeType,
+          );
     if (!mounted) {
       return;
     }
     setState(() => _busy = false);
-    ref.invalidate(transactionAttachmentProvider(widget.transactionId));
+    ref.invalidate(ownerAttachmentProvider((widget.ownerKind, widget.ownerId)));
     switch (outcome) {
       case AttachSucceeded():
         await showSnack(context, AppLocalizations.of(context).attachmentSaved);
@@ -168,7 +193,7 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
       return;
     }
     setState(() => _busy = false);
-    ref.invalidate(transactionAttachmentProvider(widget.transactionId));
+    ref.invalidate(ownerAttachmentProvider((widget.ownerKind, widget.ownerId)));
     switch (outcome) {
       case DeleteSucceeded():
         break;
@@ -181,7 +206,7 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final AttachmentViewData? view = ref
-        .watch(transactionAttachmentProvider(widget.transactionId))
+        .watch(ownerAttachmentProvider((widget.ownerKind, widget.ownerId)))
         .value;
 
     return Align(

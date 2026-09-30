@@ -24,7 +24,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/data/attachments_service.dart'
-    show AttachmentsService;
+    show AttachmentOwnerKind, AttachmentsService;
 import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/dao/attachments_dao.dart';
 import 'package:kopilka/data/db/database.dart';
@@ -62,7 +62,7 @@ class _AttachmentSectionHost extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        body: AttachmentSection(transactionId: transactionId),
+        body: AttachmentSection.forTransaction(transactionId),
       );
 }
 
@@ -90,11 +90,15 @@ class _FakeAttachmentsService extends AttachmentsService {
   int attachCalls = 0;
 
   @override
-  Future<Attachment> attach({
-    required String transactionId,
+  Future<Attachment> attachToOwner({
+    required AttachmentOwnerKind owner,
+    required String ownerId,
     required String mimeType,
     required List<int> bytes,
   }) async {
+    // Тесты секции M5 — только владелец-операция; долги — тесты M6.
+    assert(owner == AttachmentOwnerKind.transaction);
+    final String transactionId = ownerId;
     final AttachmentsDao dao = this.dao!;
     final int limit = AttachmentsStorage.maxFileSizeBytes;
     attachCalls++;

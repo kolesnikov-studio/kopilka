@@ -290,7 +290,7 @@ class _TransactionFormDialogState
     if (savedId != null) {
       return AlertDialog(
         title: Text(title),
-        content: AttachmentSection(transactionId: savedId),
+        content: AttachmentSection.forTransaction(savedId),
         actions: <Widget>[
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),

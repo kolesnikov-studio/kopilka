@@ -181,17 +181,48 @@ class AttachmentsController extends Notifier {
     return AttachmentPickLoaded(picked.name, bytes, mimeType);
   }
 
-  /// Записывает выбранное вложение на операцию. Замена прежнего — правило
-  /// «один живой файл на операцию» внутри DAO/сервиса (D-63); отказ ФС не
-  /// задевает ни операцию, ни прежнее вложение.
+  /// Записывает выбранное вложение на владельца (M6/D-82): операцию или
+  /// долг. Замена прежнего — правило «один живой файл на владельца»
+  /// внутри DAO/сервиса (D-63); отказ ФС не задевает ни владельца, ни
+  /// прежнее вложение.
   Future<AttachOutcome> attachSelected({
     required String transactionId,
     required Uint8List bytes,
     required String mimeType,
+  }) =>
+      attachToOwnerKind(
+        owner: AttachmentOwnerKind.transaction,
+        ownerId: transactionId,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+
+  /// Записывает выбранное вложение на владельца-долг (M6/D-82) — образец
+  /// [attachSelected]; см. [AttachmentOwnerKind.debt].
+  Future<AttachOutcome> attachToDebt({
+    required String debtId,
+    required Uint8List bytes,
+    required String mimeType,
+  }) =>
+      attachToOwnerKind(
+        owner: AttachmentOwnerKind.debt,
+        ownerId: debtId,
+        bytes: bytes,
+        mimeType: mimeType,
+      );
+
+  /// Единый путь исходов записи на владельца (M6/D-82): отказы слоя —
+  /// [AttachFailed] с машиночитаемым видом (§2).
+  Future<AttachOutcome> attachToOwnerKind({
+    required AttachmentOwnerKind owner,
+    required String ownerId,
+    required Uint8List bytes,
+    required String mimeType,
   }) async {
     try {
-      final Attachment attachment = await _service.attach(
-        transactionId: transactionId,
+      final Attachment attachment = await _service.attachToOwner(
+        owner: owner,
+        ownerId: ownerId,
         mimeType: mimeType,
         bytes: bytes,
       );
@@ -231,28 +262,32 @@ class AttachmentViewData {
   final bool fileExists;
 }
 
-/// Живое вложение операции (или NULL) — читается через сервис из DAO
-/// (`findByTransaction`, бриф). Потоков у закрытого слоя данных 6а нет,
-/// поэтому провайдер перечитывается вызовом [Ref.invalidate] после
-/// успешного attach/delete (контроллер не может это сделать сам —
-/// исходы возвращаются вызывающему UI).
-final transactionAttachmentProvider = FutureProvider.autoDispose
-    .family<AttachmentViewData?, String>((ref, transactionId) async {
-  final AttachmentsService service = ref.watch(attachmentsServiceProvider);
-  final Attachment? attachment =
-      await service.findForTransaction(transactionId);
-  if (attachment == null) {
-    return null;
-  }
-  final String path =
-      p.join(service.directory.path, attachment.filePath);
-  return AttachmentViewData(
-    attachment: attachment,
-    // Проверка файла — через шов I/O: в виджет-тестах фейк отвечает
-    // без реальной файловой системы (§7), в живом приложении — диск.
-    fileExists: await ref.watch(attachmentsIoProvider).exists(path),
-  );
-});
+/// Живое вложение владельца (операции или долга, M6/D-82) — или NULL:
+/// читается через сервис из DAO (`findByTransaction`/`findByDebt`, бриф).
+/// Потоков у закрытого слоя данных 6а нет, поэтому провайдер перечитывается
+/// вызовом [Ref.invalidate] после успешного attach/delete (контроллер не
+/// может это сделать сам — исходы возвращаются вызывающему UI).
+final ownerAttachmentProvider = FutureProvider.autoDispose
+    .family<AttachmentViewData?, (AttachmentOwnerKind, String)>(
+  (ref, owner) async {
+    final (AttachmentOwnerKind kind, String ownerId) = owner;
+    final AttachmentsService service = ref.watch(attachmentsServiceProvider);
+    final Attachment? attachment = kind == AttachmentOwnerKind.debt
+        ? await service.findForDebt(ownerId)
+        : await service.findForTransaction(ownerId);
+    if (attachment == null) {
+      return null;
+    }
+    final String path =
+        p.join(service.directory.path, attachment.filePath);
+    return AttachmentViewData(
+      attachment: attachment,
+      // Проверка файла — через шов I/O: в виджет-тестах фейк отвечает
+      // без реальной файловой системы (§7), в живом приложении — диск.
+      fileExists: await ref.watch(attachmentsIoProvider).exists(path),
+    );
+  },
+);
 
 /// Размер в человекочитаемом виде для подсказок подтверждения и отказа:
 /// меньше мегабайта — целые килобайты, дальше — мегабайты с одним знаком
