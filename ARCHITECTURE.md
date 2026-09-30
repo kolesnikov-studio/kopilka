@@ -14,6 +14,7 @@
 | Файлы/пути | path_provider, file_picker, share_plus |
 | Сеть (проверка обновлений; opt-in синхронизация курсов) | http + package_info_plus |
 | Открытие ссылки релиза | url_launcher |
+| Локальные напоминания (M6) | flutter_local_notifications (Android/Windows/Linux; opt-in, D-83) |
 | UUID | uuid |
 | Тесты | flutter_test, drift in-memory |
 
@@ -31,11 +32,14 @@ lib/
     categories/
     budgets/      (M2)
     reports/      (M2)
+    debts/        (M6)
+    insights/     (M6) — карточки советов на дашборде
     settings/     — экспорт/импорт, бэкапы, обновления
   data/
     db/           — drift: таблицы, DAO, миграции
     export/       — JSON/CSV импорт-экспорт
     update/       — проверка обновлений
+    reminders/    — локальные напоминания (M6, D-83)
   core/           — деньги (minor units), uuid, даты, ошибки
   l10n/           — .arb файлы
 ```
@@ -43,10 +47,10 @@ lib/
 Поток зависимостей: UI → Riverpod-контроллеры → сервисы/DAO → drift. UI не обращается к БД напрямую.
 
 Каталог поддержки приложения (рядом с `kopilka.sqlite`): настройки `*.json`
-(D-43: update/rate-sync/theme preferences), с M5-шага 6 — `attachments/`
-(файлы вложений операций; D-63).
+(D-43: update/rate-sync/theme preferences; с M6 — reminders, D-83), с
+M5-шага 6 — `attachments/` (файлы вложений операций; D-63).
 
-## 3. Схема данных (v1, закладывается в M1; текущая — v6)
+## 3. Схема данных (v1, закладывается в M1; текущая — v7)
 
 Общие правила (нарушать нельзя):
 - PK — UUID v4 (TEXT), генерирует приложение. Не автоинкремент: это основа будущего слияния файлов/синка.
@@ -56,18 +60,20 @@ lib/
 
 Таблицы:
 - `currencies`: code TEXT PK (ISO 4217), symbol, is_base, rate_to_base
-- `accounts`: id, name, kind (cash|bank|card|other), currency_code FK, initial_balance_minor, sort_order; с v5 — `exclude_from_balance BOOLEAN NULL`: флаг «не учитывать в балансе» (null/false = учитывать, true = счёт выпадает только из суммарного баланса, персональный баланс не меняется; M5, D-54)
+- `accounts`: id, name, kind (cash|bank|card|other), currency_code FK, initial_balance_minor, sort_order; с v5 — `exclude_from_balance BOOLEAN NULL`: флаг «не учитывать в балансе» (null/false = учитывать, true = счёт выпадает только из суммарного баланса, персональный баланс не меняется; M5, D-54); с v7 — `interest_reminder_date TEXT NULL` (UTC): дата напоминания о процентах, NULL = обычный счёт, дата = накопительный (M6, D-81)
 - `categories`: id, name, kind (income|expense), parent_id NULL (вложенность), icon, color, is_system; с v4 — `icon_code TEXT NULL`: код иконки из справочника `core/category_icons.dart` (NULL = иконка не выбрана; старое свободное поле `icon` не используется и не трогается; M5, D-54/D-55)
 - `transactions`: id, type (income|expense|transfer), account_id FK, target_account_id NULL (для transfer), category_id NULL, amount_minor, currency_code, date, note
 - `attachments`: id, transaction_id FK (без каскада — мягкое удаление операции файл не трогает), file_path, mime_type (белый список image/*, application/pdf), file_size (лимит ~10 МБ — константа, не настройка); v6 (M5, D-63). Сами файлы — вне БД: каталог `attachments/` рядом с `kopilka.sqlite`, имена `<uuid>.<расширение>`, запись атомарная (tmp + rename), после записи не переименовываются. Ровно один живой файл на операцию — правило DAO (повторное вложение заменяет прежнее). Отказ ФС — машиночитаемый отказ слоя данных (`storageFailure`); операция при этом создаётся без вложения, не падает. Файлы вложений в бэкап не входят (JSON — данные, не blobs, D-63)
+- `debts`: id, person (непустой), direction (they_owe_me | i_owe_them), amount_minor (> 0, тело), extra_minor (>= 0, переплата суммой), currency_code FK, due_date TEXT UTC NULL, note NULL; §3-метаданные, soft delete — долги (M6, D-81)
+- `debt_payments`: id, debt_id FK (без каскада), transaction_id FK NULL (перевод гашения), amount_minor (> 0, валюта долга), paid_at (UTC); §3-метаданные (D-81). Сводка долга — SQL-агрегат DebtsDao: к возврату = amount + extra, погашено = SUM живых платежей (D-82)
 
 Балансы не хранятся — вычисляются запросом из транзакций + initial_balance. Единый источник истины.
 
-Мультивалютность (D-11): в M1 у счёта одна валюта, транзакция наследует валюту счёта; поле `rate_to_base` в currencies уже есть, пересчёты появятся в M2/M3 без изменения схемы. Долги/взаиморасчёты — вне MVP, закладки не делаем.
+Мультивалютность (D-11): в M1 у счёта одна валюта, транзакция наследует валюту счёта; поле `rate_to_base` в currencies уже есть, пересчёты появятся в M2/M3 без изменения схемы. Долги/взаиморасчёты — с v7 отдельные таблицы `debts`/`debt_payments` (M6, D-81), таблица транзакций фиче-колонками не расширяется.
 
 ## 4. Экспорт/импорт и бэкапы
 
-- Формат бэкапа: JSON `{ schema_version, exported_at, data: { таблицы } }`. Полный дамп, атомарная замена при импорте. С v4 в строках categories необязательное поле `iconCode` (нет поля = NULL; чтение v1/v2/v3 не менялось); неизвестный справочнику код — отказ импорта, не тихий пропуск (прецедент D-25; M5, D-54/D-55). С v5 в строках accounts необязательное поле `exclude_from_balance` (нет поля = NULL = «учитывать»; чтение v1–v4 не менялось); не-булево значение — отказ импорта (тот же прецедент D-25; M5, D-54). С v6 в data таблица `attachments` (D-64): строки таблицы БД в общем механизме дампа; чтение v1–v5 не менялось — нет ключа = пустой список (образец v1→v2). Валидация строки: непустой file_path, mime из белого списка (широкий `isMimeTypeAllowed`, D-63), file_size — неотрицательный int; ссылка transaction_id — в `_validateReferences` по правилу остальных таблиц. Файлы вложений в бэкап не входят (D-63: JSON — данные, не blobs): импорт восстанавливает только метаданные, отсутствие файла на диске — норма.
+- Формат бэкапа: JSON `{ schema_version, exported_at, data: { таблицы } }`. Полный дамп, атомарная замена при импорте. С v4 в строках categories необязательное поле `iconCode` (нет поля = NULL; чтение v1/v2/v3 не менялось); неизвестный справочнику код — отказ импорта, не тихий пропуск (прецедент D-25; M5, D-54/D-55). С v5 в строках accounts необязательное поле `exclude_from_balance` (нет поля = NULL = «учитывать»; чтение v1–v4 не менялось); не-булево значение — отказ импорта (тот же прецедент D-25; M5, D-54). С v6 в data таблица `attachments` (D-64): строки таблицы БД в общем механизме дампа; чтение v1–v5 не менялось — нет ключа = пустой список (образец v1→v2). Валидация строки: непустой file_path, mime из белого списка (широкий `isMimeTypeAllowed`, D-63), file_size — неотрицательный int; ссылка transaction_id — в `_validateReferences` по правилу остальных таблиц. Файлы вложений в бэкап не входят (D-63: JSON — данные, не blobs): импорт восстанавливает только метаданные, отсутствие файла на диске — норма. С v7 в data таблицы `debts` и `debt_payments` и необязательное поле `interest_reminder_date` в строках accounts (D-85); валидация строк строгая по D-25 (person/direction/суммы/валюта/UTC-даты, ссылки — в `_validateReferences`), чтение v1–v6 не менялось.
 - Импорт обязан поддерживать старые schema_version (миграции формата экспорта).
 - CSV — экспорт транзакций (для Excel/таблиц); импорт CSV с маппингом колонок — опционален (M2).
 - Автобэкап при каждом запуске: JSON в выбранный пользователем каталог, хранить последние 10.
@@ -131,5 +137,5 @@ lib/
 - Механизм миграций и `migration_v2/v3_test` — только новые версии схемы,
   старые тесты не редактировать (правило эпох в ROADMAP.md); замки в них
   поднимаются только вместе с новой версией схемы (прецедент v3→v4, D-55).
-- Схема БД — v6 (`attachments`, D-63); изменения только по правилу эпох
-  (новая schema_version + миграция + тест).
+- Схема БД — v7 (`debts`/`debt_payments`/`interest_reminder_date`, D-81);
+  изменения только по правилу эпох (новая schema_version + миграция + тест).
