@@ -451,4 +451,152 @@ void main() {
     expect(find.textContaining('345'), findsOneWidget);
     expect(find.textContaining('.'), findsNothing);
   });
+
+  testWidgets(
+    'D-97: включение тумблера «Накопительный» раскрывает дату напоминания',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      await tester.tap(find.byType(FloatingActionButton));
+      await tester.pumpAndSettle();
+
+      // По умолчанию выключен; строки даты нет (спека §1).
+      final SwitchListTile savingsTile = tester.widget<SwitchListTile>(
+        find.byKey(const ValueKey<String>('accountSavingsTile')),
+      );
+      expect(savingsTile.value, isFalse);
+      expect(
+        find.byKey(const ValueKey<String>('accountInterestDateRow')),
+        findsNothing,
+      );
+
+      // Включение раскрывает строку даты с дефолтом «сегодня + 1
+      // календарный месяц» (D-81/D-92); тумблер — низ формы, прокрутка
+      // до него обязательна в узком окне.
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('accountSavingsTile')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('accountSavingsTile')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.byKey(const ValueKey<String>('accountSavingsTile')),
+            )
+            .value,
+        isTrue,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('accountInterestDateRow')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(app.l10n.accountInterestDateLabel),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'D-97: выключение тумблера шлёт Value(null) — счёт снова обычный (D-81)',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      final Account account = await app.db.accountsDao.create(
+        name: 'Вклад',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+        interestReminderDate: DateTime.utc(2026, 11, 1),
+      );
+
+      await tester.tap(find.text(app.l10n.navAccounts).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Вклад'));
+      await tester.pumpAndSettle();
+
+      // Тумблер предзаполнен из счёта, строка даты раскрыта.
+      expect(
+        tester
+            .widget<SwitchListTile>(
+              find.byKey(const ValueKey<String>('accountSavingsTile')),
+            )
+            .value,
+        isTrue,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('accountInterestDateRow')),
+        findsOneWidget,
+      );
+
+      // Выключение тумблера: строка даты скрыта, сохранение пишет NULL
+      // (Value(null), спека §1) — счёт снова обычный (D-81); тумблер
+      // прокручивается до видимой области перед тапом.
+      await tester.ensureVisible(
+        find.byKey(const ValueKey<String>('accountSavingsTile')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('accountSavingsTile')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('accountInterestDateRow')),
+        findsNothing,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      final Account? after = await app.db.accountsDao.findById(account.id);
+      expect(after!.interestReminderDate, isNull);
+    },
+  );
+
+  testWidgets(
+    'D-97: правка накопительного счёта без касания тумблера не трогает дату',
+    (WidgetTester tester) async {
+      final AppHarness app = await pumpDialogApp(
+        tester,
+        tempDirPrefix: 'kopilka_account_dialog_test',
+      );
+
+      final Account account = await app.db.accountsDao.create(
+        name: 'Вклад',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+        initialBalanceMinor: 100_00,
+        interestReminderDate: DateTime.utc(2027, 3, 15),
+      );
+
+      await tester.tap(find.text(app.l10n.navAccounts).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Вклад'));
+      await tester.pumpAndSettle();
+
+      // Правка только имени: тумблер и дата не трогаются — сабмит
+      // Companion-параметром absent (спека §1), поле БД не меняется.
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.nameLabel),
+        'Вклад-2',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+
+      final Account? after = await app.db.accountsDao.findById(account.id);
+      expect(after!.name, 'Вклад-2');
+      // В сущности строка UTC (§3); полночь 15 марта 2027.
+      expect(after.interestReminderDate, '2027-03-15T00:00:00.000Z');
+    },
+  );
 }
