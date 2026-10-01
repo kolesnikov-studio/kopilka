@@ -9,10 +9,10 @@ import 'package:kopilka/data/reminders/reminders_plugin.dart';
 import 'package:kopilka/data/reminders/reminders_preferences.dart';
 
 /// Тексты напоминаний (D-83): константы механики; финальные тексты —
-/// спека дизайнера шага D — шов оставлен (меняется только здесь).
+/// спека дизайнера шага D (D-92.1) — шов закрыт правкой литералов.
 const String reminderTitle = 'Kopilka: напоминание';
 
-const String reminderBodyInterest = 'Начисление процентов по счёту';
+const String reminderBodyInterest = 'Пора начислить проценты по счёту';
 
 const String reminderBodyDue = 'Приближается срок возврата долга';
 
