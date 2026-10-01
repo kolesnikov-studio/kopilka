@@ -360,9 +360,11 @@ void main() {
         '99000',
       );
 
-      // Переключатель выключен по умолчанию (нулевые отличия от v0.4).
+      // Переключатель выключен по умолчанию (нулевые отличия от v0.4);
+      // в форме два тумблера: «не учитывать в балансе» (первый) и
+      // «Накопительный» (M6-шаг D, второй).
       final SwitchListTile tile = tester.widget<SwitchListTile>(
-        find.byType(SwitchListTile),
+        find.byType(SwitchListTile).first,
       );
       expect(tile.value, isFalse);
       // Подсказка называет последствие (по образцу hint Dz-1/D-48).
@@ -371,7 +373,7 @@ void main() {
       await tester.tap(find.text(app.l10n.excludeFromBalanceLabel));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile).first).value,
         isTrue,
       );
 
@@ -411,7 +413,7 @@ void main() {
       await tester.tap(find.text('Копилка'));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+        tester.widget<SwitchListTile>(find.byType(SwitchListTile).first).value,
         isTrue,
         reason: 'форма предзаполняется значением счёта',
       );

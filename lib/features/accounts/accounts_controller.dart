@@ -39,12 +39,16 @@ class AccountsController extends Notifier {
   AccountsDao get _accounts => ref.read(accountsDaoProvider);
 
   /// Создаёт счёт; отказ возвращает как [Result], не бросая исключение.
+  ///
+  /// [interestReminderDate] — дата напоминания о процентах (v7, D-81):
+  /// NULL = обычный счёт, дата = накопительный; полуночный UTC (§3).
   Future<Result<Account>> createAccount({
     required String name,
     required AccountKind kind,
     required String currencyCode,
     int initialBalanceMinor = 0,
     bool excludeFromBalance = false,
+    DateTime? interestReminderDate,
   }) async {
     try {
       final Account account = await _accounts.create(
@@ -53,6 +57,7 @@ class AccountsController extends Notifier {
         currencyCode: currencyCode,
         initialBalanceMinor: initialBalanceMinor,
         excludeFromBalance: excludeFromBalance,
+        interestReminderDate: interestReminderDate,
       );
       return Success<Account>(account);
     } on DataValidationException catch (error) {
@@ -61,6 +66,8 @@ class AccountsController extends Notifier {
   }
 
   /// Меняет поля счёта (не переданные — `Value.absent()`).
+  /// [interestReminderDate] (v7, D-81/D-82) — Companion-параметр: не передан
+  /// — поле не тронуто; `Value(null)` — дата сброшена (счёт снова обычный).
   Future<Result<Account>> updateAccount(
     String id, {
     Value<String> name = const Value.absent(),
@@ -68,6 +75,7 @@ class AccountsController extends Notifier {
     Value<String> currencyCode = const Value.absent(),
     Value<int> initialBalanceMinor = const Value.absent(),
     Value<bool> excludeFromBalance = const Value.absent(),
+    Value<DateTime?> interestReminderDate = const Value.absent(),
   }) async {
     try {
       final Account account = await _accounts.updateAccount(
@@ -77,6 +85,7 @@ class AccountsController extends Notifier {
         currencyCode: currencyCode,
         initialBalanceMinor: initialBalanceMinor,
         excludeFromBalance: excludeFromBalance,
+        interestReminderDate: interestReminderDate,
       );
       return Success<Account>(account);
     } on DataValidationException catch (error) {

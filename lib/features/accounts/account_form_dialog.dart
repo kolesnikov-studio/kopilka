@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kopilka/app/widgets/amount_field.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/core/currency.dart';
+import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/result.dart';
@@ -16,6 +17,11 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Диалог формы счёта. При `account == null` создаёт счёт, иначе редактирует.
 ///
+/// [savingsPreset] (M6-шаг D, D-92.3): преселект тумблера «Накопительный»
+/// и дефолтной даты напоминания (сегодня + 1 календарный месяц UTC) —
+/// для CTA совета дашборда; без параметра форма как раньше (нулевые
+/// отличия для существующих вызовов).
+///
 /// Валюта (B2.1/B2.2, D-24): при создании — dropdown по живым валютам
 /// справочника с дефолтом «базовая»; при правке валюта показывается строкой
 /// без правки, и только у счёта без операций есть кнопка «Сменить валюту»
@@ -26,18 +32,25 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 Future<void> showAccountFormDialog(
   BuildContext context, {
   AccountBalance? account,
+  bool savingsPreset = false,
 }) {
   return showDialog<void>(
     context: context,
-    builder: (BuildContext dialogContext) =>
-        _AccountFormDialog(initial: account),
+    builder: (BuildContext dialogContext) => _AccountFormDialog(
+      initial: account,
+      savingsPreset: savingsPreset,
+    ),
   );
 }
 
 class _AccountFormDialog extends ConsumerStatefulWidget {
-  const _AccountFormDialog({this.initial});
+  const _AccountFormDialog({this.initial, this.savingsPreset = false});
 
   final AccountBalance? initial;
+
+  /// CTA совета (D-92.3): тумблер «Накопительный» включён и дата —
+  /// дефолт «сегодня + 1 месяц»; применяется только при создании.
+  final bool savingsPreset;
 
   @override
   ConsumerState<_AccountFormDialog> createState() => _AccountFormDialogState();
@@ -55,6 +68,24 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   /// при правке — текущее значение счёта.
   bool _excludeFromBalance = false;
 
+  /// Накопительный счёт (M6-шаг D, D-81): при создании выключен (или
+  /// преселект CTA совета), при правке — есть дата напоминания.
+  bool _savings = false;
+
+  /// Дата напоминания о процентах (v7/D-81): локальная зона в UI,
+  /// хранение — полуночный UTC (§3). Видна только при включённом
+  /// тумблере; выключение тумблера обнуляет дату.
+  DateTime? _interestDate;
+
+  /// Дата в сабмит входит, только если пользователь её менял или
+  /// тумблер менял состояние (см. _submit): иначе `Value.absent()`
+  /// (конвенция A1 — поле БД не трогается).
+  bool _interestDateChanged = false;
+
+  /// Состояние тумблера на момент открытия формы: для правки — было ли
+  /// поле даты изменено (сабмит Companion-параметром, спека §1).
+  late final bool _initialSavings;
+
   /// Б2.2: виден ли у счёта в режиме правки выбор валюты (счёт без операций).
   bool _canChangeCurrency = false;
 
@@ -62,11 +93,21 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   void initState() {
     super.initState();
     final AccountBalance? initial = widget.initial;
+    _initialSavings = initial?.account.interestReminderDate != null;
     if (initial != null) {
       _name.text = initial.account.name;
       _kind = AccountKind.fromDb(initial.account.kind);
       _currencyCode = initial.account.currencyCode;
       _excludeFromBalance = initial.account.excludeFromBalance ?? false;
+      // M6-шаг D: предзаполнение из interestReminderDate (D-81/D-82);
+      // строка UTC парсится в локальную зону для показа. Битая строка
+      // (терпимость схемы D-81) — дефолт, форма не падает.
+      final String? interest = initial.account.interestReminderDate;
+      if (interest != null && interest.isNotEmpty) {
+        _savings = true;
+        _interestDate = DateTime.tryParse(interest)?.toLocal() ??
+            defaultInterestReminderDate();
+      }
       // Поле «Сумма» при редактировании означает НОВЫЙ начальный баланс:
       // предзаполняем его initial_balance_minor, не вычисленным балансом
       // (§3: баланс считается из истории, полями его не правят). Масштаб —
@@ -79,6 +120,11 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
       // читается один раз при открытии, DAO-отказ остаётся последней линией.
       _canChangeCurrency = false;
       _refreshCanChangeCurrency();
+    } else if (widget.savingsPreset) {
+      // CTA совета (D-92.3): тумблер включён, дата — дефолт
+      // «сегодня + 1 календарный месяц» UTC (D-81/D-14).
+      _savings = true;
+      _interestDate = defaultInterestReminderDate();
     }
   }
 
@@ -143,6 +189,31 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
     _balance.clear();
   }
 
+  /// Дефолтная дата напоминания (D-81/D-92): сегодня (utcNow) + 1
+  /// календарный месяц, тот же день следующего месяца (D-14),
+  /// полночь UTC (§3).
+  DateTime defaultInterestReminderDate() {
+    final DateTime now = utcNow();
+    return DateTime.utc(now.year, now.month + 1, now.day);
+  }
+
+  Future<void> _pickInterestDate() async {
+    // Пикер стартует с текущего значения строки (спека §1); прошедшая
+    // дата не блокируется — просрочка напоминания штатна (D-81/D-92).
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _interestDate ?? defaultInterestReminderDate().toLocal(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        _interestDate = picked;
+        _interestDateChanged = true;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -187,6 +258,22 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
     final AccountsController controller = ref.read(
       accountsControllerProvider.notifier,
     );
+    // Дата напоминания (M6-шаг D, спека §1): сабмит Companion-параметром
+    // (конвенция A1). Дата входит в запрос, только если тумблер или дата
+    // менялись: включение тумблера — Value(дата) (при выключенном даты
+    // нет), выключение — Value(null) (счёт снова обычный, D-81); правка
+    // без касания тумблера/даты — Value.absent() (поле БД не трогается).
+    final bool savingsTouched = !editing || _savings != _initialSavings;
+    final DateTime? interestDate = _savings && _interestDate != null
+        ? DateTime.utc(
+            _interestDate!.year,
+            _interestDate!.month,
+            _interestDate!.day,
+          )
+        : null;
+    final Value<DateTime?> interestPatch = savingsTouched || _interestDateChanged
+        ? Value<DateTime?>(interestDate)
+        : const Value<DateTime?>.absent();
     final Result<dynamic> result;
     try {
       if (!editing) {
@@ -196,6 +283,9 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
           currencyCode: currencyCode!,
           initialBalanceMinor: initialMinor,
           excludeFromBalance: _excludeFromBalance,
+          // При создании форма всегда пишет дату целиком: включённый
+          // тумблер несёт дату (преселект или дефолт), выключенный — NULL.
+          interestReminderDate: interestDate,
         );
       } else {
         // Б2.2/D-24: смена валюты счёта в UI — только для счёта без операций
@@ -214,6 +304,7 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
           currencyCode: currencyPatch,
           initialBalanceMinor: Value<int>(initialMinor),
           excludeFromBalance: Value<bool>(_excludeFromBalance),
+          interestReminderDate: interestPatch,
         );
       }
     } finally {
@@ -399,6 +490,54 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                       ),
                 ),
               ),
+              // M6-шаг D (спека §1, D-81): тумблер «Накопительный» —
+              // после флага «не учитывать в балансе», в том же стиле.
+              // Проценты пользователь начисляет сам, переводом —
+              // UI «начислить» не проектируется (D-81).
+              SwitchListTile(
+                key: const ValueKey<String>('accountSavingsTile'),
+                value: _savings,
+                onChanged: _busy
+                    ? null
+                    : (bool value) => setState(() {
+                          _savings = value;
+                          // Выключение тумблера — дата NULL (спека §1):
+                          // строка скрыта, счёт снова обычный (D-81).
+                          if (!value) {
+                            _interestDate = null;
+                          } else {
+                            _interestDate ??= defaultInterestReminderDate();
+                          }
+                          _interestDateChanged = true;
+                        }),
+                contentPadding: EdgeInsets.zero,
+                title: Text(l10n.accountSavingsLabel),
+                subtitle: Text(
+                  l10n.accountSavingsHint,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ),
+              // Строка даты — только при включённом тумблере (спека §1):
+              // показ — локальная дата (§3), правка — пикером; прошедшая
+              // дата не блокируется (просрочка штатна, D-81).
+              if (_savings)
+                Row(
+                  key: const ValueKey<String>('accountInterestDateRow'),
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '${l10n.accountInterestDateLabel}: '
+                        '${MaterialLocalizations.of(context).formatMediumDate(_interestDate!)}',
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _busy ? null : _pickInterestDate,
+                      child: Text(l10n.accountInterestDateEditAction),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
