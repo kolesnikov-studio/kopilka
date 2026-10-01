@@ -1,0 +1,11 @@
+# .git-blame-ignore-revs
+#
+# Механический формат-коммит: `dart format lib test` по всему репозиторию
+# (131 файл из 164), без семантических правок — идемпотентность форматтера
+# до релизного прохода v0.6 (решение D-95, находка P2-1 аудита M6).
+#
+# Чтобы git blame не показывал этот коммит автором каждой строки:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Ревизии:
+3d98fb053fe09fcc6c6e7e993b028a6dace56969  # style(format): dart format lib test (D-95)
