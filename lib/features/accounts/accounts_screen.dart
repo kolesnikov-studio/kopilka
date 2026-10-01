@@ -25,6 +25,10 @@ class AccountsScreen extends ConsumerWidget {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
+        // Уникальный hero-тег (M6-шаг D): FAB всех веток шелла живут в одном
+        // поддереве корневого навигатора, дефолтный тег ломает Hero-полёт при
+        // пуще fullscreen-маршрута (просмотр вложения из плитки операций).
+        heroTag: 'accounts-fab',
         tooltip: l10n.accountAdd,
         onPressed: () => showAccountFormDialog(context),
         child: const Icon(Icons.add),
@@ -86,6 +90,12 @@ class _AccountTile extends ConsumerWidget {
       AccountKind.other => l10n.accountKindOther,
     }}';
 
+    // M6-шаг D (спека §2): признак накопительного — бейдж в том же
+    // стиле (значок savings_outlined + подпись); при обоих флагах —
+    // обе подписи. Дату в плитку не выносим (шум; дата — в форме).
+    final bool isSavings = row.account.interestReminderDate != null;
+    final bool isExcluded = row.account.excludeFromBalance == true;
+
     return ListTile(
       leading: Icon(icon),
       title: Text(row.account.name),
@@ -93,27 +103,42 @@ class _AccountTile extends ConsumerWidget {
       // Wrap не переполняется — длинные строки переносятся на новую строку.
       // Значок и подпись — отдельные дети: подпись «не в балансе»
       // самодостаточна (прецедент D-56 — tooltip без интерфейсного смысла).
-      subtitle: row.account.excludeFromBalance == true
-          ? Wrap(
+      subtitle: !isSavings && !isExcluded
+          ? Text(subtitle)
+          : Wrap(
               spacing: 6,
               runSpacing: 2,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 Text(subtitle),
-                Icon(
-                  Icons.visibility_off_outlined,
-                  size: 14,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                Text(
-                  l10n.accountExcludedBadge,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
+                if (isSavings) ...<Widget>[
+                  Icon(
+                    Icons.savings_outlined,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  Text(
+                    l10n.accountSavingsBadge,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+                if (isExcluded) ...<Widget>[
+                  Icon(
+                    Icons.visibility_off_outlined,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  Text(
+                    l10n.accountExcludedBadge,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
               ],
-            )
-          : Text(subtitle),
+            ),
       trailing: Text(
         formatMoneyMinor(
           row.balanceMinor,
