@@ -206,4 +206,67 @@ void main() {
       expect(emitted.last, isEmpty);
     });
   });
+
+  group('поток активных советов: операции поднимают совет (D-94)', () {
+    test(
+      'доход создаёт скрытый совет, трата его убирает (замок D-94)',
+      () async {
+        final ProviderContainer container = ProviderContainer(
+          overrides: [appDatabaseProvider.overrideWithValue(db)],
+        );
+        addTearDown(container.dispose);
+
+        final List<List<Advice>> emitted = <List<Advice>>[];
+        final ProviderSubscription<AsyncValue<List<Advice>>> subscription =
+            container.listen(activeAdvicesProvider, (
+              _,
+              AsyncValue<List<Advice>> value,
+            ) {
+              if (value.hasValue) {
+                emitted.add(value.value!);
+              }
+            });
+        addTearDown(subscription.close);
+
+        // Обычный счёт с нулевым балансом: совета нет.
+        final Account account = await db.accountsDao.create(
+          name: 'Карта',
+          kind: AccountKind.card,
+          currencyCode: 'RUB',
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(emitted, isNotEmpty);
+        expect(emitted.last, isEmpty);
+
+        // Доход поднимает нулевой баланс — совет появляется в потоке:
+        // подписка на watchBalances (счёт+операции) получает событие
+        // операции; поток счетов watchAlive её бы не поднял (D-94).
+        await db.transactionsDao.create(
+          type: TransactionType.income,
+          accountId: account.id,
+          amountMinor: 500_00,
+        );
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(emitted.last, hasLength(1));
+        expect(emitted.last.single.id, 'min-balance-interest');
+
+        // Трата возвращает баланс в ноль — совет исчезает.
+        final Transaction spending = await db.transactionsDao.create(
+          type: TransactionType.expense,
+          accountId: account.id,
+          amountMinor: 500_00,
+        );
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(emitted.last, isEmpty);
+
+        // Мягкое удаление операции — тоже событие потока: совет возвращается.
+        await db.transactionsDao.softDelete(spending.id);
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+        expect(emitted.last, hasLength(1));
+      },
+    );
+  });
 }

@@ -10,10 +10,13 @@ import 'package:kopilka/data/providers.dart';
 // потоками DAO. UI-карточки — шаг D; механика отдаёт готовый список.
 
 /// Поток активных советов: первый срез — сразу, далее — при любом
-/// изменении счетов или долгов (живые потоки DAO, D-84). Дескрипторы —
-/// линзы (D-16/D-18): без кэша и хранения. Событие изменения перезапускает
-/// вычисление; повторные срезы схлопываются обычным async-пролётом
-/// (exhaust-семантика: во время вычисления новые события копятся в один).
+/// изменении счетов, операций или долгов (живые потоки DAO, D-84;
+/// D-94: счета — [AccountsDao.watchBalances], чтобы операция меняла
+/// баланс и поднимала событие — дескриптор читает тот же поток).
+/// Дескрипторы — линзы (D-16/D-18): без кэша и хранения. Событие
+/// изменения перезапускает вычисление; повторные срезы схлопываются
+/// обычным async-пролётом (exhaust-семантика: во время вычисления новые
+/// события копятся в один).
 Stream<List<Advice>> _watchActiveAdvices(Ref ref) async* {
   final AccountsDao accountsDao = ref.watch(accountsDaoProvider);
   final DebtsDao debtsDao = ref.watch(debtsDaoProvider);
@@ -23,7 +26,11 @@ Stream<List<Advice>> _watchActiveAdvices(Ref ref) async* {
       <StreamSubscription<void>>[
         // skip(1): первый срез потока DAO — не «изменение», он уже покрыт
         // начальным yield'ом ниже; иначе совет пересчитывался бы дважды.
-        accountsDao.watchAlive().skip(1).listen(changes.add),
+        // D-94: подписка на watchBalances (счёт+операции) — дескриптор
+        // (advice_catalog) читает watchBalances; события потока счетов
+        // сами по себе не поднимали бы изменение операции (застывший
+        // совет).
+        accountsDao.watchBalances().skip(1).listen(changes.add),
         debtsDao.watchAlive().skip(1).listen(changes.add),
       ];
   ref.onDispose(() {
