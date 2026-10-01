@@ -770,6 +770,12 @@ abstract class AppLocalizations {
   /// **'Please check the entered values.'**
   String get errorInvalidInput;
 
+  /// Validation message when the credited amount of a debt payment linked to a cross-currency transfer is empty or unparsable (D-101: the debited and payment amounts have their own messages)
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the target amount.'**
+  String get transferAmountInvalid;
+
   /// The record to update or delete is gone
   ///
   /// In en, this message translates to:
@@ -1639,6 +1645,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Included in the total due'**
   String get debtExtraHelper;
+
+  /// Summary line on the debt card shown instead of the generic helper when extra is above zero; {amount} is the extra amount formatted by formatMoneyMinor (D-101 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Including extra: {amount}'**
+  String debtExtraLine(Object amount);
 
   /// Label of the currency dropdown in the debt form (D-89 §3)
   ///

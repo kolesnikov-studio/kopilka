@@ -398,6 +398,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errorInvalidInput => 'Проверьте введённые значения.';
 
   @override
+  String get transferAmountInvalid => 'Введите сумму зачисления.';
+
+  @override
   String get errorNotFound => 'Запись уже удалена или не существует.';
 
   @override
@@ -911,6 +914,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get debtExtraHelper => 'Включается в сумму к возврату';
+
+  @override
+  String debtExtraLine(Object amount) {
+    return 'Включая переплату: $amount';
+  }
 
   @override
   String get debtCurrencyLabel => 'Валюта';

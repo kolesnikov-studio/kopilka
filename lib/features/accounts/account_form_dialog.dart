@@ -189,12 +189,13 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   }
 
   /// Дефолтная дата напоминания (D-81/D-92): сегодня (utcNow) + 1
-  /// календарный месяц, тот же день следующего месяца (D-14),
-  /// полночь UTC (§3).
-  DateTime defaultInterestReminderDate() {
-    final DateTime now = utcNow();
-    return DateTime.utc(now.year, now.month + 1, now.day);
-  }
+  /// календарный месяц, последний день следующего месяца при нехватке
+  /// дня (кламп «конец месяца», D-102: 31.03 → 30.04, 31.01 → 28/29.02),
+  /// полночь UTC (§3). Канон «тот же день следующего месяца» (D-14)
+  /// в месяцы без такого числа — иначе день переполняется в месяц+2
+  /// (31.03 → 01.05 по DateTime.utc(y, m+1, d)).
+  DateTime defaultInterestReminderDate() =>
+      defaultInterestReminderDateAt(utcNow());
 
   Future<void> _pickInterestDate() async {
     // Пикер стартует с текущего значения строки (спека §1); прошедшая
@@ -556,4 +557,26 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
   /// Символ по карте справочника (R5); код вне справочника — fallback на код.
   String _symbolOf(String? code) =>
       ref.read(currenciesMapProvider).value?[code]?.symbol ?? (code ?? '');
+}
+
+/// Чистое ядро дефолта даты напоминания (D-102): «сегодня» + 1 календарный
+/// месяц с клампом к последнему дню следующего месяца (31.03 → 30.04,
+/// 31.01 → 28/29.02), полночь UTC (§3). Выделена из
+/// [defaultInterestReminderDate] для замков: день фиксируется аргументом,
+/// без шва времени.
+DateTime defaultInterestReminderDateAt(DateTime nowUtc) {
+  final int nextMonth = nowUtc.month + 1;
+  final int year = nowUtc.year + (nextMonth > 12 ? 1 : 0);
+  final int month = nextMonth > 12 ? nextMonth - 12 : nextMonth;
+  // Число дней следующего месяца: 1-е число месяца после него минус день.
+  final int daysInNextMonth = DateTime.utc(
+    month == 12 ? year + 1 : year,
+    month == 12 ? 1 : month + 1,
+    1,
+  ).difference(DateTime.utc(year, month, 1)).inDays;
+  return DateTime.utc(
+    year,
+    month,
+    nowUtc.day > daysInNextMonth ? daysInNextMonth : nowUtc.day,
+  );
 }

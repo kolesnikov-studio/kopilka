@@ -473,6 +473,10 @@
 
   "errorInvalidInput": "Please check the entered values.",
   "@errorInvalidInput": { "description": "Data layer rejected the input as invalid" },
+  "transferAmountInvalid": "Enter the target amount.",
+  "@transferAmountInvalid": {
+    "description": "Validation message when the credited amount of a debt payment linked to a cross-currency transfer is empty or unparsable (D-101: the debited and payment amounts have their own messages)"
+  },
   "errorNotFound": "This record has already been deleted or does not exist.",
   "@errorNotFound": { "description": "The record to update or delete is gone" },
   "errorUnknown": "The action failed. Please try again.",
@@ -1014,6 +1018,10 @@
   "debtExtraHelper": "Included in the total due",
   "@debtExtraHelper": {
     "description": "Helper under the extra field: extra is part of the total due (D-89 §3)"
+  },
+  "debtExtraLine": "Including extra: {amount}",
+  "@debtExtraLine": {
+    "description": "Summary line on the debt card shown instead of the generic helper when extra is above zero; {amount} is the extra amount formatted by formatMoneyMinor (D-101 §2)"
   },
   "debtCurrencyLabel": "Currency",
   "@debtCurrencyLabel": {

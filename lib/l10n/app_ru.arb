@@ -221,6 +221,7 @@
   "currencyDeleteBlockedBody": "{count, plural, one{Эту валюту использует {count} счёт.} few{Эту валюту используют {count} счёта.} many{Эту валюту используют {count} счетов.} other{Эту валюту используют {count} счета.}} Сначала удалите или перенесите их в другую валюту.",
   "currencyDeleteMenuAction": "Удалить",
 
+  "transferAmountInvalid": "Введите сумму зачисления.",
   "transferAmountOut": "Списано",
   "transferAmountIn": "Зачислено",
   "transferRateLine": "По курсу 1 {from} = {rate} {to}",
@@ -276,6 +277,7 @@
   "debtAmountLabel": "Тело долга",
   "debtExtraLabel": "Переплата",
   "debtExtraHelper": "Включается в сумму к возврату",
+  "debtExtraLine": "Включая переплату: {amount}",
   "debtCurrencyLabel": "Валюта",
   "debtDueDateOptional": "Срок возврата (необязательно)",
   "debtNoteLabel": "Примечание",

@@ -394,6 +394,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorInvalidInput => 'Please check the entered values.';
 
   @override
+  String get transferAmountInvalid => 'Enter the target amount.';
+
+  @override
   String get errorNotFound =>
       'This record has already been deleted or does not exist.';
 
@@ -903,6 +906,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get debtExtraHelper => 'Included in the total due';
+
+  @override
+  String debtExtraLine(Object amount) {
+    return 'Including extra: $amount';
+  }
 
   @override
   String get debtCurrencyLabel => 'Currency';

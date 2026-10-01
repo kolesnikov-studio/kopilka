@@ -443,6 +443,43 @@ void main() {
       },
     );
 
+    test('переплата тела: платёж больше к возврату — paid не режется, остаток '
+        'честно отрицательный (находка 3/D-102)', () async {
+      final Debt debt = await seedDebt(amountMinor: 500000);
+      await f.debts.addPayment(
+        debt.id,
+        amountMinor: 600000,
+        paidAt: f.clock.read(),
+      );
+
+      final DebtSummary? summary = await f.debts.watchSummary(debt.id).first;
+      expect(summary, isNotNull);
+      expect(summary!.paidMinor, 600000);
+      expect(summary.remainingMinor, -100000);
+    });
+
+    test('платежи сверх тела+extra: сумма живых платежей не ограничена, '
+        'остаток отрицательный (находка 3/D-102)', () async {
+      final Debt debt = await seedDebt(amountMinor: 500000, extraMinor: 50000);
+      await f.debts.addPayment(
+        debt.id,
+        amountMinor: 300000,
+        paidAt: f.clock.read(),
+      );
+      f.clock.advance(const Duration(minutes: 1));
+      await f.debts.addPayment(
+        debt.id,
+        amountMinor: 400000,
+        paidAt: f.clock.read(),
+      );
+
+      final DebtSummary? summary = await f.debts.watchSummary(debt.id).first;
+      expect(summary, isNotNull);
+      expect(summary!.totalMinor, 550000);
+      expect(summary.paidMinor, 700000);
+      expect(summary.remainingMinor, -150000);
+    });
+
     test(
       'мягко удалённый платёж выпадает из SUM, долг не ломается (D-25)',
       () async {

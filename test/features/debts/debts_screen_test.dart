@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kopilka/app/router.dart';
+import 'package:kopilka/core/money.dart';
 import 'package:kopilka/data/attachments_service.dart';
 import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/dao/attachments_dao.dart' show AttachmentsDao;
@@ -587,6 +588,166 @@ void main() {
       expect(find.text(app.l10n.remindersPermissionDenied), findsOneWidget);
       expect(await tester.runAsync(() => app.store.readEnabled()), isFalse);
       expect(find.text(app.l10n.remindersBannerTitle), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'чип «Погашен»: при extra>0 появляется только после гашения и тела, '
+    'и переплаты; исчезает после удаления платежа (находка 4/D-102, '
+    'чип-моргание UX §4.3/D-90.3)',
+    (WidgetTester tester) async {
+      final _App app = await _pumpApp(tester);
+      // Тело 1000,00 ₽ (100000 minor) + переплата 50 ₽ (5000 minor): тело
+      // погашено — extra остаётся, чипа ещё нет (сводка remaining = extra);
+      // гашение extra — чип появляется.
+      final Debt debt = await app.db.debtsDao.create(
+        person: 'Аня',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 100000,
+        currencyCode: 'RUB',
+        extraMinor: 5000,
+      );
+      await _settle(tester);
+      await tester.tap(find.text('Аня'));
+      await tester.pumpAndSettle();
+      expect(find.text(app.l10n.debtPaidOffBadge), findsNothing);
+
+      // Платёж ровно в тело: переплата сверх — чипа нет (замок покрытия §7).
+      await tester.tap(find.text(app.l10n.debtRecordPaymentAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.debtPaymentAmountLabel),
+        '1 000',
+      );
+      await tester.tap(find.text(app.l10n.debtRecordPaymentAction).last);
+      await _settle(tester);
+      expect(find.text(app.l10n.debtPaidOffBadge), findsNothing);
+
+      // Платёж в переплату: остаток 0 — чип появляется (§2/D-89).
+      await tester.tap(find.text(app.l10n.debtRecordPaymentAction));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.debtPaymentAmountLabel),
+        '50',
+      );
+      await tester.tap(find.text(app.l10n.debtRecordPaymentAction).last);
+      await _settle(tester);
+      // Остаток после двух платежей — ноль (через тот же форматтер:
+      // неразрывные пробелы литералом не набираются).
+      expect(
+        tester
+            .widget<Text>(find.textContaining(app.l10n.debtRemainingLine('')))
+            .data,
+        app.l10n.debtRemainingLine(
+          formatMoneyMinor(0, symbol: '₽', locale: 'ru'),
+        ),
+      );
+      expect(find.text(app.l10n.debtPaidOffBadge), findsOneWidget);
+
+      // Возврат последнего платежа (soft delete) — чип исчезает: переходы
+      // «погашен → возврат» не ломают карточку (чип-моргание UX §4.3).
+      final List<DebtPayment> payments =
+          await tester.runAsync(() => _paymentsOf(app.db, debt.id)) ??
+          <DebtPayment>[];
+      await app.db.debtsDao.softDeletePayment(
+        payments.firstWhere((DebtPayment p) => p.amountMinor == 5000).id,
+      );
+      await _settle(tester);
+      expect(find.text(app.l10n.debtPaidOffBadge), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'сводка секции мультивалютная: долги в разных валютах — отдельные '
+    'корзины в одной строке (§1, находка 7/D-102)',
+    (WidgetTester tester) async {
+      final _App app = await _pumpApp(tester);
+      await app.db.currenciesDao.create(
+        code: 'USD',
+        symbol: r'$',
+        rateToBase: 1,
+      );
+      // Два долга секции «Мне должны» в разных валютах: 2300 ₽ и 50 $.
+      await app.db.debtsDao.create(
+        person: 'Аня',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 230000,
+        currencyCode: 'RUB',
+      );
+      await app.db.debtsDao.create(
+        person: 'Боря',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 5000,
+        currencyCode: 'USD',
+      );
+      await _settle(tester);
+      final Finder totalLine = find.textContaining(
+        app.l10n.debtSectionTotalTheyOweMe(''),
+      );
+      expect(totalLine, findsOneWidget);
+      final String expected = app.l10n.debtSectionTotalTheyOweMe(
+        '${formatMoneyMinor(230000, symbol: '₽', locale: 'ru')} · '
+        '${formatMoneyMinor(5000, symbol: r'$', locale: 'ru')}',
+      );
+      expect(tester.widget<Text>(totalLine).data, expected);
+    },
+  );
+
+  testWidgets(
+    'просрочка календарная в UTC: срок «завтра» не просрочен, «позавчера» — '
+    'бейдж (S3/D-101, находка 1/D-102)',
+    (WidgetTester tester) async {
+      final _App app = await _pumpApp(tester);
+      // Даты — полуночь UTC (§3), сравнение — календарными датами в UTC,
+      // независимо от локальной зоны машины (уточнение D-102). Край
+      // «сегодня/вчера» на фикс-датах закрыт core-замком debt_due_test;
+      // здесь — даты, стабильные при переходе полуночи UTC в середине
+      // теста (класс флейка D-100).
+      final DateTime now = DateTime.now().toUtc();
+      final DateTime todayUtc = DateTime.utc(now.year, now.month, now.day);
+      await app.db.debtsDao.create(
+        person: 'Аня',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 100000,
+        currencyCode: 'RUB',
+        dueDate: todayUtc.add(const Duration(days: 1)),
+      );
+      await app.db.debtsDao.create(
+        person: 'Боря',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 200000,
+        currencyCode: 'RUB',
+        dueDate: todayUtc.subtract(const Duration(days: 2)),
+      );
+      await _settle(tester);
+
+      // Завтрашний срок не просрочен: бейджа нет в плитке Ани (срок
+      // «завтра» даже не красный).
+      final Finder anyaTile = find.ancestor(
+        of: find.text('Аня'),
+        matching: find.byType(ListTile),
+      );
+      expect(
+        find.descendant(
+          of: anyaTile,
+          matching: find.text(app.l10n.debtOverdueBadge),
+        ),
+        findsNothing,
+      );
+
+      // Позавчерашний срок — просрочен: бейдж в плитке долга (цвет ошибки
+      // идёт с ним).
+      final Finder boryaTile = find.ancestor(
+        of: find.text('Боря'),
+        matching: find.byType(ListTile),
+      );
+      expect(
+        find.descendant(
+          of: boryaTile,
+          matching: find.text(app.l10n.debtOverdueBadge),
+        ),
+        findsOneWidget,
+      );
     },
   );
 }

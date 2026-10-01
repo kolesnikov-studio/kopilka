@@ -19,21 +19,30 @@ import '../../helpers/app_harness.dart';
 
 void main() {
   testWidgets(
-    'D-97: карточка-напоминание показывается на сегодняшнюю дату UTC',
+    'D-97: карточка-напоминание показывается на просроченную дату UTC',
     (WidgetTester tester) async {
       final AppHarness app = await pumpDialogApp(
         tester,
         tempDirPrefix: 'kopilka_insights_cards_test',
       );
 
-      // «Сегодня UTC» (D-93.2: напоминание живо весь сегодняшний день).
+      // Стабилизация (находка 5/D-102, класс флейка D-100): дата
+      // «сегодня − 1 день» вместо «сегодня UTC» — по D-93.2 напоминание
+      // живо весь сегодняшний день UTC (просрочка штатна, D-81), такая
+      // дата показывается в любой момент прогона: в отличие от «сегодня»
+      // она не может смениться при переходе полуночи UTC в середине теста.
       final DateTime now = DateTime.now().toUtc();
+      final DateTime yesterdayUtc = DateTime.utc(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 1));
       await app.db.accountsDao.create(
         name: 'Вклад',
         kind: AccountKind.bank,
         currencyCode: 'RUB',
         initialBalanceMinor: 100_00,
-        interestReminderDate: DateTime.utc(now.year, now.month, now.day),
+        interestReminderDate: yesterdayUtc,
       );
 
       // Карточки живут на вкладке «Отчёты» (стартовый маршрут — счета).
@@ -74,7 +83,9 @@ void main() {
       // ничего не рисует, дашборд не роняет).
       expect(find.text(app.l10n.dashboardInterestCardTitle), findsNothing);
 
-      // Перенос даты в прошлое — карточка появляется по живому потоку.
+      // Перенос даты в прошлое — карточка появляется по живому потоку
+      // (дата фиксированная: стабильно в прошлом, полночь UTC не застаивает,
+      // находка 5/D-102 её не касается).
       await app.db.accountsDao.updateAccount(
         (await app.db.accountsDao.getAlive()).single.id,
         interestReminderDate: Value<DateTime?>(DateTime.utc(2026, 9, 1)),

@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 import 'package:kopilka/app/widgets/dialogs.dart';
 import 'package:kopilka/app/widgets/error_state.dart';
 import 'package:kopilka/core/currency.dart';
+import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/dao/debts_dao.dart' show DebtSummary;
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/features/debts/debt_due.dart';
 import 'package:kopilka/features/debts/debt_form_dialog.dart';
 import 'package:kopilka/features/debts/debt_payment_dialog.dart';
 import 'package:kopilka/features/debts/debts_controller.dart';
@@ -87,8 +89,10 @@ class _DebtCardBody extends ConsumerWidget {
       exponent: exponent,
     );
 
-    final DateTime? due = _dueDateOf(debt);
-    final bool overdue = due != null && due.isBefore(DateTime.now());
+    final DateTime? due = dueDateOf(debt);
+    // Просрочка — календарными датами в UTC (S3/D-101, D-102): «сегодня»
+    // не красная, «вчера» красная, семантика общая с карточкой % (D-93.2).
+    final bool overdue = isDebtOverdue(debt, utcNow());
     final bool paidOff = summary.remainingMinor == 0;
 
     return ListView(
@@ -189,8 +193,10 @@ class _DebtCardBody extends ConsumerWidget {
               : null,
         ),
         if (debt.extraMinor > 0)
+          // Сводка с суммой переплаты (§2/S2 D-101): debtExtraHelper —
+          // текст формы поля, здесь он читался как комментарий без данных.
           Text(
-            l10n.debtExtraHelper,
+            l10n.debtExtraLine(money(debt.extraMinor)),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -246,14 +252,6 @@ class _DebtCardBody extends ConsumerWidget {
     if (context.canPop()) {
       context.pop();
     }
-  }
-
-  DateTime? _dueDateOf(Debt debt) {
-    final String? due = debt.dueDate;
-    if (due == null || due.isEmpty) {
-      return null;
-    }
-    return DateTime.tryParse(due)?.toLocal();
   }
 }
 

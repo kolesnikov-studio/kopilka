@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:kopilka/app/widgets/error_state.dart';
 import 'package:kopilka/core/currency.dart';
+import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/money.dart';
 import 'package:kopilka/data/db/dao/debts_dao.dart' show DebtSummary;
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/features/debts/debt_due.dart';
 import 'package:kopilka/features/debts/debt_form_dialog.dart';
 import 'package:kopilka/features/debts/debts_controller.dart';
 import 'package:kopilka/features/debts/debts_reminders.dart';
@@ -129,10 +131,14 @@ class _DebtsList extends ConsumerWidget {
       final DebtSummary? summary = ref
           .watch(debtSummaryProvider(debt.id))
           .value;
-      final int total =
+      // Остаток долга — не ниже нуля (находка 2/D-102): переплата одного
+      // долга не «съедает» чужие долги секции; переплата видна честно
+      // красным остатком в плитке/карточке самого долга.
+      final int remaining =
           debt.amountMinor + debt.extraMinor - (summary?.paidMinor ?? 0);
       byCurrency[debt.currencyCode] =
-          (byCurrency[debt.currencyCode] ?? 0) + total;
+          (byCurrency[debt.currencyCode] ?? 0) +
+          (remaining > 0 ? remaining : 0);
     }
     final List<String> parts = <String>[
       for (final MapEntry<String, int> entry in byCurrency.entries)
@@ -212,8 +218,10 @@ class _DebtTile extends ConsumerWidget {
         currencies[debt.currencyCode]?.symbol ?? debt.currencyCode;
     final int exponent = currencyExponentByCode(debt.currencyCode);
 
-    final DateTime? due = _dueDateOf(debt);
-    final bool overdue = due != null && due.isBefore(DateTime.now());
+    final DateTime? due = dueDateOf(debt);
+    // Просрочка — календарными датами в UTC (S3/D-101, D-102): «сегодня»
+    // не красная, «вчера» красная, семантика общая с карточкой % (D-93.2).
+    final bool overdue = isDebtOverdue(debt, utcNow());
     final Color? dueColor = overdue
         ? Theme.of(context).colorScheme.error
         : null;
@@ -272,13 +280,5 @@ class _DebtTile extends ConsumerWidget {
             ),
       onTap: () => context.push('/debts/${debt.id}'),
     );
-  }
-
-  DateTime? _dueDateOf(Debt debt) {
-    final String? due = debt.dueDate;
-    if (due == null || due.isEmpty) {
-      return null;
-    }
-    return DateTime.tryParse(due)?.toLocal();
   }
 }

@@ -153,8 +153,10 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
       _amount.text,
       exponent: exponent,
     );
+    // Спеченный текст суммы гашения (§4/D-101): валидатор поля перехватывает
+    // пустоту — сюда доходит только непарсабельная сумма.
     if (amountMinor == null) {
-      await showSnack(context, l10n.errorInvalidInput);
+      await showSnack(context, l10n.amountInvalid);
       return;
     }
     setState(() => _busy = true);
@@ -184,7 +186,9 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
             ? parseAmountToMinor(_transferOut.text, exponent: outExponent)
             : amountMinor;
         if (outAmountMinor == null) {
-          await showSnack(context, l10n.errorInvalidInput);
+          // Спеченный текст суммы списания (§4/D-101): поле списания —
+          // та же сумма гашения, канон — amountInvalid.
+          await showSnack(context, l10n.amountInvalid);
           return;
         }
         final int? targetAmountMinor = multiCurrency
@@ -194,7 +198,9 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
               )
             : null;
         if (multiCurrency && targetAmountMinor == null) {
-          await showSnack(context, l10n.errorInvalidInput);
+          // Спеченный текст суммы зачисления (§4/D-101, D-102): у третьей
+          // суммы связки — своё указание.
+          await showSnack(context, l10n.transferAmountInvalid);
           return;
         }
         result = await controller.recordPaymentWithTransfer(

@@ -116,10 +116,10 @@ class _RemindersBannerState extends ConsumerState<RemindersBanner> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
+          // Иконка — одна, в leading баннера (S1/D-101): Row оставлен
+          // ради Expanded текста, вторую иконку в Row не дублируем.
           Row(
             children: <Widget>[
-              const Icon(Icons.notifications_none),
-              const SizedBox(width: 12),
               Expanded(child: Text(l10n.remindersBannerTitle)),
             ],
           ),

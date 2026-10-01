@@ -113,8 +113,10 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
     final int? extraMinor = _extra.text.trim().isEmpty
         ? 0
         : parseAmountToMinor(_extra.text, exponent: exponent);
+    // Спеченный текст суммы долга (§3/D-101): поле перехватывает всё,
+    // кроме пустоты, — сюда доходит только непарсабельная сумма.
     if (amountMinor == null || extraMinor == null) {
-      await showSnack(context, l10n.errorInvalidInput);
+      await showSnack(context, l10n.debtAmountInvalid);
       return;
     }
     setState(() => _busy = true);
