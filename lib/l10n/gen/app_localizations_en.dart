@@ -1011,4 +1011,55 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remindersTimeNote => 'A reminder is shown at 9:00 local time.';
+
+  @override
+  String get remindersInterestNote =>
+      'Interest reminders for savings accounts are included.';
+
+  @override
+  String get accountSavingsLabel => 'Savings';
+
+  @override
+  String get accountSavingsHint => 'You credit interest yourself, by transfer.';
+
+  @override
+  String get accountSavingsBadge => 'Savings';
+
+  @override
+  String get accountInterestDateLabel => 'Interest reminder date';
+
+  @override
+  String get accountInterestDateEditAction => 'Change';
+
+  @override
+  String get dashboardInterestCardTitle => 'Interest reminder';
+
+  @override
+  String dashboardInterestCardBody(String name, String date) {
+    return 'Account “$name”: reminder date is $date.';
+  }
+
+  @override
+  String dashboardInterestMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# more accounts',
+      one: '1 more account',
+    );
+    return 'and $_temp0';
+  }
+
+  @override
+  String get adviceMinBalanceTitle => 'A cushion that earns interest';
+
+  @override
+  String get adviceMinBalanceBody =>
+      'Money on a regular account earns no interest. Create a savings account — a reminder will tell you when to credit it.';
+
+  @override
+  String get adviceMinBalanceAction => 'Create a savings account';
+
+  @override
+  String get transactionViewAttachment => 'View attachment';
 }

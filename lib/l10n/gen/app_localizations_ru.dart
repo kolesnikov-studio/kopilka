@@ -1020,4 +1020,58 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get remindersTimeNote =>
       'Напоминание приходит в 9:00 локального времени.';
+
+  @override
+  String get remindersInterestNote =>
+      'Напоминания приходят и о процентах по накопительным счетам.';
+
+  @override
+  String get accountSavingsLabel => 'Накопительный';
+
+  @override
+  String get accountSavingsHint =>
+      'Проценты начисляете вы сами — переводом на счёт.';
+
+  @override
+  String get accountSavingsBadge => 'Накопительный';
+
+  @override
+  String get accountInterestDateLabel => 'Дата напоминания о процентах';
+
+  @override
+  String get accountInterestDateEditAction => 'Изменить';
+
+  @override
+  String get dashboardInterestCardTitle => 'Начисление процентов';
+
+  @override
+  String dashboardInterestCardBody(String name, String date) {
+    return 'Счёт «$name»: дата напоминания — $date.';
+  }
+
+  @override
+  String dashboardInterestMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# счёта',
+      many: '# счетов',
+      few: '# счёта',
+      one: '# счёт',
+    );
+    return 'и ещё $_temp0';
+  }
+
+  @override
+  String get adviceMinBalanceTitle => 'Неснижаемый остаток и проценты';
+
+  @override
+  String get adviceMinBalanceBody =>
+      'Деньги на обычном счёте не приносят процентов. Заведите накопительный счёт — напоминание подскажет, когда начислить.';
+
+  @override
+  String get adviceMinBalanceAction => 'Создать накопительный счёт';
+
+  @override
+  String get transactionViewAttachment => 'Просмотр вложения';
 }

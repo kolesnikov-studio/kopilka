@@ -1843,6 +1843,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A reminder is shown at 9:00 local time.'**
   String get remindersTimeNote;
+
+  /// Note under the reminders time note: interest reminders for savings accounts are part of the same schedule (designer spec §6, M6 step D)
+  ///
+  /// In en, this message translates to:
+  /// **'Interest reminders for savings accounts are included.'**
+  String get remindersInterestNote;
+
+  /// Switch title in the account form marking the account as a savings account with an interest reminder (designer spec §1, M6/D-81)
+  ///
+  /// In en, this message translates to:
+  /// **'Savings'**
+  String get accountSavingsLabel;
+
+  /// Hint under the savings switch: interest is credited manually, as a transfer to the account (designer spec §1, D-81)
+  ///
+  /// In en, this message translates to:
+  /// **'You credit interest yourself, by transfer.'**
+  String get accountSavingsHint;
+
+  /// Small mark on the accounts list tile for a savings account (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Savings'**
+  String get accountSavingsBadge;
+
+  /// Label of the interest reminder date row in the account form, visible while the savings switch is on (designer spec §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Interest reminder date'**
+  String get accountInterestDateLabel;
+
+  /// Button opening the date picker for the interest reminder date (designer spec §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get accountInterestDateEditAction;
+
+  /// Title of the dashboard card reminding about interest crediting on a savings account (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Interest reminder'**
+  String get dashboardInterestCardTitle;
+
+  /// Body of the dashboard interest card: account name and its reminder date formatted by formatMediumDate (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Account “{name}”: reminder date is {date}.'**
+  String dashboardInterestCardBody(String name, String date);
+
+  /// Appendix of the dashboard interest card when several savings accounts are due at once: shown after the earliest date (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'and {count, plural, =1{1 more account} other{# more accounts}}'**
+  String dashboardInterestMore(int count);
+
+  /// Title of the dashboard advice card about a minimum-balance savings account (D-84, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'A cushion that earns interest'**
+  String get adviceMinBalanceTitle;
+
+  /// Body of the dashboard advice card (D-84, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Money on a regular account earns no interest. Create a savings account — a reminder will tell you when to credit it.'**
+  String get adviceMinBalanceBody;
+
+  /// Action button of the dashboard advice card, opens the account form with the savings switch preset (D-84, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Create a savings account'**
+  String get adviceMinBalanceAction;
+
+  /// Context menu item of a transaction tile opening the attached file; shown only when the transaction has an attachment (D-67.в, designer spec §5)
+  ///
+  /// In en, this message translates to:
+  /// **'View attachment'**
+  String get transactionViewAttachment;
 }
 
 class _AppLocalizationsDelegate

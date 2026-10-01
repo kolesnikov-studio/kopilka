@@ -310,5 +310,22 @@
   "remindersLinuxHint": "На Linux напоминания приходят только при запуске приложения.",
   "remindersSectionTitle": "Напоминания",
   "remindersToggle": "Напоминания о сроках",
-  "remindersTimeNote": "Напоминание приходит в 9:00 локального времени."
+  "remindersTimeNote": "Напоминание приходит в 9:00 локального времени.",
+  "remindersInterestNote": "Напоминания приходят и о процентах по накопительным счетам.",
+
+  "accountSavingsLabel": "Накопительный",
+  "accountSavingsHint": "Проценты начисляете вы сами — переводом на счёт.",
+  "accountSavingsBadge": "Накопительный",
+  "accountInterestDateLabel": "Дата напоминания о процентах",
+  "accountInterestDateEditAction": "Изменить",
+
+  "dashboardInterestCardTitle": "Начисление процентов",
+  "dashboardInterestCardBody": "Счёт «{name}»: дата напоминания — {date}.",
+  "dashboardInterestMore": "и ещё {count, plural, one{# счёт} few{# счёта} many{# счетов} other{# счёта}}",
+
+  "adviceMinBalanceTitle": "Неснижаемый остаток и проценты",
+  "adviceMinBalanceBody": "Деньги на обычном счёте не приносят процентов. Заведите накопительный счёт — напоминание подскажет, когда начислить.",
+  "adviceMinBalanceAction": "Создать накопительный счёт",
+
+  "transactionViewAttachment": "Просмотр вложения"
 }
