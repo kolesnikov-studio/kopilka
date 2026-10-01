@@ -43,7 +43,11 @@ class _DebtPaymentDialog extends ConsumerStatefulWidget {
 }
 
 class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
+  // Сумма гашения — в валюте долга (§4): из неё создаётся платёж.
   final TextEditingController _amount = TextEditingController();
+  // Сумма списания связанного перевода — в валюте счёта списания (D-17);
+  // с D-90 — отдельный контроллер: у платежа и списания свои экспоненты.
+  final TextEditingController _transferOut = TextEditingController();
   final TextEditingController _targetAmount = TextEditingController();
   final TextEditingController _note = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -63,6 +67,7 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
   @override
   void dispose() {
     _amount.dispose();
+    _transferOut.dispose();
     _targetAmount.dispose();
     _note.dispose();
     super.dispose();
@@ -99,8 +104,10 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
     if (from == null || to == null) {
       return null;
     }
+    // Сумма списания живёт в поле перевода и парсится экспонентом
+    // счёта списания (D-90) — не экспонентом долга.
     final int? amountMinor = parseAmountToMinor(
-      _amount.text,
+      _transferOut.text,
       exponent: currencyExponentByCode(from.currencyCode),
     );
     if (amountMinor == null) {
@@ -144,6 +151,8 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
       return;
     }
     final AppLocalizations l10n = AppLocalizations.of(context);
+    // Платёж — из поля платежа, экспонентом валюты долга (§4, D-81.в);
+    // поле списания связки в платёж не попадает (D-90).
     final int exponent = currencyExponentByCode(_debt.currencyCode);
     final int? amountMinor = parseAmountToMinor(
       _amount.text,
@@ -171,6 +180,21 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
           return;
         }
         final bool multiCurrency = from.currencyCode != to.currencyCode;
+        // Списание — из поля перевода, экспонентом счёта списания (D-17);
+        // платёж (в валюте долга) и списание — независимые суммы (D-90).
+        // При равных валютах поле списания одно с платежом (D-17) — та же
+        // сумма, своего поля нет.
+        final int outExponent = currencyExponentByCode(from.currencyCode);
+        final int? outAmountMinor = multiCurrency
+            ? parseAmountToMinor(
+                _transferOut.text,
+                exponent: outExponent,
+              )
+            : amountMinor;
+        if (outAmountMinor == null) {
+          await showSnack(context, l10n.errorInvalidInput);
+          return;
+        }
         final int? targetAmountMinor = multiCurrency
             ? parseAmountToMinor(
                 _targetAmount.text,
@@ -188,7 +212,7 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
           transfer: DebtTransferData(
             outAccountId: from.id,
             inAccountId: to.id,
-            amountMinor: amountMinor,
+            amountMinor: outAmountMinor,
             targetAmountMinor: targetAmountMinor,
             note: _note.text.trim().isEmpty ? null : _note.text,
             date: _date,
@@ -249,7 +273,7 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
 
     // Расчётная строка курса (образец формы перевода, B4.1/§4).
     final int? fromMinor = multiCurrency
-        ? parseAmountToMinor(_amount.text, exponent: outExponent)
+        ? parseAmountToMinor(_transferOut.text, exponent: outExponent)
         : null;
     final int? toMinor = multiCurrency
         ? parseAmountToMinor(_targetAmount.text, exponent: intoExponent)
@@ -311,6 +335,9 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                             _updatePrefill(accounts);
                           } else {
                             _targetAmount.clear();
+                            // Поле списания живёт только со связкой (D-90):
+                            // выключили — очистить.
+                            _transferOut.clear();
                             _targetPrefilled = false;
                           }
                         });
@@ -341,6 +368,15 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                         // (образец формы перевода, D-28.г).
                         if (_inAccountId == value) {
                           _inAccountId = null;
+                        }
+                        // Равные валюты — поле списания исчезает (D-17):
+                        // невидимый текст не должен стать суммой перевода.
+                        final Account? nextOut = _accountOf(accounts, value);
+                        final Account? nextIn =
+                            _accountOf(accounts, _inAccountId);
+                        if (nextIn == null ||
+                            nextOut?.currencyCode == nextIn.currencyCode) {
+                          _transferOut.clear();
                         }
                         _updatePrefill(accounts);
                       }
@@ -377,10 +413,11 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                 const SizedBox(height: 12),
                 if (multiCurrency) ...<Widget>[
                   // Две суммы по D-17 (образец B4.1): «Списано» — валюта
-                  // счёта списания, «Зачислено» — валюта долга.
+                  // счёта списания, «Зачислено» — валюта долга. У списания
+                  // свой контроллер (D-90): платёж и списание независимы.
                   AmountField(
-                    key: ValueKey<int>(outExponent),
-                    controller: _amount,
+                    key: ValueKey<String>('out-$outExponent'),
+                    controller: _transferOut,
                     labelText: l10n.transferAmountOut,
                     onChanged: (String value) {
                       if (!_targetPrefilled && _targetAmount.text.isNotEmpty) {

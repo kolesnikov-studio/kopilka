@@ -406,6 +406,82 @@ void main() {
   );
 
   testWidgets(
+    'связка с мультивалютным переводом: платёж из поля платежа в валюте '
+    'долга, суммы перевода — из полей перевода (D-90/D-81.в/D-17)',
+    (WidgetTester tester) async {
+      final _App app = await _pumpApp(tester);
+      // Валюта долга USD в справочнике (курс 1 — неважно, суммы задаём
+      // вручную); счёт списания RUB, зачисления USD (валюта долга).
+      await app.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 1);
+      await app.db.accountsDao.create(
+        name: 'Рублёвая карта',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
+      );
+      await app.db.accountsDao.create(
+        name: 'Долларовая карта',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+      );
+      final Debt debt = await app.db.debtsDao.create(
+        person: 'Аня',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 1050,
+        currencyCode: 'USD',
+      );
+      await _settle(tester);
+      await tester.tap(find.text('Аня'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.debtRecordPaymentAction));
+      await tester.pumpAndSettle();
+
+      // Связка: списание — рублёвая карта (первый живой), зачисление —
+      // долларовая (валюта долга) — дефолты диалога.
+      await tester.tap(find.text(app.l10n.debtPaymentLinkTransfer));
+      await tester.pumpAndSettle();
+
+      // Платёж «10,50» в валюте долга (USD) — ввод не блокируется; прежде
+      // поле делило контроллер с полем «Списано» (D-90).
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.debtPaymentAmountLabel),
+        '10,50',
+      );
+      // Списание 850 ₽ (из поля списания), зачисление 10,50 $ (D-17).
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.transferAmountOut),
+        '850',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.transferAmountIn),
+        '10,50',
+      );
+      expect(find.text(app.l10n.amountInvalid), findsNothing);
+      await tester.tap(find.text(app.l10n.debtTransferRecordAction));
+      await _settle(tester);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      // Платёж — 1050 минорных USD (из поля платежа), не сумма списания.
+      final List<DebtPayment> payments =
+          await tester.runAsync(() => _paymentsOf(app.db, debt.id)) ??
+          <DebtPayment>[];
+      expect(payments, hasLength(1));
+      expect(payments.single.amountMinor, 1050);
+      expect(payments.single.transactionId, isNotNull);
+      // Перевод: списание 85000 минорных RUB, зачисление 1050 минорных USD —
+      // обе суммы по D-17 (мультивалютный перевод — с targetAmountMinor).
+      final List<Transaction> rows = await tester.runAsync(
+            () => app.db.select(app.db.transactions).get(),
+          ) ??
+          <Transaction>[];
+      expect(rows, hasLength(1));
+      expect(TransactionType.fromDb(rows.single.type), TransactionType.transfer);
+      expect(rows.single.amountMinor, 85000);
+      expect(rows.single.currencyCode, 'RUB');
+      expect(rows.single.targetAmountMinor, 1050);
+    },
+  );
+
+  testWidgets(
     'гонка «долг удалён»: карточка показывает errorNotFound и возвращается '
     'к списку (D-87.1)',
     (WidgetTester tester) async {
