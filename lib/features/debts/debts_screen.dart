@@ -28,6 +28,10 @@ class DebtsScreen extends ConsumerWidget {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
+        // Уникальный hero-тег (M6-шаг D): FAB веток шелла живут в одном
+        // поддереве корневого навигатора — дефолтный тег ломает Hero-полёт
+        // при пуще fullscreen-маршрута (просмотр вложения из плитки).
+        heroTag: 'debts-fab',
         tooltip: l10n.debtAddTooltip,
         onPressed: () => showDebtFormDialog(context),
         child: const Icon(Icons.add),

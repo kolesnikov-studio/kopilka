@@ -30,6 +30,10 @@ class CurrenciesScreen extends ConsumerWidget {
         leading: const BackButton(),
       ),
       floatingActionButton: FloatingActionButton(
+        // Уникальный hero-тег (M6-шаг D): FAB веток шелла живут в одном
+        // поддереве корневого навигатора — дефолтный тег ломает Hero-полёт
+        // при пуще fullscreen-маршрута (просмотр вложения из плитки).
+        heroTag: 'currencies-fab',
         tooltip: l10n.currencyAdd,
         onPressed: () => _showAddDialog(context, ref),
         child: const Icon(Icons.add),

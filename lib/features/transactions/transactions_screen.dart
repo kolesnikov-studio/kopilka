@@ -11,6 +11,8 @@ import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/providers.dart';
+import 'package:kopilka/features/transactions/attachment_section.dart'
+    show openAttachment;
 import 'package:kopilka/features/transactions/transaction_form_dialog.dart';
 import 'package:kopilka/features/transactions/transactions_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -434,8 +436,61 @@ class _TransactionTile extends ConsumerWidget {
               ],
             )
           : amount,
-      onLongPress: () => _confirmDelete(context, ref, l10n),
+      // Долгое нажатие плитки — контекстное меню (M6-шаг D, D-67.в/D-92:
+      // единая семантика жеста, прецедент D-72.б): «Просмотр вложения»
+      // — только при живых метаданных (hasAttachment, отсутствие файла
+      // на диске объясняет шов открытия), удаление — прежний поток
+      // с подтверждением. Без вложения меню из одного пункта удаления.
+      onLongPress: () => _showContextMenu(context, ref, l10n),
     );
+  }
+
+  /// Контекстное меню плитки (M6-шаг D): showModalBottomSheet из образца
+  /// showTransactionTypePicker; тап «Просмотр вложения» — существующий шов
+  /// открытия (фото — fullscreen, PDF — диалог, файла нет — снек).
+  Future<void> _showContextMenu(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) async {
+    final String? action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (BuildContext sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            // Метаданные вложения — норма после восстановления бэкапа
+            // (D-64); существование файла проверяет шов открытия.
+            if (row.hasAttachment)
+              ListTile(
+                leading: const Icon(Icons.attach_file),
+                title: Text(l10n.transactionViewAttachment),
+                onTap: () => Navigator.of(sheetContext).pop('view'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline),
+              title: Text(l10n.deleteAction),
+              onTap: () => Navigator.of(sheetContext).pop('delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) {
+      return;
+    }
+    switch (action) {
+      case 'view':
+        final Attachment? attachment = await ref
+            .read(attachmentsServiceProvider)
+            .findForTransaction(row.transaction.id);
+        if (attachment != null && context.mounted) {
+          await openAttachment(context, ref, attachment);
+        }
+      case 'delete':
+        await _confirmDelete(context, ref, l10n);
+    }
   }
 
   Future<void> _confirmDelete(

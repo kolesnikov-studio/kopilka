@@ -229,7 +229,7 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
               view: view,
               busy: _busy,
               locale: _locale(),
-              onOpen: () => _openAttachment(
+              onOpen: () => openAttachment(
                 context,
                 ref,
                 view.attachment,
@@ -335,7 +335,11 @@ class _AttachmentCard extends StatelessWidget {
 /// D-63): диалог с метаданными и честным «просмотр недоступен», без
 /// падения. Отсутствие файла — снекбар с локализованным отказом; ни один
 /// из исходов не роняет операцию.
-Future<void> _openAttachment(
+///
+/// M6-шаг D (D-67.в): функция публична — её же вызывает контекстное меню
+/// «Просмотр вложения» из плитки операций (transactions_screen), SQL и
+/// файловый I/O в UI не заводятся.
+Future<void> openAttachment(
   BuildContext context,
   WidgetRef ref,
   Attachment attachment,

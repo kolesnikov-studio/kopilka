@@ -191,10 +191,14 @@ void main() {
       );
       await _openTransactionsTab(tester, app);
 
-      // Долгий тап по плитке → подтверждение → мягкое удаление (B4.2:
-      // способ «исправить» перевод — удалить и создать заново).
+      // Долгий тап по плитке → контекстное меню (M6-шаг D, D-92):
+      // пункт удаления → подтверждение → мягкое удаление (B4.2: способ
+      // «исправить» перевод — удалить и создать заново).
       await tester.longPress(find.textContaining(_amount(app, 1000000)));
       await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.deleteAction).last);
+      await tester.pumpAndSettle();
+      // Подтверждение удаления — прежний поток (диалог после меню).
       await tester.tap(find.text(app.l10n.deleteAction).last);
       await tester.pumpAndSettle();
 
