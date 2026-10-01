@@ -336,6 +336,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(l10n.remindersTimeNote),
+                // M6-шаг D (спека §6): честная подпись, что расписание
+                // включает и проценты по накопительным счетам (оба
+                // источника уже в механике D-83); механика не трогается.
+                Text(l10n.remindersInterestNote),
                 if (Theme.of(context).platform == TargetPlatform.linux)
                   Text(l10n.remindersLinuxHint),
               ],
