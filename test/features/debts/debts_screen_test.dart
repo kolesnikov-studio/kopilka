@@ -685,11 +685,19 @@ void main() {
         app.l10n.debtSectionTotalTheyOweMe(''),
       );
       expect(totalLine, findsOneWidget);
-      final String expected = app.l10n.debtSectionTotalTheyOweMe(
-        '${formatMoneyMinor(230000, symbol: '₽', locale: 'ru')} · '
-        '${formatMoneyMinor(5000, symbol: r'$', locale: 'ru')}',
+      // Корзины валют идут в порядке появления долгов в секции; при равных
+      // createdAt порядок списка задаёт uuid-tie-break (watchAlive: ORDER BY
+      // createdAt, id) — конкретный порядок не фиксируем (правка приёмки,
+      // D-103). Требование §1: одна строка, по корзине на валюту.
+      final String rub = formatMoneyMinor(230000, symbol: '₽', locale: 'ru');
+      final String usd = formatMoneyMinor(5000, symbol: r'$', locale: 'ru');
+      expect(
+        tester.widget<Text>(totalLine).data,
+        anyOf(
+          app.l10n.debtSectionTotalTheyOweMe('$rub · $usd'),
+          app.l10n.debtSectionTotalTheyOweMe('$usd · $rub'),
+        ),
       );
-      expect(tester.widget<Text>(totalLine).data, expected);
     },
   );
 
