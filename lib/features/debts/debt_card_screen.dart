@@ -180,7 +180,16 @@ class _DebtCardBody extends ConsumerWidget {
           '${l10n.debtAmountLabel}: ${money(summary.totalMinor)}',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        Text(l10n.debtRemainingLine(money(summary.remainingMinor))),
+        // Погашено — сумма живых платежей отдельной строкой (§2, D-90).
+        Text(l10n.debtPaidLine(money(summary.paidMinor))),
+        // Отрицательный остаток (платежей больше долга — возможен после
+        // импорта) — красным, честно, без чипа «Погашен» (§2).
+        Text(
+          l10n.debtRemainingLine(money(summary.remainingMinor)),
+          style: summary.remainingMinor < 0
+              ? TextStyle(color: Theme.of(context).colorScheme.error)
+              : null,
+        ),
         if (debt.extraMinor > 0)
           Text(
             l10n.debtExtraHelper,

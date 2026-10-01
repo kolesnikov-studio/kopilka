@@ -255,6 +255,8 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
                 exponent: exponent,
                 hintText: '0,00',
                 suffixText: amountSuffix,
+                // Спеченный текст ошибки (§3/D-90): не общий amountInvalid.
+                invalidText: l10n.debtAmountInvalid,
               ),
               const SizedBox(height: 12),
               // Переплата необязательна («пустое = 0», §3/D-82): пустое
@@ -268,6 +270,8 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
                 exponent: exponent,
                 hintText: '0,00',
                 suffixText: amountSuffix,
+                // Спеченный текст ошибки переплаты (§3/D-90).
+                invalidText: l10n.debtExtraInvalid,
               ),
               Align(
                 alignment: Alignment.centerLeft,

@@ -20,6 +20,7 @@ class AmountField extends StatelessWidget {
     this.hintText,
     this.suffixText,
     this.labelText,
+    this.invalidText,
   });
 
   final TextEditingController controller;
@@ -48,6 +49,12 @@ class AmountField extends StatelessWidget {
   /// Свой заголовок поля (B4.1: «Списано»/«Зачислено» у перевода);
   /// null — стандартный «Сумма».
   final String? labelText;
+
+  /// Свой текст ошибки валидации (D-90: спеченные тексты суммы формы
+  /// долга — `debtAmountInvalid`/`debtExtraInvalid` вместо общего
+  /// amountInvalid); null — стандартный текст. Семантику (> 0 / >= 0)
+  /// не меняет — только текст.
+  final String? invalidText;
 
   /// Вызывается при каждой правке текста пользователем (B4.1: пересчёт
   /// расчётной строки курса и предзаполнения второй суммы перевода);
@@ -80,7 +87,7 @@ class AmountField extends StatelessWidget {
               exponent: exponent,
             ) ==
             null
-        ? l10n.amountInvalid
+        ? (invalidText ?? l10n.amountInvalid)
         : null;
       },
       onFieldSubmitted: onSubmitted,

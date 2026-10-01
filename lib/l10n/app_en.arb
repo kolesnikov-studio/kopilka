@@ -968,6 +968,13 @@
     },
     "description": "Remaining amount line on a debt tile/card; {amount} formatted by formatMoneyMinor (D-89 §1/§2)"
   },
+  "debtPaidLine": "Paid: {amount}",
+  "@debtPaidLine": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    },
+    "description": "Paid-so-far line on the debt card; {amount} is the sum of alive payments formatted by formatMoneyMinor (D-90 §2)"
+  },
   "debtDueDateLabel": "Due date",
   "@debtDueDateLabel": {
     "description": "Label of the debt due date (D-89 §2)"

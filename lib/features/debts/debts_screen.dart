@@ -245,6 +245,11 @@ class _DebtTile extends ConsumerWidget {
                 exponent: exponent,
               ),
             ),
+            // Отрицательный остаток (платежей больше долга — возможен после
+            // импорта) — красным и в списке, без чипа (§2, D-90).
+            style: (summary?.remainingMinor ?? 0) < 0
+                ? TextStyle(color: Theme.of(context).colorScheme.error)
+                : null,
           ),
         ],
       ),

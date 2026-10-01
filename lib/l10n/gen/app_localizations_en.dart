@@ -870,6 +870,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String debtPaidLine(String amount) {
+    return 'Paid: $amount';
+  }
+
+  @override
   String get debtDueDateLabel => 'Due date';
 
   @override

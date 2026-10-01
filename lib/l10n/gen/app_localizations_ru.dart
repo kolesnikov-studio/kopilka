@@ -878,6 +878,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String debtPaidLine(String amount) {
+    return 'Погашено: $amount';
+  }
+
+  @override
   String get debtDueDateLabel => 'Срок возврата';
 
   @override

@@ -1574,6 +1574,12 @@ abstract class AppLocalizations {
   /// **'Remaining: {amount}'**
   String debtRemainingLine(String amount);
 
+  /// Paid-so-far line on the debt card; {amount} is the sum of alive payments formatted by formatMoneyMinor (D-90 §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Paid: {amount}'**
+  String debtPaidLine(String amount);
+
   /// Label of the debt due date (D-89 §2)
   ///
   /// In en, this message translates to:

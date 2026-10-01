@@ -265,6 +265,7 @@
   "debtSectionTotalTheyOweMe": "Мне должны: {amount}",
   "debtSectionTotalIOweThem": "Я должен: {amount}",
   "debtRemainingLine": "Остаток: {amount}",
+  "debtPaidLine": "Погашено: {amount}",
   "debtDueDateLabel": "Срок возврата",
   "debtOverdueBadge": "Просрочено",
   "debtPaidOffBadge": "Погашен",
