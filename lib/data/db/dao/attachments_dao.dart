@@ -72,26 +72,7 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
     required String mimeType,
     required int fileSize,
   }) async {
-    if (!AttachmentsStorageRules.isMimeTypeAllowed(mimeType)) {
-      throw DataValidationException(
-        'mime-тип «$mimeType» вне белого списка вложений '
-        '(image/*, application/pdf)',
-        kind: DataFailure.invalidInput,
-      );
-    }
-    if (fileSize <= 0 || fileSize > AttachmentsStorageRules.maxFileSizeBytes) {
-      throw DataValidationException(
-        'размер вложения $fileSize вне допустимого диапазона '
-        '(лимит ${AttachmentsStorageRules.maxFileSizeBytes} байт)',
-        kind: DataFailure.invalidInput,
-      );
-    }
-    if (filePath.trim().isEmpty) {
-      throw DataValidationException(
-        'путь файла вложения пуст',
-        kind: DataFailure.invalidInput,
-      );
-    }
+    _ensureFileMeta(mimeType: mimeType, filePath: filePath, fileSize: fileSize);
     final Transaction? transaction = _transactionOf(transactionId) == null
         ? null
         : await (select(transactions)..where(
@@ -112,19 +93,13 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
       );
     }
     final DateTime now = clock();
-    final String id = idGenerator();
     // Правило «один живой файл на операцию» (D-63): прежнее вложение
     // мягко удаляется — замена, не отказ (образец бюджетов; у бюджета
     // отказ, здесь файл единственный, повторное вложение = замена).
-    final Attachment? existing = await findByTransaction(transactionId);
-    if (existing != null) {
-      await (update(attachments)..where((t) => t.id.equals(existing.id))).write(
-        AttachmentsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
-      );
-    }
+    await _replaceExisting(await findByTransaction(transactionId), now: now);
     return into(attachments).insertReturning(
       AttachmentsCompanion.insert(
-        id: id,
+        id: idGenerator(),
         transactionId: transactionId,
         filePath: filePath,
         mimeType: mimeType,
@@ -218,26 +193,7 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
     required String mimeType,
     required int fileSize,
   }) async {
-    if (!AttachmentsStorageRules.isMimeTypeAllowed(mimeType)) {
-      throw DataValidationException(
-        'mime-тип «$mimeType» вне белого списка вложений '
-        '(image/*, application/pdf)',
-        kind: DataFailure.invalidInput,
-      );
-    }
-    if (fileSize <= 0 || fileSize > AttachmentsStorageRules.maxFileSizeBytes) {
-      throw DataValidationException(
-        'размер вложения $fileSize вне допустимого диапазона '
-        '(лимит ${AttachmentsStorageRules.maxFileSizeBytes} байт)',
-        kind: DataFailure.invalidInput,
-      );
-    }
-    if (filePath.trim().isEmpty) {
-      throw DataValidationException(
-        'путь файла вложения пуст',
-        kind: DataFailure.invalidInput,
-      );
-    }
+    _ensureFileMeta(mimeType: mimeType, filePath: filePath, fileSize: fileSize);
     final Debt? debt = await _requireAliveDebtOwner(
       AttachmentOwner.debt(debtId),
     );
@@ -247,15 +203,10 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.notFound,
       );
     }
+    final DateTime now = clock();
     // Правило «один живой файл на владельца» (D-63): прежнее вложение
     // мягко удаляется — замена, как у операций.
-    final Attachment? existing = await findByDebt(debt.id);
-    final DateTime now = clock();
-    if (existing != null) {
-      await (update(attachments)..where((t) => t.id.equals(existing.id))).write(
-        AttachmentsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
-      );
-    }
+    await _replaceExisting(await findByDebt(debt.id), now: now);
     await customStatement('PRAGMA foreign_keys = OFF');
     try {
       await into(attachments).insert(
@@ -278,6 +229,51 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
               t.deletedAt.isNull(),
         ))
         .getSingle();
+  }
+
+  /// Проверки метаданных файла, общие для [create] и [createForDebt]
+  /// (D-96): MIME-белый список, размер, непустой путь — последняя линия
+  /// защиты DAO за проверкой в сервисе вложений (D-63). Тексты отказов
+  /// и порядок проверок — прежние (поведение не меняется).
+  void _ensureFileMeta({
+    required String mimeType,
+    required String filePath,
+    required int fileSize,
+  }) {
+    if (!AttachmentsStorageRules.isMimeTypeAllowed(mimeType)) {
+      throw DataValidationException(
+        'mime-тип «$mimeType» вне белого списка вложений '
+        '(image/*, application/pdf)',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    if (fileSize <= 0 || fileSize > AttachmentsStorageRules.maxFileSizeBytes) {
+      throw DataValidationException(
+        'размер вложения $fileSize вне допустимого диапазона '
+        '(лимит ${AttachmentsStorageRules.maxFileSizeBytes} байт)',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    if (filePath.trim().isEmpty) {
+      throw DataValidationException(
+        'путь файла вложения пуст',
+        kind: DataFailure.invalidInput,
+      );
+    }
+  }
+
+  /// Замена прежнего живого вложения владельца (правило «один живой файл»,
+  /// D-63; сводка дублей — D-96): прежняя запись уходит в soft delete.
+  Future<void> _replaceExisting(
+    Attachment? existing, {
+    required DateTime now,
+  }) async {
+    if (existing == null) {
+      return;
+    }
+    await (update(attachments)..where((t) => t.id.equals(existing.id))).write(
+      AttachmentsCompanion(deletedAt: Value(now), updatedAt: Value(now)),
+    );
   }
 }
 
