@@ -12,6 +12,7 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/features/budgets/budget_form_dialog.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/budgets/budgets_controller.dart';
+import 'package:kopilka/features/reports/insights_cards.dart';
 import 'package:kopilka/features/reports/reports_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
@@ -33,6 +34,13 @@ class ReportsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            // M6-шаг D (спека §3–§4): две карточки в вершину колонки —
+            // напоминание о процентах и совет «неснижаемый остаток».
+            // Loading/error/«нет условий» — не рисуются, дашборд не роняют.
+            const InterestReminderCard(),
+            const SizedBox(height: 12),
+            const AdviceCard(),
+            const SizedBox(height: 12),
             _BalanceCard(),
             const SizedBox(height: 12),
             const _MonthSwitcher(),

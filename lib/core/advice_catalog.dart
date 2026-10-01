@@ -80,29 +80,36 @@ Future<bool> minBalanceAdviceDescriptor(
   );
 }
 
+/// Критерий дизайнера шага D (D-92): подходящий счёт — с любой лежащей
+/// суммой (`balanceMinor > 0`). Абсолютный порог отвергнут спекой §4:
+/// многовалютность потребовала бы конвертации ради одного порога.
+/// Совет скрыт в UI, пока жив накопительный счёт (фильтр карточки,
+/// D-92.2) — дескриптор остаётся истинным по D-84, UI потребляет.
+bool positiveBalanceSuitability(Account account, int balanceMinor) =>
+    balanceMinor > 0;
+
 /// Чек-лист советов (D-84): константный справочник.
 ///
-/// Совет о неснижаемом остатке в справочнике — с нейтральным критерием
-/// [noSuitability] (до спеки дизайнера совет не показывается никому);
-/// шаг D подставит свой критерий сборкой списка (или явно подтверждённой
-/// правкой этого файла — это данные, не код, §8.е).
+/// Шаг D (D-92) подставил критерий дизайнера [positiveBalanceSuitability]
+/// правкой дескриптора — «данные, не код», §8.е (шов справочника
+/// оставлял [noSuitability] до спеки).
 const List<Advice> adviceCatalog = <Advice>[
   Advice(
     id: 'min-balance-interest',
     titleKey: 'adviceMinBalanceTitle',
     bodyKey: 'adviceMinBalanceBody',
     actionKey: 'adviceMinBalanceAction',
-    descriptor: _minBalanceAdviceDefault,
+    descriptor: _minBalanceAdviceDesigner,
   ),
 ];
 
-Future<bool> _minBalanceAdviceDefault(
+Future<bool> _minBalanceAdviceDesigner(
   AccountsDao accountsDao,
   DebtsDao debtsDao,
 ) => minBalanceAdviceDescriptor(
       accountsDao,
       debtsDao,
-      suitability: noSuitability,
+      suitability: positiveBalanceSuitability,
     );
 
 /// Советы, показываемые сейчас: дескриптор истинен на живых потоках

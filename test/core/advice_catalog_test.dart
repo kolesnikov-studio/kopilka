@@ -98,13 +98,33 @@ void main() {
       expect(active, isFalse);
     });
 
-    test('дефолтный справочник: до решения дизайнера совет не показывается',
+    test('дефолтный справочник: критерий дизайнера применён (шаг D, D-92)',
         () async {
       await db.accountsDao.create(
         name: 'Карта',
         kind: AccountKind.card,
         currencyCode: 'RUB',
         initialBalanceMinor: 999_00,
+      );
+
+      final List<Advice> active = await activeAdvices(
+        db.accountsDao,
+        db.debtsDao,
+      );
+
+      // Спека дизайнера (D-92): suitability = balanceMinor > 0 — совет
+      // активен на обычном счёте с любой лежащей суммой; UI-фильтр
+      // «пока жив накопительный» — потребление карточки (insights_cards).
+      expect(active, hasLength(1));
+      expect(active.single.id, 'min-balance-interest');
+    });
+
+    test('нулевые балансы совета не дают (критерий дизайнера: > 0)',
+        () async {
+      await db.accountsDao.create(
+        name: 'Пустая карта',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
       );
 
       final List<Advice> active = await activeAdvices(
