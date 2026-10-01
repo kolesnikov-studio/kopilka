@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
+import 'package:kopilka/data/db/dao/attachments_dao.dart'
+    show AttachmentOwner;
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/export/backup_codec.dart';
@@ -28,9 +30,15 @@ class BackupService {
   /// Атомарно заменяет содержимое БД на данные бэкапа.
   ///
   /// Порядок транзакции: всё снести → валюты → счета → категории →
-  /// операции (внешние ключи включены, `PRAGMA foreign_keys = ON` из
-  /// beforeOpen). Транзакция drift атомарна: падение посреди импорта
-  /// оставляет базу нетронутой. Валидация формата выполняется ДО транзакции.
+  /// операции → долги → платежи → вложения. Транзакция drift атомарна:
+  /// падение посреди импорта оставляет базу нетронутой. Валидация формата
+  /// и ссылок выполняется ДО транзакции.
+  ///
+  /// Окно `PRAGMA foreign_keys = OFF` — снаружи транзакции (D-90, живой
+  /// прецедент — `AttachmentsDao.createForDebt`): PRAGMA внутри транзакции
+  /// SQLite — no-op, а вложения-долги (`d:<id>` в transaction_id) ссылаются
+  /// мимо FK на transactions. Ссылки к этому моменту уже сверены
+  /// [_validateReferences] — FK-шов не отменяет валидацию.
   Future<void> importJson(String json) async {
     final Map<String, dynamic> document;
     try {
@@ -53,9 +61,9 @@ class BackupService {
     final DecodedBackup backup = decodeJson(document);
     await _validateReferences(backup);
 
-    await db.transaction(() async {
-      await db.customStatement('PRAGMA foreign_keys = OFF');
-      try {
+    await db.customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await db.transaction(() async {
       await db.customUpdate('DELETE FROM debt_payments');
       await db.customUpdate('DELETE FROM debts');
       await db.customUpdate('DELETE FROM attachments');
@@ -195,10 +203,10 @@ class BackupService {
                 ),
               );
         }
-      } finally {
-        await db.customStatement('PRAGMA foreign_keys = ON');
-      }
-    });
+      });
+    } finally {
+      await db.customStatement('PRAGMA foreign_keys = ON');
+    }
   }
 
   /// Внутренние ссылки дампа обязаны сходиться (FK включён, но ошибка
@@ -218,6 +226,12 @@ class BackupService {
     // v6 (D-64): ссылка вложения на операцию — по правилу остальных таблиц.
     final Set<String> transactionIds = <String>{
       for (final BackupTransaction row in backup.transactions) row.id,
+    };
+    // v7 (D-85): идентификаторы долгов — по правилу остальных таблиц (D-64):
+    // существование PK, мягко удалённые строки не препятствуют (D-25).
+    // С D-90 тот же набор проверяет вложения-долги (владелец `d:<id>`).
+    final Set<String> debtIds = <String>{
+      for (final BackupDebt row in backup.debts) row.id,
     };
 
     for (final BackupAccount row in backup.accounts) {
@@ -319,11 +333,8 @@ class BackupService {
         );
       }
     }
-    // v7 (D-85): ссылки долгов — по правилу остальных таблиц (D-64):
-    // существование PK, мягко удалённые строки не препятствуют (D-25).
-    final Set<String> debtIds = <String>{
-      for (final BackupDebt row in backup.debts) row.id,
-    };
+    // v7 (D-85): ссылки долгов — по правилу остальных таблиц (см. набор
+    // debtIds выше): существование PK, мягко удалённые не препятствуют.
     for (final BackupDebt row in backup.debts) {
       if (!currencyCodes.contains(row.currencyCode)) {
         throw BackupValidationException(
@@ -349,8 +360,23 @@ class BackupService {
         );
       }
     }
+    // v6/M6 (D-64/D-90): ключ владельца вложения живёт в transaction_id и
+    // различается классом [AttachmentOwner]: без префикса — сырой id
+    // операции, `d:<id>` — долг (двоеточий в UUID нет — двусмысленности
+    // нет). Правило общее (D-64/D-25): существование PK, мягко удалённый
+    // владелец импорту не препятствует.
     for (final BackupAttachment row in backup.attachments) {
-      if (!transactionIds.contains(row.transactionId)) {
+      final String? debtOwnerId =
+          AttachmentOwner.debtOwner(row.transactionId);
+      if (debtOwnerId != null) {
+        if (!debtIds.contains(debtOwnerId)) {
+          throw BackupValidationException(
+            'вложение ${row.id} ссылается на отсутствующий долг '
+            '$debtOwnerId',
+            kind: BackupFailure.invalidData,
+          );
+        }
+      } else if (!transactionIds.contains(row.transactionId)) {
         throw BackupValidationException(
           'вложение ${row.id} ссылается на отсутствующую операцию '
           '${row.transactionId}',

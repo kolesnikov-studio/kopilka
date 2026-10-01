@@ -1110,6 +1110,74 @@ void main() {
     );
   });
 
+  test('вложение долга d:<id> импортируется — валидатор различает владельцев '
+      '(D-90)', () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    // Владелец — долг: ключ d:<id> в той же колонке (M6/D-82). Проверка
+    // ссылки — по множеству долгов, не операций: иначе вложение долга не
+    // переносится бэкапом вовсе (дефект D-90).
+    final Map<String, dynamic> document =
+        jsonDecode(jsonEncode(v7WithDebt(serviceDebt, servicePayment)))
+            as Map<String, dynamic>;
+    ((document['data'] as Map<String, dynamic>)['attachments']
+            as List<dynamic>)
+        .add(<String, dynamic>{
+      'id': 'att-debt-1',
+      'transaction_id': 'd:debt-1',
+      'file_path': 'debt-check.jpg',
+      'mime_type': 'image/jpeg',
+      'file_size': 4096,
+      'created_at': '2026-09-30T00:00:00.000Z',
+      'updated_at': '2026-09-30T00:00:00.000Z',
+      'deleted_at': null,
+    });
+
+    await BackupService(database).importJson(jsonEncode(document));
+
+    // Вложение живёт в восстановленной БД и найдено владельцем-долгом.
+    final Attachment? attachment =
+        await database.attachmentsDao.findByDebt('debt-1');
+    expect(attachment, isNotNull);
+    expect(attachment!.filePath, 'debt-check.jpg');
+    expect(attachment.fileSize, 4096);
+  });
+
+  test('вложение d:<id> на отсутствующий долг — отказ invalidData (D-90)',
+      () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final Map<String, dynamic> document =
+        jsonDecode(jsonEncode(v7WithDebt(serviceDebt, servicePayment)))
+            as Map<String, dynamic>;
+    ((document['data'] as Map<String, dynamic>)['attachments']
+            as List<dynamic>)
+        .add(<String, dynamic>{
+      'id': 'att-debt-bad',
+      'transaction_id': 'd:debt-нет-такой',
+      'file_path': 'debt-check.jpg',
+      'mime_type': 'image/jpeg',
+      'file_size': 4096,
+      'created_at': '2026-09-30T00:00:00.000Z',
+      'updated_at': '2026-09-30T00:00:00.000Z',
+      'deleted_at': null,
+    });
+    final String json = jsonEncode(document);
+
+    expect(
+      () => BackupService(database).importJson(json),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+    // Отказ до транзакции: база не тронута.
+    expect(await database.transactionsDao.getFiltered(), hasLength(0));
+  });
+
   test('платёж на мягко удалённый долг импортируется без падения (D-85/D-25)',
       () async {
     final AppDatabase database = await seeded();

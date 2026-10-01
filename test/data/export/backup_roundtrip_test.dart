@@ -201,6 +201,15 @@ Future<
   );
   await database.debtsDao.softDelete(deadDebt.id);
 
+  // Вложение долга (M6/D-82, D-90): владелец — ключ d:<id> в той же
+  // колонке. Файл на диске не нужен: бэкап переносит только метаданные.
+  await database.attachmentsDao.createForDebt(
+    debtId: debt.id,
+    filePath: 'debt-check.jpg',
+    mimeType: 'image/jpeg',
+    fileSize: 4096,
+  );
+
   return (
     db: database,
     groceriesId: groceriesId,
@@ -375,11 +384,12 @@ void main() {
     );
     expect(attachment.filePath, endsWith('.jpg'));
 
-    // Мягко удалённая операция без вложения: вложений ровно одно.
+    // Мягко удалённая операция без вложения: вложений два — операция (v6)
+    // и долг (M6/D-90).
     final List<QueryRow> attachmentsCount = await restored.customSelect(
       'SELECT COUNT(*) AS c FROM attachments',
     ).get();
-    expect(attachmentsCount.single.read<int>('c'), 1);
+    expect(attachmentsCount.single.read<int>('c'), 2);
 
     // Долги (v7, D-85): живой долг с телом/переплатой/сроком пережил
     // round-trip дословно; платёж сохранил ссылку на перевод; мягко
@@ -402,6 +412,14 @@ void main() {
       "SELECT COUNT(*) AS c FROM debts WHERE deleted_at IS NOT NULL",
     ).get();
     expect(deadDebts.single.read<int>('c'), 1);
+
+    // Вложение долга (D-90): ключ владельца d:<id> пережил round-trip —
+    // вложение живёт в восстановленном файле и найдено findByDebt.
+    final Attachment? debtAttachment =
+        await restored.attachmentsDao.findByDebt(restoredDebt.id);
+    expect(debtAttachment, isNotNull);
+    expect(debtAttachment!.filePath, 'debt-check.jpg');
+    expect(debtAttachment.fileSize, 4096);
 
     // Накопительный счёт (v7, D-81): дата напоминания восстановлена.
     final Account restoredSavings = accounts
@@ -443,11 +461,12 @@ void main() {
     ).get();
     expect(deletedTransactions.single.data['c'], 1);
 
-    // Вложение — метаданные в дампе (v6, D-64), файл на диске не требуется.
+    // Вложения — метаданные в дампе (v6 + M6-долг, D-90), файлы на диске
+    // не требуются: вложение операции и вложение долга.
     final List<QueryRow> attachments = await restored.customSelect(
       'SELECT COUNT(*) AS c FROM attachments',
     ).get();
-    expect(attachments.single.read<int>('c'), 1);
+    expect(attachments.single.read<int>('c'), 2);
   });
 
   test('повторный round-trip стабилен: экспорт → импорт → экспорт → импорт → экспорт',
