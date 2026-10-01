@@ -35,9 +35,7 @@ Future<(ProviderContainer, AppLocalizations)> _pump(WidgetTester tester) async {
   final Directory tempDir = (await tester.runAsync(
     () => Directory.systemTemp.createTemp('kopilka_theme_widget'),
   ))!;
-  addTearDown(
-    () => tester.runAsync(() => tempDir.delete(recursive: true)),
-  );
+  addTearDown(() => tester.runAsync(() => tempDir.delete(recursive: true)));
 
   final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
   addTearDown(db.close);
@@ -79,17 +77,16 @@ Future<(ProviderContainer, AppLocalizations)> _pump(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
-  return (
-    container,
-    await AppLocalizations.delegate.load(const Locale('ru')),
-  );
+  return (container, await AppLocalizations.delegate.load(const Locale('ru')));
 }
 
 void main() {
-  testWidgets('секция «Тема» первая: основа, пресеты, выбран default (D-58)',
-      (WidgetTester tester) async {
-    final (ProviderContainer container, AppLocalizations l10n) =
-        await _pump(tester);
+  testWidgets('секция «Тема» первая: основа, пресеты, выбран default (D-58)', (
+    WidgetTester tester,
+  ) async {
+    final (ProviderContainer container, AppLocalizations l10n) = await _pump(
+      tester,
+    );
 
     // Первая секция списка: заголовок «Тема» у верхней кромки, сегменты
     // под ним, пункт «Валюты» — ниже всей секции темы.
@@ -141,10 +138,12 @@ void main() {
     expect(container.read(themeProvider).preset, same(defaultPreset));
   });
 
-  testWidgets('тап по карточке применяет пресет немедленно, без снека (D-58)',
-      (WidgetTester tester) async {
-    final (ProviderContainer container, AppLocalizations l10n) =
-        await _pump(tester);
+  testWidgets('тап по карточке применяет пресет немедленно, без снека (D-58)', (
+    WidgetTester tester,
+  ) async {
+    final (ProviderContainer container, AppLocalizations l10n) = await _pump(
+      tester,
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('themePreset-ocean')),
@@ -167,10 +166,12 @@ void main() {
     expect(find.text(l10n.rateSyncUpdated(1)), findsNothing);
   });
 
-  testWidgets('сегмент «Тёмная» меняет основу немедленно (D-58)',
-      (WidgetTester tester) async {
-    final (ProviderContainer container, AppLocalizations l10n) =
-        await _pump(tester);
+  testWidgets('сегмент «Тёмная» меняет основу немедленно (D-58)', (
+    WidgetTester tester,
+  ) async {
+    final (ProviderContainer container, AppLocalizations l10n) = await _pump(
+      tester,
+    );
 
     await tester.tap(find.text(l10n.themeModeDark));
     await tester.pumpAndSettle();

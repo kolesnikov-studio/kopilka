@@ -103,15 +103,15 @@ typedef CsvColumnMapping = Map<int, CsvField>;
 /// Дефолтный маппинг по заголовкам CSV-экспорта v0.3: позиции известны,
 /// шапка файла нужна только человеку.
 CsvColumnMapping csvMappingFromExportV03() => <int, CsvField>{
-      1: CsvField.date,
-      2: CsvField.type,
-      3: CsvField.account,
-      6: CsvField.amount,
-      7: CsvField.currency,
-      4: CsvField.targetAccount,
-      5: CsvField.category,
-      8: CsvField.note,
-    };
+  1: CsvField.date,
+  2: CsvField.type,
+  3: CsvField.account,
+  6: CsvField.amount,
+  7: CsvField.currency,
+  4: CsvField.targetAccount,
+  5: CsvField.category,
+  8: CsvField.note,
+};
 
 /// Разбирает CSV-текст RFC-4180 с разделителем `;` (формат экспорта v0.3):
 /// кавычки закрывают поля с `;`, `"` и переносами строк, `""` внутри
@@ -154,8 +154,7 @@ List<List<String>> parseCsv(String input) {
   void endRecord() {
     // Содержательность записи решаем ДО endField: после него флаг уже
     // поднят, и пустая строка `\n` не отличалась бы от `;;`.
-    final bool hasContent =
-        anyFieldWritten || fieldQuoted || field.isNotEmpty;
+    final bool hasContent = anyFieldWritten || fieldQuoted || field.isNotEmpty;
     endField();
     if (hasContent) {
       records.add(record);
@@ -408,10 +407,7 @@ K? exactByName<K>(String name, Map<String, K> byName) => byName[name];
 /// не запрещает. Дубль сделал бы выбор записи неопределённым («молча
 /// взять последнюю» — ложь данных, D-25): отказ импорта, приведение имён
 /// — забота пользователя.
-Map<String, K> aliveByName<K>(
-  List<K> rows,
-  String Function(K) nameOf,
-) {
+Map<String, K> aliveByName<K>(List<K> rows, String Function(K) nameOf) {
   final Map<String, K> byName = <String, K>{};
   for (final K row in rows) {
     final String name = nameOf(row);
@@ -529,8 +525,8 @@ CsvImportData parseCsvImport({
         }
         final Map<String, Category> categoriesByName =
             type == TransactionType.income
-                ? incomeCategoriesByName
-                : expenseCategoriesByName;
+            ? incomeCategoriesByName
+            : expenseCategoriesByName;
         final Category? category = categoryName.isEmpty
             ? null
             : exactByName(categoryName, categoriesByName);
@@ -640,14 +636,15 @@ Future<CsvImportResult> importTransactionsCsv(
   IdGenerator idGenerator = newId,
   Clock clock = utcNow,
 }) async {
-  final Map<String, Account> accountsByName =
-      aliveByName(await db.accountsDao.getAlive(), (Account a) => a.name);
+  final Map<String, Account> accountsByName = aliveByName(
+    await db.accountsDao.getAlive(),
+    (Account a) => a.name,
+  );
   final List<Category> categories = await db.categoriesDao.getAlive();
   final Map<String, Category> expenseCategoriesByName = aliveByName(
     categories
         .where(
-          (Category c) =>
-              CategoryKind.fromDb(c.kind) == CategoryKind.expense,
+          (Category c) => CategoryKind.fromDb(c.kind) == CategoryKind.expense,
         )
         .toList(growable: false),
     (Category c) => c.name,
@@ -655,8 +652,7 @@ Future<CsvImportResult> importTransactionsCsv(
   final Map<String, Category> incomeCategoriesByName = aliveByName(
     categories
         .where(
-          (Category c) =>
-              CategoryKind.fromDb(c.kind) == CategoryKind.income,
+          (Category c) => CategoryKind.fromDb(c.kind) == CategoryKind.income,
         )
         .toList(growable: false),
     (Category c) => c.name,
@@ -713,7 +709,9 @@ Future<CsvImportResult> importTransactionsCsv(
       // Суммы/форма перевода проверены парсером; правила DAO (§3, D-17)
       // соблюдаются конструкцией: сумма > 0, валюта = валюта счёта,
       // у перевода с разными валютами обе суммы заданы.
-      await db.into(db.transactions).insert(
+      await db
+          .into(db.transactions)
+          .insert(
             TransactionsCompanion.insert(
               id: idGenerator(),
               type: operation.type.dbValue,
@@ -745,14 +743,15 @@ Future<CsvImportResult> importCsvFile(
 }) async {
   final CsvColumnMapping effectiveMapping =
       mapping ?? csvMappingFromExportV03();
-  final Map<String, Account> accountsByName =
-      aliveByName(await db.accountsDao.getAlive(), (Account a) => a.name);
+  final Map<String, Account> accountsByName = aliveByName(
+    await db.accountsDao.getAlive(),
+    (Account a) => a.name,
+  );
   final List<Category> categories = await db.categoriesDao.getAlive();
   final Map<String, Category> expenseCategoriesByName = aliveByName(
     categories
         .where(
-          (Category c) =>
-              CategoryKind.fromDb(c.kind) == CategoryKind.expense,
+          (Category c) => CategoryKind.fromDb(c.kind) == CategoryKind.expense,
         )
         .toList(growable: false),
     (Category c) => c.name,
@@ -760,8 +759,7 @@ Future<CsvImportResult> importCsvFile(
   final Map<String, Category> incomeCategoriesByName = aliveByName(
     categories
         .where(
-          (Category c) =>
-              CategoryKind.fromDb(c.kind) == CategoryKind.income,
+          (Category c) => CategoryKind.fromDb(c.kind) == CategoryKind.income,
         )
         .toList(growable: false),
     (Category c) => c.name,

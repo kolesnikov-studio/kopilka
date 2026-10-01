@@ -98,37 +98,36 @@ void main() {
     },
   );
 
-  testWidgets(
-    'редактирование счёта с нулевым начальным балансом сохраняется',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_account_dialog_test',
-      );
+  testWidgets('редактирование счёта с нулевым начальным балансом сохраняется', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_account_dialog_test',
+    );
 
-      final Account account = await app.db.accountsDao.create(
-        name: 'Копилка',
-        kind: AccountKind.cash,
-        currencyCode: baseCurrencyCode,
-      );
+    final Account account = await app.db.accountsDao.create(
+      name: 'Копилка',
+      kind: AccountKind.cash,
+      currencyCode: baseCurrencyCode,
+    );
 
-      await tester.tap(find.text(app.l10n.navAccounts).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Копилка'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navAccounts).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Копилка'));
+    await tester.pumpAndSettle();
 
-      // Ноль в поле «новый начальный баланс» корректен: валидация не
-      // блокирует сохранение, значение не меняется.
-      expect(find.text('0.00'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
-      await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+    // Ноль в поле «новый начальный баланс» корректен: валидация не
+    // блокирует сохранение, значение не меняется.
+    expect(find.text('0.00'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
 
-      final Account? after = await app.db.accountsDao.findById(account.id);
-      expect(after, isNotNull);
-      expect(after!.initialBalanceMinor, 0);
-    },
-  );
+    final Account? after = await app.db.accountsDao.findById(account.id);
+    expect(after, isNotNull);
+    expect(after!.initialBalanceMinor, 0);
+  });
 
   testWidgets(
     'U12: пустое поле начального баланса показывает placeholder «0,00»',
@@ -148,63 +147,59 @@ void main() {
     },
   );
 
-  testWidgets(
-    'U1: на пустом списке счетов CTA-кнопка открывает форму счёта',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_account_dialog_test',
-      );
+  testWidgets('U1: на пустом списке счетов CTA-кнопка открывает форму счёта', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_account_dialog_test',
+    );
 
-      // База с посевом пуста счетов — на экране текст и CTA-кнопка
-      // (текст совпадает с tooltip FAB, поэтому ищем по типу кнопки).
-      expect(
-        find.widgetWithText(FilledButton, app.l10n.accountsEmptyCta),
-        findsOneWidget,
-      );
+    // База с посевом пуста счетов — на экране текст и CTA-кнопка
+    // (текст совпадает с tooltip FAB, поэтому ищем по типу кнопки).
+    expect(
+      find.widgetWithText(FilledButton, app.l10n.accountsEmptyCta),
+      findsOneWidget,
+    );
 
-      await tester.tap(
-        find.widgetWithText(FilledButton, app.l10n.accountsEmptyCta),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.text(app.l10n.accountAdd),
-        ),
-        findsOneWidget,
-      );
-    },
-  );
+    await tester.tap(
+      find.widgetWithText(FilledButton, app.l10n.accountsEmptyCta),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text(app.l10n.accountAdd),
+      ),
+      findsOneWidget,
+    );
+  });
 
-  testWidgets(
-    'U2: ошибка потока показывает ErrorState с кнопкой «Повторить»',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_account_dialog_test',
-      );
+  testWidgets('U2: ошибка потока показывает ErrorState с кнопкой «Повторить»', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_account_dialog_test',
+    );
 
-      // U2-виджет проверяем напрямую: ErrorState рисует текст ошибки
-      // и кнопку «Повторить» (поведение экранов покрывают их тесты,
-      // здесь — контракт самого виджета).
-      await tester.pumpWidget(
-        MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: ErrorState(onRetry: () {}),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+    // U2-виджет проверяем напрямую: ErrorState рисует текст ошибки
+    // и кнопку «Повторить» (поведение экранов покрывают их тесты,
+    // здесь — контракт самого виджета).
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(body: ErrorState(onRetry: () {})),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.byType(ErrorState), findsOneWidget);
-      expect(find.text(app.l10n.errorUnknown), findsOneWidget);
-      expect(find.text(app.l10n.retryAction), findsOneWidget);
-    },
-  );
+    expect(find.byType(ErrorState), findsOneWidget);
+    expect(find.text(app.l10n.errorUnknown), findsOneWidget);
+    expect(find.text(app.l10n.retryAction), findsOneWidget);
+  });
 
   testWidgets(
     'B2.1: записи dropdown — «Символ Код — Название» из справочника',
@@ -229,38 +224,37 @@ void main() {
     },
   );
 
-  testWidgets(
-    'D-24: у счёта с операциями валюта — строка без кнопки смены',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_account_dialog_test',
-      );
+  testWidgets('D-24: у счёта с операциями валюта — строка без кнопки смены', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_account_dialog_test',
+    );
 
-      final Account account = await app.db.accountsDao.create(
-        name: 'Карта',
-        kind: AccountKind.card,
-        currencyCode: baseCurrencyCode,
-      );
-      await app.db.transactionsDao.create(
-        type: TransactionType.income,
-        accountId: account.id,
-        amountMinor: 100,
-      );
+    final Account account = await app.db.accountsDao.create(
+      name: 'Карта',
+      kind: AccountKind.card,
+      currencyCode: baseCurrencyCode,
+    );
+    await app.db.transactionsDao.create(
+      type: TransactionType.income,
+      accountId: account.id,
+      amountMinor: 100,
+    );
 
-      await tester.tap(find.text(app.l10n.navAccounts).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Карта'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navAccounts).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Карта'));
+    await tester.pumpAndSettle();
 
-      // Строка «Валюта: ₽ RUB» вместо dropdown'а; ни кнопки, ни подсказки —
-      // счёт с операциями смену валюты не получает (B2.2/D-24).
-      expect(find.text('Валюта: ₽ RUB'), findsOneWidget);
-      expect(find.text(app.l10n.accountCurrencyChangeAction), findsNothing);
-      expect(find.text(app.l10n.accountCurrencyLockedHint), findsNothing);
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-    },
-  );
+    // Строка «Валюта: ₽ RUB» вместо dropdown'а; ни кнопки, ни подсказки —
+    // счёт с операциями смену валюты не получает (B2.2/D-24).
+    expect(find.text('Валюта: ₽ RUB'), findsOneWidget);
+    expect(find.text(app.l10n.accountCurrencyChangeAction), findsNothing);
+    expect(find.text(app.l10n.accountCurrencyLockedHint), findsNothing);
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+  });
 
   testWidgets(
     'D-24: у счёта без операций есть подсказка и смена валюты сохраняется',
@@ -306,38 +300,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
-      final Account? after =
-          await app.db.accountsDao.findById((await app.db.accountsDao.getAlive()).first.id);
+      final Account? after = await app.db.accountsDao.findById(
+        (await app.db.accountsDao.getAlive()).first.id,
+      );
       expect(after?.currencyCode, 'USD');
       expect(after?.initialBalanceMinor, 20000);
     },
   );
 
-  testWidgets(
-    'B3: смена валюты в форме создания очищает поле суммы',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_account_dialog_test',
-      );
+  testWidgets('B3: смена валюты в форме создания очищает поле суммы', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_account_dialog_test',
+    );
 
-      await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
+    await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
 
-      await tester.tap(find.byType(FloatingActionButton));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '500',
-      );
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '500',
+    );
 
-      await tester.tap(find.text('₽ RUB — Российский рубль').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('¥ JPY — Японская иена').last);
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('₽ RUB — Российский рубль').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('¥ JPY — Японская иена').last);
+    await tester.pumpAndSettle();
 
-      expect(find.text('500'), findsNothing);
-    },
-  );
+    expect(find.text('500'), findsNothing);
+  });
 
   testWidgets(
     'D-54: переключатель «не учитывать в балансе» создаёт счёт с флагом',
@@ -432,30 +426,29 @@ void main() {
     },
   );
 
-  testWidgets(
-    'B3: баланс JPY-счёта в плитке списка — без копеек',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_account_dialog_test',
-      );
+  testWidgets('B3: баланс JPY-счёта в плитке списка — без копеек', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_account_dialog_test',
+    );
 
-      await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
-      await app.db.accountsDao.create(
-        name: 'Иены',
-        kind: AccountKind.cash,
-        currencyCode: 'JPY',
-        initialBalanceMinor: 12345,
-      );
+    await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
+    await app.db.accountsDao.create(
+      name: 'Иены',
+      kind: AccountKind.cash,
+      currencyCode: 'JPY',
+      initialBalanceMinor: 12345,
+    );
 
-      await tester.tap(find.text(app.l10n.navAccounts).last);
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navAccounts).last);
+    await tester.pumpAndSettle();
 
-      // Формат по экспоненту 0: 12 345 ¥ без дробной части (не «123.45»);
-      // символ из карты справочника (R5); группировка в RU — неразрывный
-      // пробел, поэтому ищем по фрагменту «345» и отсутствию точки.
-      expect(find.textContaining('345'), findsOneWidget);
-      expect(find.textContaining('.'), findsNothing);
-    },
-  );
+    // Формат по экспоненту 0: 12 345 ¥ без дробной части (не «123.45»);
+    // символ из карты справочника (R5); группировка в RU — неразрывный
+    // пробел, поэтому ищем по фрагменту «345» и отсутствию точки.
+    expect(find.textContaining('345'), findsOneWidget);
+    expect(find.textContaining('.'), findsNothing);
+  });
 }

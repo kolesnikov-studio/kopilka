@@ -113,8 +113,7 @@ void main() {
   testWidgets(
     'D-67.в(а): у операции с вложением в меню есть «Просмотр вложения»',
     (WidgetTester tester) async {
-      final (AppHarness app, _FakeAttachmentsService fake) =
-          await pump(tester);
+      final (AppHarness app, _FakeAttachmentsService fake) = await pump(tester);
       final Transaction tx = await _seedExpense(app);
       await fake.attach(
         transactionId: tx.id,
@@ -150,8 +149,7 @@ void main() {
   testWidgets(
     'D-67.в(в): тап пункта открывает шов просмотра — fullscreen-вьюер, меню закрыто',
     (WidgetTester tester) async {
-      final (AppHarness app, _FakeAttachmentsService fake) =
-          await pump(tester);
+      final (AppHarness app, _FakeAttachmentsService fake) = await pump(tester);
       final Transaction tx = await _seedExpense(app);
       await fake.attach(
         transactionId: tx.id,
@@ -196,8 +194,9 @@ void main() {
         isNull,
         reason: 'findById фильтрует мягко удалённые (§3)',
       );
-      final List<Transaction> rawRows =
-          await app.db.select(app.db.transactions).get();
+      final List<Transaction> rawRows = await app.db
+          .select(app.db.transactions)
+          .get();
       expect(rawRows.single.deletedAt, isNotNull);
     },
   );

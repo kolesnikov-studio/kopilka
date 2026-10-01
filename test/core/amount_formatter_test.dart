@@ -10,7 +10,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/app/widgets/amount_field.dart';
 import 'package:kopilka/core/money.dart';
 
-TextEditingValue _edit(TextInputFormatter formatter, String oldText, String newText) {
+TextEditingValue _edit(
+  TextInputFormatter formatter,
+  String oldText,
+  String newText,
+) {
   return formatter.formatEditUpdate(
     TextEditingValue(text: oldText),
     TextEditingValue(text: newText),
@@ -33,11 +37,14 @@ void main() {
       expect(_edit(formatter, '12,', '12,5').text, '12,5');
     });
 
-    test('второй разделитель и мусор отклоняются (возврат старого значения)', () {
-      expect(_edit(formatter, '12.5', '12.5.').text, '12.5');
-      expect(_edit(formatter, '12', '12a').text, '12');
-      expect(_edit(formatter, '', '-5').text, '');
-    });
+    test(
+      'второй разделитель и мусор отклоняются (возврат старого значения)',
+      () {
+        expect(_edit(formatter, '12.5', '12.5.').text, '12.5');
+        expect(_edit(formatter, '12', '12a').text, '12');
+        expect(_edit(formatter, '', '-5').text, '');
+      },
+    );
 
     test('не более двух знаков после разделителя', () {
       expect(_edit(formatter, '1,25', '1,250').text, '1,25');
@@ -45,9 +52,12 @@ void main() {
       expect(_edit(formatter, '9' * 14, '9' * 15).text, '9' * 15);
     });
 
-    test('третий знак после разделителя не вводится (silent-ограничение, B3)', () {
-      expect(_edit(formatter, '1,25', '1,259').text, '1,25');
-    });
+    test(
+      'третий знак после разделителя не вводится (silent-ограничение, B3)',
+      () {
+        expect(_edit(formatter, '1,25', '1,259').text, '1,25');
+      },
+    );
   });
 
   group('AmountInputFormatter, экспонент 0 (JPY)', () {
@@ -79,7 +89,10 @@ void main() {
     // Всё, что форматтер пропустил, парсер обязан разобрать теми же
     // правилами дробности — иначе форма отклоняла бы введённый текст.
     final AmountInputFormatter three = AmountInputFormatter(exponent: 3);
-    expect(parseAmountToMinor(_edit(three, '', '1,234').text, exponent: 3), 1234);
+    expect(
+      parseAmountToMinor(_edit(three, '', '1,234').text, exponent: 3),
+      1234,
+    );
     final AmountInputFormatter zero = AmountInputFormatter(exponent: 0);
     expect(parseAmountToMinor(_edit(zero, '', '123').text, exponent: 0), 123);
   });

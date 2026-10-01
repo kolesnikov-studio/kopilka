@@ -33,11 +33,7 @@ String _money(AppHarness app, int amountMinor, {String symbol = '₽'}) =>
 /// - расходы «Еда» в обеих валютах: 1 000,00 ₽ и 10,00 $;
 /// - бюджет «Еда»: 3 000,00 ₽ базовой (лимит не конвертируется, D-19).
 Future<void> _seedTwoCurrencyLife(AppHarness app) async {
-  await app.db.currenciesDao.create(
-    code: 'USD',
-    symbol: r'$',
-    rateToBase: 100,
-  );
+  await app.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 100);
   final Account rub = await app.db.accountsDao.create(
     name: 'Рубли',
     kind: AccountKind.cash,
@@ -101,46 +97,34 @@ Future<void> _openTransactions(WidgetTester tester, AppHarness app) async {
 /// Прокручивает дашборд до карточки бюджетов и возвращает finds-контекст
 /// строки прогресса «потрачено / лимит».
 Finder _budgetRow(AppHarness app, int spentMinor, int limitMinor) =>
-    find.text(
-      '${_money(app, spentMinor)} / ${_money(app, limitMinor)}',
-    );
+    find.text('${_money(app, spentMinor)} / ${_money(app, limitMinor)}');
 
 void main() {
-  testWidgets(
-    'DoD: операции и балансы счетов — в валюте операции/счёта',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        size: const Size(600, 1000),
-        tempDirPrefix: 'kopilka_dod_two_currencies',
-      );
-      await _seedTwoCurrencyLife(app);
-      await tester.pumpAndSettle();
+  testWidgets('DoD: операции и балансы счетов — в валюте операции/счёта', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      size: const Size(600, 1000),
+      tempDirPrefix: 'kopilka_dod_two_currencies',
+    );
+    await _seedTwoCurrencyLife(app);
+    await tester.pumpAndSettle();
 
-      // Вкладка счетов (стартовая): каждый баланс — по экспоненту и символу
-      // своей валюты (B3): 10 000 − 5 000 − 1 000 = 4 000,00 ₽;
-      // 50 + 50 − 10 = 90,00 $.
-      expect(find.text(_money(app, 400000)), findsOneWidget);
-      expect(find.text(_money(app, 9000, symbol: r'$')), findsOneWidget);
+    // Вкладка счетов (стартовая): каждый баланс — по экспоненту и символу
+    // своей валюты (B3): 10 000 − 5 000 − 1 000 = 4 000,00 ₽;
+    // 50 + 50 − 10 = 90,00 $.
+    expect(find.text(_money(app, 400000)), findsOneWidget);
+    expect(find.text(_money(app, 9000, symbol: r'$')), findsOneWidget);
 
-      // Список операций: суммы в валюте операции (B4.3), перевод — парой.
-      await _openTransactions(tester, app);
-      expect(
-        find.text('+ ${_money(app, 5000, symbol: r'$')}'),
-        findsOneWidget,
-      );
-      expect(find.text(_money(app, 500000)), findsOneWidget);
-      expect(find.text(_money(app, 5000, symbol: r'$')), findsOneWidget);
-      expect(
-        find.text('− ${_money(app, 100000)}'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('− ${_money(app, 1000, symbol: r'$')}'),
-        findsOneWidget,
-      );
-    },
-  );
+    // Список операций: суммы в валюте операции (B4.3), перевод — парой.
+    await _openTransactions(tester, app);
+    expect(find.text('+ ${_money(app, 5000, symbol: r'$')}'), findsOneWidget);
+    expect(find.text(_money(app, 500000)), findsOneWidget);
+    expect(find.text(_money(app, 5000, symbol: r'$')), findsOneWidget);
+    expect(find.text('− ${_money(app, 100000)}'), findsOneWidget);
+    expect(find.text('− ${_money(app, 1000, symbol: r'$')}'), findsOneWidget);
+  });
 
   testWidgets(
     'DoD: отчёты и бюджет — в базовой, у отчётов пометка «по текущему курсу»',
@@ -160,9 +144,7 @@ void main() {
       expect(find.text(app.l10n.reportsAtCurrentRate), findsAtLeastNWidgets(1));
       // …«Всего» доната: 1 000,00 ₽ + 10,00 $ × 100 = 2 000,00 ₽.
       expect(
-        find.text(
-          '${app.l10n.reportsTotalLabel}: ${_money(app, 200000)}',
-        ),
+        find.text('${app.l10n.reportsTotalLabel}: ${_money(app, 200000)}'),
         findsOneWidget,
       );
 
@@ -218,9 +200,7 @@ void main() {
       expect(find.text(_money(app, 2200000)), findsOneWidget);
       // «Всего» доната: 1 000,00 ₽ + 10,00 $ × 200 = 3 000,00 ₽.
       expect(
-        find.text(
-          '${app.l10n.reportsTotalLabel}: ${_money(app, 300000)}',
-        ),
+        find.text('${app.l10n.reportsTotalLabel}: ${_money(app, 300000)}'),
         findsOneWidget,
       );
       // Бюджет: 1 000,00 ₽ + 10,00 $ × 200 = 3 000,00 ₽ — ровно лимит
@@ -230,10 +210,7 @@ void main() {
       // Суммы операций заморожены (D-16/D-17): в списке по-прежнему
       // 10,00 $ и пара перевода 5 000,00 ₽ → 50,00 $.
       await _openTransactions(tester, app);
-      expect(
-        find.text('− ${_money(app, 1000, symbol: r'$')}'),
-        findsOneWidget,
-      );
+      expect(find.text('− ${_money(app, 1000, symbol: r'$')}'), findsOneWidget);
       expect(find.text(_money(app, 500000)), findsOneWidget);
       expect(find.text(_money(app, 5000, symbol: r'$')), findsOneWidget);
     },

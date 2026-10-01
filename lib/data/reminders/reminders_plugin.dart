@@ -109,7 +109,8 @@ class FlNRemindersPlugin implements RemindersPlugin {
         tz.TimeZone(
           offset,
           isDst: false,
-          abbreviation: 'UTC$sign${hours.toString().padLeft(2, '0')}:'
+          abbreviation:
+              'UTC$sign${hours.toString().padLeft(2, '0')}:'
               '${minutes.toString().padLeft(2, '0')}',
         ),
       ],
@@ -117,12 +118,12 @@ class FlNRemindersPlugin implements RemindersPlugin {
   }
 
   static fln.NotificationDetails get _details => const fln.NotificationDetails(
-        android: fln.AndroidNotificationDetails(
-          'reminders',
-          'Kopilka reminders',
-          channelDescription: 'Напоминания о процентах и долгах',
-        ),
-      );
+    android: fln.AndroidNotificationDetails(
+      'reminders',
+      'Kopilka reminders',
+      channelDescription: 'Напоминания о процентах и долгах',
+    ),
+  );
 
   @override
   Future<RemindersChannelError?> initialize() async {

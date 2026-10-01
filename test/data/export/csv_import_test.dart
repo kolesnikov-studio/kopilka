@@ -35,8 +35,8 @@ Future<AppDatabase> seeded() async {
 /// поля с разделителями/кавычками/переносами, кавычки внутри удваиваются.
 String csvField(String value) =>
     (value.contains(';') || value.contains('"') || value.contains('\n'))
-        ? '"${value.replaceAll('"', '""')}"'
-        : value;
+    ? '"${value.replaceAll('"', '""')}"'
+    : value;
 
 /// CSV-строка данных в порядке экспорта v0.3 (колонка id в импорте
 /// не читается — она в дефолтном маппинге отсутствует).
@@ -58,8 +58,7 @@ const String header =
 
 void main() {
   group('парсер CSV', () {
-    test('BOM снимается, \\r\\n — концы строк, пустая последняя колонка живёт',
-        () async {
+    test('BOM снимается, \\r\\n — концы строк, пустая последняя колонка живёт', () async {
       final List<List<String>> rows = parseCsv(
         '\uFEFF$header\r\n${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '123.45', 'RUB', '')}\r\n',
       );
@@ -69,8 +68,7 @@ void main() {
       expect(rows[1].last, ''); // пустая заметка — не выкинута
     });
 
-    test('кавычки: разделители и перенос строки внутри поля — часть значения',
-        () async {
+    test('кавычки: разделители и перенос строки внутри поля — часть значения', () async {
       final List<List<String>> rows = parseCsv(
         '$header\n${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '1.00', 'RUB', 'кофе; с "дополнением"\nи булкой')}\n',
       );
@@ -78,16 +76,16 @@ void main() {
       expect(rows[1].last, 'кофе; с "дополнением"\nи булкой');
     });
 
-    test('пустые строки пропускаются, ;; остаётся строкой с пустыми полями',
-        () async {
-      final List<List<String>> rows = parseCsv(
-        '$header\n\n;;\n\na;b\n',
-      );
-      expect(rows, hasLength(3));
-      expect(rows[0], header.split(';'));
-      expect(rows[1], <String>['', '', '']);
-      expect(rows[2], <String>['a', 'b']);
-    });
+    test(
+      'пустые строки пропускаются, ;; остаётся строкой с пустыми полями',
+      () async {
+        final List<List<String>> rows = parseCsv('$header\n\n;;\n\na;b\n');
+        expect(rows, hasLength(3));
+        expect(rows[0], header.split(';'));
+        expect(rows[1], <String>['', '', '']);
+        expect(rows[2], <String>['a', 'b']);
+      },
+    );
 
     test('кавычки внутри незакавыченного поля — отказ invalidFormat', () {
       expect(
@@ -119,38 +117,42 @@ void main() {
   group('чтение файла в черновик (CsvImportController.loadDraft)', () {
     final CsvImportController controller = CsvImportController();
 
-    test('пустой файл 0 байт — CsvPickFailed(invalidFormat, line: 0) (T-5)',
-        () {
-      // Шапки нет — маппинг не к чему применять (M4-шаг 3).
-      final CsvPickOutcome outcome = controller.loadDraft('');
-      expect(
-        outcome,
-        isA<CsvPickFailed>()
-            .having(
-              (CsvPickFailed e) => e.failure,
-              'failure',
-              CsvImportFailure.invalidFormat,
-            )
-            .having((CsvPickFailed e) => e.line, 'line', 0),
-      );
-    });
+    test(
+      'пустой файл 0 байт — CsvPickFailed(invalidFormat, line: 0) (T-5)',
+      () {
+        // Шапки нет — маппинг не к чему применять (M4-шаг 3).
+        final CsvPickOutcome outcome = controller.loadDraft('');
+        expect(
+          outcome,
+          isA<CsvPickFailed>()
+              .having(
+                (CsvPickFailed e) => e.failure,
+                'failure',
+                CsvImportFailure.invalidFormat,
+              )
+              .having((CsvPickFailed e) => e.line, 'line', 0),
+        );
+      },
+    );
 
-    test('файл с одной шапкой (0 строк данных) — тот же ранний отказ (Dz-2)',
-        () {
-      // Файл экспорта без операций: раньше проходил все диалоги с
-      // «операций: 0» (ревью M4, Dz-2) — теперь ранний отказ.
-      final CsvPickOutcome outcome = controller.loadDraft('$header\n');
-      expect(
-        outcome,
-        isA<CsvPickFailed>()
-            .having(
-              (CsvPickFailed e) => e.failure,
-              'failure',
-              CsvImportFailure.invalidFormat,
-            )
-            .having((CsvPickFailed e) => e.line, 'line', 0),
-      );
-    });
+    test(
+      'файл с одной шапкой (0 строк данных) — тот же ранний отказ (Dz-2)',
+      () {
+        // Файл экспорта без операций: раньше проходил все диалоги с
+        // «операций: 0» (ревью M4, Dz-2) — теперь ранний отказ.
+        final CsvPickOutcome outcome = controller.loadDraft('$header\n');
+        expect(
+          outcome,
+          isA<CsvPickFailed>()
+              .having(
+                (CsvPickFailed e) => e.failure,
+                'failure',
+                CsvImportFailure.invalidFormat,
+              )
+              .having((CsvPickFailed e) => e.line, 'line', 0),
+        );
+      },
+    );
 
     test('файл с одной строкой данных — черновик с rowCount = 1', () {
       // Граница отказа: шапка + ровно одна строка данных — это валидный
@@ -168,7 +170,8 @@ void main() {
     test('дефолт: заголовки экспорта v0.3, колонка id не читается', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '123.45', 'RUB', 'аренда')}\n';
       final CsvImportResult result = await importCsvFile(database, csv: csv);
       expect(result.imported, 1);
@@ -182,7 +185,8 @@ void main() {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
       // Файл «чужой» таблицы: лишняя колонка source, поля в другом порядке.
-      final String csv = 'amount;currency;account;source;type;date\n'
+      final String csv =
+          'amount;currency;account;source;type;date\n'
           '123.45;RUB;Наличные;bank;expense;2026-09-27T10:00:00.000Z\n';
       final CsvImportResult result = await importCsvFile(
         database,
@@ -206,7 +210,10 @@ void main() {
     test('дубль поля в маппинге — отказ invalidMapping', () {
       expect(
         () => csvRecordsFromRows(
-          <List<String>>[<String>['a', 'b'], <String>['1', '2']],
+          <List<String>>[
+            <String>['a', 'b'],
+            <String>['1', '2'],
+          ],
           <int, CsvField>{0: CsvField.amount, 1: CsvField.amount},
         ),
         throwsA(
@@ -222,7 +229,10 @@ void main() {
     test('без обязательного поля — отказ invalidMapping', () {
       expect(
         () => csvRecordsFromRows(
-          <List<String>>[<String>['a'], <String>['1']],
+          <List<String>>[
+            <String>['a'],
+            <String>['1'],
+          ],
           <int, CsvField>{0: CsvField.amount},
         ),
         throwsA(
@@ -235,8 +245,7 @@ void main() {
       );
     });
 
-    test('в строке меньше колонок, чем требует маппинг — отказ с номером',
-        () {
+    test('в строке меньше колонок, чем требует маппинг — отказ с номером', () {
       expect(
         () => csvRecordsFromRows(
           <List<String>>[
@@ -253,8 +262,11 @@ void main() {
         ),
         throwsA(
           isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData)
+              .having(
+                (CsvImportException e) => e.kind,
+                'kind',
+                CsvImportFailure.invalidData,
+              )
               .having((CsvImportException e) => e.line, 'line', 2),
         ),
       );
@@ -265,14 +277,15 @@ void main() {
     test('happy path: файл нашего экспорта — доход, расход, перевод', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-25T10:00:00.000Z', 'income', 'Наличные', '', 'Зарплата', '50000', 'RUB', 'аванс')}\n'
           '${csvLine('2026-09-26T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '123.45', 'RUB', '')}\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'transfer', 'Наличные', 'Карта', '', '100', 'RUB', 'перекладка')}\n';
       final CsvImportResult result = await importCsvFile(database, csv: csv);
       expect(result.imported, 3);
-      final List<Transaction> rows =
-          await database.transactionsDao.getFiltered();
+      final List<Transaction> rows = await database.transactionsDao
+          .getFiltered();
       expect(rows, hasLength(3));
       // transactions.type хранит каноническую строку (enums.dart, §3).
       final Transaction transfer = rows
@@ -289,11 +302,11 @@ void main() {
       expect(income.date.toUtc(), DateTime.utc(2026, 9, 25, 10));
     });
 
-    test('кавычки и переносы строк внутри заметки не ломают загрузку',
-        () async {
+    test('кавычки и переносы строк внутри заметки не ломают загрузку', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', 'заметка; с "кавычками"\nи переносом')}\n';
       await importCsvFile(database, csv: csv);
       final Transaction row =
@@ -304,29 +317,31 @@ void main() {
     test('id генерируются заново, uuid файла не читается', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
       await importCsvFile(database, csv: csv);
       final Transaction row =
           (await database.transactionsDao.getFiltered()).single;
-      expect(
-        row.id,
-        isNot('uuid'),
-      );
+      expect(row.id, isNot('uuid'));
     });
 
     test('неизвестный тип операции — отказ с номером строки', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'покупка', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
         throwsA(
           isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData)
+              .having(
+                (CsvImportException e) => e.kind,
+                'kind',
+                CsvImportFailure.invalidData,
+              )
               .having((CsvImportException e) => e.line, 'line', 3),
         ),
       );
@@ -336,7 +351,8 @@ void main() {
     test('нечисловая сумма — отказ с номером строки', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', 'много', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
@@ -353,24 +369,27 @@ void main() {
     test('отрицательная сумма — отказ', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '-5', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
         throwsA(
-          isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData),
+          isA<CsvImportException>().having(
+            (CsvImportException e) => e.kind,
+            'kind',
+            CsvImportFailure.invalidData,
+          ),
         ),
       );
       expect(await database.transactionsDao.getFiltered(), isEmpty);
     });
 
-    test('сумма с запятой читается как ручной ввод (нормализация в точку)',
-        () async {
+    test('сумма с запятой читается как ручной ввод (нормализация в точку)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '123,45', 'RUB', '')}\n';
       // Запятая нормализуется в точку (parseAmountToMinor): файл экспорта
       // пишет точку, но правленый руками файл с запятой тоже читается.
@@ -383,14 +402,18 @@ void main() {
     test('отсутствующий счёт — отказ с номером строки', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Копилка', '', 'Жильё', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
         throwsA(
           isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData)
+              .having(
+                (CsvImportException e) => e.kind,
+                'kind',
+                CsvImportFailure.invalidData,
+              )
               .having((CsvImportException e) => e.line, 'line', 2),
         ),
       );
@@ -399,7 +422,8 @@ void main() {
     test('отсутствующая категория — отказ с номером строки', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Нет такой', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
@@ -416,14 +440,18 @@ void main() {
     test('валюта строки не совпадает с валютой счёта — отказ (§3)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'USD', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
         throwsA(
           isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData)
+              .having(
+                (CsvImportException e) => e.kind,
+                'kind',
+                CsvImportFailure.invalidData,
+              )
               .having((CsvImportException e) => e.line, 'line', 2),
         ),
       );
@@ -432,7 +460,8 @@ void main() {
     test('битая дата — отказ', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('27.09.2026', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
@@ -443,7 +472,8 @@ void main() {
     test('не-перевод со счётом зачисления — отказ (битая форма, D-21)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', 'Карта', '', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
@@ -460,7 +490,8 @@ void main() {
     test('перевод без счёта зачисления — отказ', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'transfer', 'Наличные', '', '', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
@@ -471,7 +502,8 @@ void main() {
     test('перевод с категорией — отказ (§3)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'transfer', 'Наличные', 'Карта', 'Жильё', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
@@ -482,7 +514,8 @@ void main() {
     test('само-перевод допустим как шум (D-33)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'transfer', 'Наличные', 'Наличные', '', '10', 'RUB', 'шум')}\n';
       final CsvImportResult result = await importCsvFile(database, csv: csv);
       expect(result.imported, 1);
@@ -513,11 +546,11 @@ void main() {
       return database;
     }
 
-    test('разные валюты: обе суммы маппятся — импортируется целиком',
-        () async {
+    test('разные валюты: обе суммы маппятся — импортируется целиком', () async {
       final AppDatabase database = await multiCurrency();
       addTearDown(database.close);
-      final String csv = 'date;type;account;target_account;category;amount;currency;target_amount\n'
+      final String csv =
+          'date;type;account;target_account;category;amount;currency;target_amount\n'
           '2026-09-27T10:00:00.000Z;transfer;Рублёвый;Долларовый;;7900;RUB;100\n';
       final CsvImportResult result = await importCsvFile(
         database,
@@ -543,14 +576,18 @@ void main() {
     test('разные валюты без суммы зачисления — отказ (D-17)', () async {
       final AppDatabase database = await multiCurrency();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'transfer', 'Рублёвый', 'Долларовый', '', '79', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
         throwsA(
           isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData)
+              .having(
+                (CsvImportException e) => e.kind,
+                'kind',
+                CsvImportFailure.invalidData,
+              )
               .having((CsvImportException e) => e.line, 'line', 2),
         ),
       );
@@ -559,7 +596,8 @@ void main() {
     test('одна валюта с суммой зачисления — отказ (D-17)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = 'date;type;account;target_account;category;amount;currency;target_amount\n'
+      final String csv =
+          'date;type;account;target_account;category;amount;currency;target_amount\n'
           '2026-09-27T10:00:00.000Z;transfer;Наличные;Карта;;10;RUB;10\n';
       await expectLater(
         importCsvFile(
@@ -587,38 +625,33 @@ void main() {
   });
 
   group('merge к живой базе и атомарность', () {
-    test('merge: существующие операции остаются, новые добавляются',
-        () async {
+    test('merge: существующие операции остаются, новые добавляются', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final List<Category> expenseCategories =
-          await database.categoriesDao.getAlive(kind: CategoryKind.expense);
+      final List<Category> expenseCategories = await database.categoriesDao
+          .getAlive(kind: CategoryKind.expense);
       final Category housing = expenseCategories
           .where((Category c) => c.name == 'Жильё')
           .single;
-      final String accountId =
-          (await database.accountsDao.getAlive()).first.id;
+      final String accountId = (await database.accountsDao.getAlive()).first.id;
       await database.transactionsDao.create(
         type: TransactionType.expense,
         accountId: accountId,
         categoryId: housing.id,
         amountMinor: 999,
       );
-      final int before =
-          (await database.transactionsDao.getFiltered()).length;
+      final int before = (await database.transactionsDao.getFiltered()).length;
 
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '123.45', 'RUB', 'новая')}\n';
       final CsvImportResult result = await importCsvFile(database, csv: csv);
 
       expect(result.imported, 1);
-      final List<Transaction> rows =
-          await database.transactionsDao.getFiltered();
+      final List<Transaction> rows = await database.transactionsDao
+          .getFiltered();
       expect(rows, hasLength(before + 1));
-      expect(
-        rows.where((Transaction r) => r.note == 'новая'),
-        hasLength(1),
-      );
+      expect(rows.where((Transaction r) => r.note == 'новая'), hasLength(1));
       // Справочники не тронуты: счетов и категорий столько же, сколько было.
       expect(await database.accountsDao.getAlive(), hasLength(2));
       expect(
@@ -627,28 +660,27 @@ void main() {
       );
     });
 
-    test('ошибка валидации оставляет живую базу нетронутой (атомарность)',
-        () async {
+    test('ошибка валидации оставляет живую базу нетронутой (атомарность)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final List<Category> expenseCategories =
-          await database.categoriesDao.getAlive(kind: CategoryKind.expense);
+      final List<Category> expenseCategories = await database.categoriesDao
+          .getAlive(kind: CategoryKind.expense);
       final Category housing = expenseCategories
           .where((Category c) => c.name == 'Жильё')
           .single;
-      final String accountId =
-          (await database.accountsDao.getAlive()).first.id;
+      final String accountId = (await database.accountsDao.getAlive()).first.id;
       await database.transactionsDao.create(
         type: TransactionType.expense,
         accountId: accountId,
         categoryId: housing.id,
         amountMinor: 999,
       );
-      final List<Transaction> before =
-          await database.transactionsDao.getFiltered();
+      final List<Transaction> before = await database.transactionsDao
+          .getFiltered();
 
       // Первая строка валидна, вторая — битая: ничего не должно загрузиться.
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-26T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', 'ок')}\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Исчезнувший счёт', '', 'Жильё', '10', 'RUB', '')}\n';
       await expectLater(
@@ -673,7 +705,8 @@ void main() {
         kind: AccountKind.cash,
         currencyCode: 'RUB',
       );
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
       // Ссылка по имени неоднозначна: DAO дубли имён не запрещает,
       // «молча взять один из двух» — ложь данных (решение приёмки 2026-09-28).
@@ -696,7 +729,8 @@ void main() {
         name: 'Жильё',
         kind: CategoryKind.expense,
       );
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', '')}\n';
       // Имена видов независимы, но дубль внутри вида делает ссылку по имени
       // неоднозначной (решение приёмки 2026-09-28).
@@ -712,58 +746,62 @@ void main() {
       );
     });
 
-    test('категория ищется по виду операции: «Подарки» доходная и расходная',
-        () async {
+    test('категория ищется по виду операции: «Подарки» доходная и расходная', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
       // Сев содержит оба вида «Подарки»: каждая операция обязана получить
       // категорию своего вида, а не «первую в карте».
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'income', 'Наличные', '', 'Подарки', '10', 'RUB', '')}\n'
           '${csvLine('2026-09-27T11:00:00.000Z', 'expense', 'Наличные', '', 'Подарки', '5', 'RUB', '')}\n';
-      final CsvImportResult result =
-          await importCsvFile(database, csv: csv);
+      final CsvImportResult result = await importCsvFile(database, csv: csv);
       expect(result.imported, 2);
-      final List<Transaction> rows =
-          await database.transactionsDao.getFiltered();
+      final List<Transaction> rows = await database.transactionsDao
+          .getFiltered();
       final List<Category> alive = await database.categoriesDao.getAlive();
       final Map<String, String> kindById = <String, String>{
         for (final Category c in alive)
           c.id: CategoryKind.fromDb(c.kind).dbValue,
       };
-      final Transaction income =
-          rows.firstWhere((Transaction t) => t.type == 'income');
-      final Transaction expense =
-          rows.firstWhere((Transaction t) => t.type == 'expense');
+      final Transaction income = rows.firstWhere(
+        (Transaction t) => t.type == 'income',
+      );
+      final Transaction expense = rows.firstWhere(
+        (Transaction t) => t.type == 'expense',
+      );
       expect(kindById[income.categoryId!], 'income');
       expect(kindById[expense.categoryId!], 'expense');
     });
 
-    test('регистр имён значим: «продукты» ≠ «Продукты» — отказ (D-40.а)',
-        () async {
+    test('регистр имён значим: «продукты» ≠ «Продукты» — отказ (D-40.а)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
       // Имя категории — ключ сопоставления, сравнение точное: совпадение
       // без учёта регистра «склеило» бы разные записи (D-40.а).
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'продукты', '10', 'RUB', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),
         throwsA(
           isA<CsvImportException>()
-              .having((CsvImportException e) => e.kind, 'kind',
-                  CsvImportFailure.invalidData)
+              .having(
+                (CsvImportException e) => e.kind,
+                'kind',
+                CsvImportFailure.invalidData,
+              )
               .having((CsvImportException e) => e.line, 'line', 2),
         ),
       );
       expect(await database.transactionsDao.getFiltered(), isEmpty);
     });
 
-    test('повторный импорт того же файла дублирует операции (merge, не upsert)',
-        () async {
+    test('повторный импорт того же файла дублирует операции (merge, не upsert)', () async {
       final AppDatabase database = await seeded();
       addTearDown(database.close);
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Жильё', '10', 'RUB', 'дубль')}\n';
       await importCsvFile(database, csv: csv);
       await importCsvFile(database, csv: csv);
@@ -784,7 +822,8 @@ void main() {
         kind: AccountKind.cash,
         currencyCode: 'KWD',
       );
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Динары', '', '', '1.234', 'KWD', '')}\n';
       await importCsvFile(database, csv: csv);
       final Transaction row =
@@ -804,7 +843,8 @@ void main() {
         kind: AccountKind.cash,
         currencyCode: 'JPY',
       );
-      final String csv = '$header\n'
+      final String csv =
+          '$header\n'
           '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Иены', '', '', '100.5', 'JPY', '')}\n';
       await expectLater(
         importCsvFile(database, csv: csv),

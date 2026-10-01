@@ -40,14 +40,8 @@ class HiddenCategoriesScreen extends ConsumerWidget {
           }
           return ListView(
             children: <Widget>[
-              _KindSection(
-                kind: CategoryKind.expense,
-                all: rows,
-              ),
-              _KindSection(
-                kind: CategoryKind.income,
-                all: rows,
-              ),
+              _KindSection(kind: CategoryKind.expense, all: rows),
+              _KindSection(kind: CategoryKind.income, all: rows),
             ],
           );
         },
@@ -67,8 +61,7 @@ class _KindSection extends ConsumerWidget {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final List<Category> own = all
         .where(
-          (Category category) =>
-              CategoryKind.fromDb(category.kind) == kind,
+          (Category category) => CategoryKind.fromDb(category.kind) == kind,
         )
         .toList();
     if (own.isEmpty) {

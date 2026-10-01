@@ -19,12 +19,13 @@ Stream<List<Advice>> _watchActiveAdvices(Ref ref) async* {
   final DebtsDao debtsDao = ref.watch(debtsDaoProvider);
 
   final StreamController<void> changes = StreamController<void>();
-  final List<StreamSubscription<void>> subscriptions = <StreamSubscription<void>>[
-    // skip(1): первый срез потока DAO — не «изменение», он уже покрыт
-    // начальным yield'ом ниже; иначе совет пересчитывался бы дважды.
-    accountsDao.watchAlive().skip(1).listen(changes.add),
-    debtsDao.watchAlive().skip(1).listen(changes.add),
-  ];
+  final List<StreamSubscription<void>> subscriptions =
+      <StreamSubscription<void>>[
+        // skip(1): первый срез потока DAO — не «изменение», он уже покрыт
+        // начальным yield'ом ниже; иначе совет пересчитывался бы дважды.
+        accountsDao.watchAlive().skip(1).listen(changes.add),
+        debtsDao.watchAlive().skip(1).listen(changes.add),
+      ];
   ref.onDispose(() {
     for (final StreamSubscription<void> subscription in subscriptions) {
       subscription.cancel();

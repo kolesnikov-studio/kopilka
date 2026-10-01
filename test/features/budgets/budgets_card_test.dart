@@ -134,10 +134,7 @@ void main() {
       name: 'Молочка',
       kind: CategoryKind.expense,
     );
-    await f.db.budgetsDao.create(
-      categoryId: groceries.id,
-      limitMinor: 1000,
-    );
+    await f.db.budgetsDao.create(categoryId: groceries.id, limitMinor: 1000);
     // Расход больше лимита: превышение (isOver, красный цвет — логика DAO).
     await f.db.transactionsDao.create(
       type: TransactionType.expense,
@@ -170,10 +167,7 @@ void main() {
       name: 'Молочка',
       kind: CategoryKind.expense,
     );
-    await f.db.budgetsDao.create(
-      categoryId: groceries.id,
-      limitMinor: 1000,
-    );
+    await f.db.budgetsDao.create(categoryId: groceries.id, limitMinor: 1000);
     await tester.pumpAndSettle();
 
     // Тап по строке открывает диалог правки с заголовком «Изменить бюджет».
@@ -212,10 +206,7 @@ void main() {
       name: 'Молочка',
       kind: CategoryKind.expense,
     );
-    await f.db.budgetsDao.create(
-      categoryId: groceries.id,
-      limitMinor: 1000,
-    );
+    await f.db.budgetsDao.create(categoryId: groceries.id, limitMinor: 1000);
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Молочка'));
@@ -267,11 +258,7 @@ void main() {
       // Мультивалютные счета: пометка «по текущему курсу» у отчётов
       // появляется, но у карточки бюджетов её быть не должно (B6):
       // лимит и есть базовая (D-19).
-      await f.db.currenciesDao.create(
-        code: 'USD',
-        symbol: r'$',
-        rateToBase: 2,
-      );
+      await f.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 2);
       await f.db.accountsDao.create(
         name: 'Долларовый',
         kind: AccountKind.card,
@@ -312,19 +299,19 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      String money(int minor) => formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
-      expect(
-        find.text('${money(105000)} / ${money(200000)}'),
-        findsOneWidget,
-      );
+      String money(int minor) =>
+          formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
+      expect(find.text('${money(105000)} / ${money(200000)}'), findsOneWidget);
       // Пометка «по текущему курсу» (B5) на карточках отчётов есть —
       // мультивалютность счетов её включает, — но на карточке бюджетов её
       // быть не должно (B6): лимит и есть базовая (D-19).
       expect(find.text(l10n.reportsAtCurrentRate), findsAtLeastNWidgets(1));
-      final Finder budgetsCard = find.ancestor(
-        of: find.text(l10n.budgetsTitle),
-        matching: find.byType(Card),
-      ).first;
+      final Finder budgetsCard = find
+          .ancestor(
+            of: find.text(l10n.budgetsTitle),
+            matching: find.byType(Card),
+          )
+          .first;
       expect(
         find.descendant(
           of: budgetsCard,
@@ -339,7 +326,8 @@ void main() {
     ) async {
       final Fixture f = Fixture();
       addTearDown(f.dispose);
-      final AppLocalizations l10n = await f.pump(tester);      final Category groceries = await f.db.categoriesDao.create(
+      final AppLocalizations l10n = await f.pump(tester);
+      final Category groceries = await f.db.categoriesDao.create(
         name: 'Молочка',
         kind: CategoryKind.expense,
       );
@@ -356,14 +344,11 @@ void main() {
 
       // Занятая категория видна в списке, но её пункт недоступен (D-14):
       // регресс-проверка после правок B6.
-      final DropdownButton<String> dropdown =
-          tester.widget<DropdownButton<String>>(
-        find.byType(DropdownButton<String>),
+      final DropdownButton<String> dropdown = tester
+          .widget<DropdownButton<String>>(find.byType(DropdownButton<String>));
+      final DropdownMenuItem<String> busyItem = dropdown.items!.singleWhere(
+        (DropdownMenuItem<String> item) => item.value == groceries.id,
       );
-      final DropdownMenuItem<String> busyItem = dropdown.items!
-          .singleWhere(
-            (DropdownMenuItem<String> item) => item.value == groceries.id,
-          );
       expect(busyItem.enabled, isFalse);
     });
   });

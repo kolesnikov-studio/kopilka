@@ -219,9 +219,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final bool enable = await showUpdateOfferDialog(context);
     await ref.read(updateOfferControllerProvider.notifier).dismiss();
     if (enable) {
-      await ref
-          .read(autoUpdateCheckEnabledProvider.notifier)
-          .setEnabled(true);
+      await ref.read(autoUpdateCheckEnabledProvider.notifier).setEnabled(true);
     }
     if (mounted) {
       setState(() {});
@@ -245,11 +243,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       rateSyncControllerProvider.select((RateSyncState state) => state.syncing),
     );
     final bool checking = ref.watch(
-      updateControllerProvider.select((UpdateCheckState state) => state.checking),
+      updateControllerProvider.select(
+        (UpdateCheckState state) => state.checking,
+      ),
     );
     final UpdateAvailable? autoFound = ref.watch(
-      updateControllerProvider
-          .select((UpdateCheckState state) => state.foundUpdate),
+      updateControllerProvider.select(
+        (UpdateCheckState state) => state.foundUpdate,
+      ),
     );
     if (autoFound != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -300,7 +301,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: Text(l10n.rateSyncEnabledHint),
             value: rateSyncEnabled,
             onChanged: (bool value) async {
-              await ref.read(rateSyncEnabledProvider.notifier).setEnabled(value);
+              await ref
+                  .read(rateSyncEnabledProvider.notifier)
+                  .setEnabled(value);
               setState(() {});
             },
           ),
@@ -310,8 +313,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               alignment: AlignmentDirectional.centerStart,
               child: FilledButton.tonalIcon(
                 key: const ValueKey<String>('rateSyncNowButton'),
-                onPressed:
-                    (rateSyncEnabled && !rateSyncing) ? _syncRatesNow : null,
+                onPressed: (rateSyncEnabled && !rateSyncing)
+                    ? _syncRatesNow
+                    : null,
                 icon: rateSyncing
                     ? const SizedBox.square(
                         dimension: 16,
@@ -346,8 +350,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             value: ref.watch(remindersToggleProvider),
             onChanged: (bool value) async {
-              final RemindersToggleController controller =
-                  ref.read(remindersToggleProvider.notifier);
+              final RemindersToggleController controller = ref.read(
+                remindersToggleProvider.notifier,
+              );
               if (value) {
                 await controller.enable(context);
               } else {
@@ -446,7 +451,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh),
-                label: Text(checking ? l10n.updateChecking : l10n.updateCheckNow),
+                label: Text(
+                  checking ? l10n.updateChecking : l10n.updateCheckNow,
+                ),
               ),
             ),
           ),
@@ -464,12 +471,9 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-      );
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+  );
 }
 
 /// Секция «Тема» (M5, D-58 §1): сегменты основы (Системная/Светлая/Тёмная)
@@ -524,8 +528,10 @@ class ThemeSection extends ConsumerWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-          child: Text(l10n.themePresetsLabel,
-              style: Theme.of(context).textTheme.bodyMedium),
+          child: Text(
+            l10n.themePresetsLabel,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -590,7 +596,8 @@ class _ThemePresetCard extends StatelessWidget {
   /// Честные swatch-цвета пресета из §2 спеки (не текущей темы экрана):
   /// превью показывает палитру пресета, даже когда он не выбран.
   Color get _surface =>
-      preset.lightSurface ?? ColorScheme.fromSeed(seedColor: preset.seed).surface;
+      preset.lightSurface ??
+      ColorScheme.fromSeed(seedColor: preset.seed).surface;
 
   Color get _onSurface =>
       preset.lightOnSurface ??
@@ -667,9 +674,7 @@ class _ThemePresetCard extends StatelessWidget {
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
+                        style: Theme.of(context).textTheme.labelSmall
                             ?.copyWith(color: _onSurface),
                       ),
                     ],

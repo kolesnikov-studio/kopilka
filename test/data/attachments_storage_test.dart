@@ -28,7 +28,9 @@ void main() {
       );
 
       expect(fileName, 'att-1.png');
-      final File written = File('${tempDir.path}${Platform.pathSeparator}att-1.png');
+      final File written = File(
+        '${tempDir.path}${Platform.pathSeparator}att-1.png',
+      );
       expect(await written.exists(), isTrue);
       expect(await written.readAsBytes(), <int>[1, 2, 3]);
       // Атомарная запись не оставляет временных файлов.
@@ -50,7 +52,9 @@ void main() {
         bytes: <int>[9, 9, 9],
       );
 
-      final File written = File('${tempDir.path}${Platform.pathSeparator}att-1.png');
+      final File written = File(
+        '${tempDir.path}${Platform.pathSeparator}att-1.png',
+      );
       expect(await written.readAsBytes(), <int>[9, 9, 9]);
       expect(tempDir.listSync(), hasLength(1));
     });
@@ -88,66 +92,76 @@ void main() {
       );
 
       expect(fileName, 'att-2.pdf');
-      expect(await File('${nested.path}${Platform.pathSeparator}att-2.pdf').exists(), isTrue);
-    });
-
-    test('недоступный каталог — отказ storageFailure (DataFailure, D-63)',
-        () async {
-      // Файл вместо каталога: create(recursive) поверх файла падает
-      // гарантированно на всех платформах.
-      final File blocker = File('${tempDir.path}${Platform.pathSeparator}blocker');
-      await blocker.writeAsString('not a dir');
-      final AttachmentsStorage blocked = AttachmentsStorage(
-        rootDirectory: Directory(blocker.path),
-      );
-
-      await expectLater(
-        blocked.writeAtomically(
-          id: 'att-3',
-          mimeType: 'image/png',
-          bytes: <int>[1],
-        ),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.storageFailure,
-          ),
-        ),
-      );
-    });
-
-    test('запись поверх файла-блокера: rename не проходит — storageFailure',
-        () async {
-      // Целевое имя занято каталогом: rename поверх каталога невозможен.
-      final Directory target = Directory(
-        '${tempDir.path}${Platform.pathSeparator}att-4.png',
-      );
-      await target.create();
-      final File inner = File('${target.path}${Platform.pathSeparator}x');
-      await inner.writeAsString('x');
-
-      await expectLater(
-        storage.writeAtomically(
-          id: 'att-4',
-          mimeType: 'image/png',
-          bytes: <int>[1],
-        ),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.storageFailure,
-          ),
-        ),
-      );
-      // tmp-мусор убран, файл-каталог не задет.
       expect(
-        tempDir.listSync().where((FileSystemEntity e) =>
-            e.path.contains('tmp-')),
-        isEmpty,
+        await File('${nested.path}${Platform.pathSeparator}att-2.pdf').exists(),
+        isTrue,
       );
     });
+
+    test(
+      'недоступный каталог — отказ storageFailure (DataFailure, D-63)',
+      () async {
+        // Файл вместо каталога: create(recursive) поверх файла падает
+        // гарантированно на всех платформах.
+        final File blocker = File(
+          '${tempDir.path}${Platform.pathSeparator}blocker',
+        );
+        await blocker.writeAsString('not a dir');
+        final AttachmentsStorage blocked = AttachmentsStorage(
+          rootDirectory: Directory(blocker.path),
+        );
+
+        await expectLater(
+          blocked.writeAtomically(
+            id: 'att-3',
+            mimeType: 'image/png',
+            bytes: <int>[1],
+          ),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.storageFailure,
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'запись поверх файла-блокера: rename не проходит — storageFailure',
+      () async {
+        // Целевое имя занято каталогом: rename поверх каталога невозможен.
+        final Directory target = Directory(
+          '${tempDir.path}${Platform.pathSeparator}att-4.png',
+        );
+        await target.create();
+        final File inner = File('${target.path}${Platform.pathSeparator}x');
+        await inner.writeAsString('x');
+
+        await expectLater(
+          storage.writeAtomically(
+            id: 'att-4',
+            mimeType: 'image/png',
+            bytes: <int>[1],
+          ),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.storageFailure,
+            ),
+          ),
+        );
+        // tmp-мусор убран, файл-каталог не задет.
+        expect(
+          tempDir.listSync().where(
+            (FileSystemEntity e) => e.path.contains('tmp-'),
+          ),
+          isEmpty,
+        );
+      },
+    );
   });
 
   group('deleteFile', () {
@@ -161,7 +175,8 @@ void main() {
       await storage.deleteFile('att-1.png');
 
       expect(
-        await File('${tempDir.path}${Platform.pathSeparator}att-1.png').exists(),
+        await File('${tempDir.path}${Platform.pathSeparator}att-1.png')
+            .exists(),
         isFalse,
       );
     });
@@ -177,9 +192,8 @@ void main() {
       final Directory blocker = Directory(
         '${tempDir.path}${Platform.pathSeparator}blocker',
       );
-      await Directory(
-        '${blocker.path}${Platform.pathSeparator}att-1.png',
-      ).create(recursive: true);
+      await Directory('${blocker.path}${Platform.pathSeparator}att-1.png')
+          .create(recursive: true);
       final AttachmentsStorage blocked = AttachmentsStorage(
         rootDirectory: blocker,
       );
@@ -209,12 +223,18 @@ void main() {
     });
 
     test('расширение восстанавливается из mime и обратно', () {
-      expect(AttachmentsStorage.extensionForMimeType('application/pdf'), '.pdf');
+      expect(
+        AttachmentsStorage.extensionForMimeType('application/pdf'),
+        '.pdf',
+      );
       expect(AttachmentsStorage.extensionForMimeType('image/jpeg'), '.jpg');
       expect(AttachmentsStorage.extensionForMimeType('image/png'), '.png');
       // Generic image/* не даёт расширения — запись отвергается.
       expect(AttachmentsStorage.extensionForMimeType('image/svg+xml'), isNull);
-      expect(AttachmentsStorage.mimeTypeForFileName('a.pdf'), 'application/pdf');
+      expect(
+        AttachmentsStorage.mimeTypeForFileName('a.pdf'),
+        'application/pdf',
+      );
       expect(AttachmentsStorage.mimeTypeForFileName('b.jpg'), 'image/jpeg');
       expect(AttachmentsStorage.mimeTypeForFileName('c.bin'), isNull);
     });

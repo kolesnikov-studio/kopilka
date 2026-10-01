@@ -4,8 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
-import 'package:kopilka/data/db/dao/attachments_dao.dart'
-    show AttachmentOwner;
+import 'package:kopilka/data/db/dao/attachments_dao.dart' show AttachmentOwner;
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/export/backup_codec.dart';
@@ -24,8 +23,7 @@ class BackupService {
   final Clock clock;
 
   /// Экспорт полного дампа в JSON-строку (формат v7, см. кодек).
-  Future<String> exportJson() async =>
-      jsonEncode(await exportToJson(db));
+  Future<String> exportJson() async => jsonEncode(await exportToJson(db));
 
   /// Атомарно заменяет содержимое БД на данные бэкапа.
   ///
@@ -64,17 +62,19 @@ class BackupService {
     await db.customStatement('PRAGMA foreign_keys = OFF');
     try {
       await db.transaction(() async {
-      await db.customUpdate('DELETE FROM debt_payments');
-      await db.customUpdate('DELETE FROM debts');
-      await db.customUpdate('DELETE FROM attachments');
-      await db.customUpdate('DELETE FROM budgets');
-      await db.customUpdate('DELETE FROM transactions');
-      await db.customUpdate('DELETE FROM categories');
-      await db.customUpdate('DELETE FROM accounts');
-      await db.customUpdate('DELETE FROM currencies');
+        await db.customUpdate('DELETE FROM debt_payments');
+        await db.customUpdate('DELETE FROM debts');
+        await db.customUpdate('DELETE FROM attachments');
+        await db.customUpdate('DELETE FROM budgets');
+        await db.customUpdate('DELETE FROM transactions');
+        await db.customUpdate('DELETE FROM categories');
+        await db.customUpdate('DELETE FROM accounts');
+        await db.customUpdate('DELETE FROM currencies');
 
         for (final BackupCurrency row in backup.currencies) {
-          await db.into(db.currencies).insert(
+          await db
+              .into(db.currencies)
+              .insert(
                 CurrenciesCompanion.insert(
                   code: row.code,
                   symbol: row.symbol,
@@ -87,7 +87,9 @@ class BackupService {
               );
         }
         for (final BackupAccount row in backup.accounts) {
-          await db.into(db.accounts).insert(
+          await db
+              .into(db.accounts)
+              .insert(
                 AccountsCompanion.insert(
                   id: row.id,
                   name: row.name,
@@ -108,7 +110,9 @@ class BackupService {
               );
         }
         for (final BackupCategory row in backup.categories) {
-          await db.into(db.categories).insert(
+          await db
+              .into(db.categories)
+              .insert(
                 CategoriesCompanion.insert(
                   id: row.id,
                   name: row.name,
@@ -125,7 +129,9 @@ class BackupService {
               );
         }
         for (final BackupTransaction row in backup.transactions) {
-          await db.into(db.transactions).insert(
+          await db
+              .into(db.transactions)
+              .insert(
                 TransactionsCompanion.insert(
                   id: row.id,
                   type: row.type.dbValue,
@@ -145,7 +151,9 @@ class BackupService {
         }
         // v7 (D-85): долги и погашения — после операций (FK на них).
         for (final BackupDebt row in backup.debts) {
-          await db.into(db.debts).insert(
+          await db
+              .into(db.debts)
+              .insert(
                 DebtsCompanion.insert(
                   id: row.id,
                   person: row.person,
@@ -162,7 +170,9 @@ class BackupService {
               );
         }
         for (final BackupDebtPayment row in backup.debtPayments) {
-          await db.into(db.debtPayments).insert(
+          await db
+              .into(db.debtPayments)
+              .insert(
                 DebtPaymentsCompanion.insert(
                   id: row.id,
                   debtId: row.debtId,
@@ -176,7 +186,9 @@ class BackupService {
               );
         }
         for (final BackupBudget row in backup.budgets) {
-          await db.into(db.budgets).insert(
+          await db
+              .into(db.budgets)
+              .insert(
                 BudgetsCompanion.insert(
                   id: row.id,
                   categoryId: row.categoryId,
@@ -190,7 +202,9 @@ class BackupService {
         // v6 (D-64): метаданные вложений. Файлы на диске бэкап не
         // переносит (D-63): восстанавливаются только записи БД.
         for (final BackupAttachment row in backup.attachments) {
-          await db.into(db.attachments).insert(
+          await db
+              .into(db.attachments)
+              .insert(
                 AttachmentsCompanion.insert(
                   id: row.id,
                   transactionId: row.transactionId,
@@ -305,7 +319,8 @@ class BackupService {
       } else {
         final BackupAccount? source = accountsById[row.accountId];
         final BackupAccount? target = accountsById[row.targetAccountId];
-        final bool multiCurrency = source != null &&
+        final bool multiCurrency =
+            source != null &&
             target != null &&
             source.currencyCode != target.currencyCode;
         if (multiCurrency && row.targetAmountMinor == null) {
@@ -366,8 +381,7 @@ class BackupService {
     // нет). Правило общее (D-64/D-25): существование PK, мягко удалённый
     // владелец импорту не препятствует.
     for (final BackupAttachment row in backup.attachments) {
-      final String? debtOwnerId =
-          AttachmentOwner.debtOwner(row.transactionId);
+      final String? debtOwnerId = AttachmentOwner.debtOwner(row.transactionId);
       if (debtOwnerId != null) {
         if (!debtIds.contains(debtOwnerId)) {
           throw BackupValidationException(
@@ -416,33 +430,35 @@ class BackupService {
         row.amountMinor,
         exponent: currencyExponentByCode(row.currencyCode),
       );
-      csv.writeln(<String>[
-        row.id,
-        row.date.toUtc().toIso8601String(),
-        type,
-        _csvField(accountNames[row.accountId] ?? row.accountId),
-        _csvField(
-          row.targetAccountId == null
-              ? ''
-              : (accountNames[row.targetAccountId!] ?? row.targetAccountId!),
-        ),
-        _csvField(
-          row.categoryId == null
-              ? ''
-              : (categoryNames[row.categoryId!] ?? row.categoryId!),
-        ),
-        _csvField(amount),
-        row.currencyCode,
-        _csvField(row.note ?? ''),
-      ].join(';'));
+      csv.writeln(
+        <String>[
+          row.id,
+          row.date.toUtc().toIso8601String(),
+          type,
+          _csvField(accountNames[row.accountId] ?? row.accountId),
+          _csvField(
+            row.targetAccountId == null
+                ? ''
+                : (accountNames[row.targetAccountId!] ?? row.targetAccountId!),
+          ),
+          _csvField(
+            row.categoryId == null
+                ? ''
+                : (categoryNames[row.categoryId!] ?? row.categoryId!),
+          ),
+          _csvField(amount),
+          row.currencyCode,
+          _csvField(row.note ?? ''),
+        ].join(';'),
+      );
     }
     return csv.toString();
   }
 
   String _csvField(String value) =>
       (value.contains(';') || value.contains('"') || value.contains('\n'))
-          ? '"${value.replaceAll('"', '""')}"'
-          : value;
+      ? '"${value.replaceAll('"', '""')}"'
+      : value;
 
   /// Автобэкап при запуске (§4): JSON в выбранный пользователем каталог,
   /// хранить последние 10.
@@ -489,9 +505,7 @@ class BackupService {
       return match == null ? '' : match.group(1)!;
     }
 
-    backups.sort(
-      (File a, File b) => orderKey(b).compareTo(orderKey(a)),
-    );
+    backups.sort((File a, File b) => orderKey(b).compareTo(orderKey(a)));
     for (final File stale in backups.skip(keep)) {
       await stale.delete();
       removed++;

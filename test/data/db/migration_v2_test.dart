@@ -114,8 +114,7 @@ void main() {
     }
   });
 
-  test('миграция v1 → v2: данные v0.1 целы, таблица budgets готова',
-      () async {
+  test('миграция v1 → v2: данные v0.1 целы, таблица budgets готова', () async {
     final File dbFile = File(
       '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
     );
@@ -133,9 +132,14 @@ void main() {
     // beforeOpen после миграции: исполнена вся цепочка до текущей версии
     // (v1 → v2 → v3 → v4, D-21/D-54: файл v0.1 открывается без потерь).
     final int version =
-        (await db.customSelect('PRAGMA user_version').getSingle())
-            .read<int>('user_version');
-    expect(version, 7, reason: 'после открытия база должна быть на текущей схеме');
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        );
+    expect(
+      version,
+      7,
+      reason: 'после открытия база должна быть на текущей схеме',
+    );
 
     // Данные v0.1 выжили дословно.
     final List<Currency> currencies = await db.select(db.currencies).get();
@@ -151,24 +155,24 @@ void main() {
     expect(categories, hasLength(2));
     expect(categories.where((Category c) => c.isSystem), hasLength(2));
 
-    final List<Transaction> transactions =
-        await db.select(db.transactions).get();
+    final List<Transaction> transactions = await db
+        .select(db.transactions)
+        .get();
     expect(transactions.single.amountMinor, 50050);
     expect(transactions.single.note, 'кофе');
     // drift отдаёт дату тем же моментом, что записан в файле.
-    expect(
-      transactions.single.date.toUtc(),
-      DateTime.utc(2026, 9, 25, 12),
-    );
+    expect(transactions.single.date.toUtc(), DateTime.utc(2026, 9, 25, 12));
 
     // Таблица budgets существует, пуста.
-    final List<QueryRow> budgetRows =
-        await db.customSelect('SELECT COUNT(*) AS c FROM budgets').get();
+    final List<QueryRow> budgetRows = await db
+        .customSelect('SELECT COUNT(*) AS c FROM budgets')
+        .get();
     expect(budgetRows.single.read<int>('c'), 0);
 
     // DAO поверх мигрированной базы работает.
-    final Category food =
-        categories.singleWhere((Category c) => c.name == 'Продукты');
+    final Category food = categories.singleWhere(
+      (Category c) => c.name == 'Продукты',
+    );
     final Budget created = await db.budgetsDao.create(
       categoryId: food.id,
       limitMinor: 12345,
@@ -190,37 +194,38 @@ void main() {
     await expectTimestampColumns(db, expectedTables);
   });
 
-  test('повторное открытие базы v2: без ре-миграции, данные на месте',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
+  test(
+    'повторное открытие базы v2: без ре-миграции, данные на месте',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
 
-    final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
-    // Свежая база пуста — создаём справочник и бюджет.
-    await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
-    final Category food = await first.categoriesDao.create(
-      name: 'Продукты',
-      kind: CategoryKind.expense,
-    );
-    final Budget budget = await first.budgetsDao.create(
-      categoryId: food.id,
-      limitMinor: 5000,
-    );
-    await first.close();
+      final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
+      // Свежая база пуста — создаём справочник и бюджет.
+      await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
+      final Category food = await first.categoriesDao.create(
+        name: 'Продукты',
+        kind: CategoryKind.expense,
+      );
+      final Budget budget = await first.budgetsDao.create(
+        categoryId: food.id,
+        limitMinor: 5000,
+      );
+      await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже текущая,
-    // 4), данные живы.
-    final AppDatabase second =
-        AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(second.close);
-    expect(
-      (await second.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
-    final List<Budget> alive = await second.budgetsDao.getAlive();
-    expect(alive.single.id, budget.id);
-    expect(alive.single.limitMinor, 5000);
-  });
+      // Повторное открытие: onUpgrade не выполняется (версия уже текущая,
+      // 4), данные живы.
+      final AppDatabase second = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(second.close);
+      expect(
+        (await second.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        7,
+      );
+      final List<Budget> alive = await second.budgetsDao.getAlive();
+      expect(alive.single.id, budget.id);
+      expect(alive.single.limitMinor, 5000);
+    },
+  );
 }

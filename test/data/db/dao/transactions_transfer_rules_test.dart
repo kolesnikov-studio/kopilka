@@ -43,35 +43,37 @@ void main() {
   });
 
   group('create (D-17)', () {
-    test('перевод в одной валюте: target_amount_minor обязана быть NULL',
-        () async {
-      final Transaction transfer = await f.transactions.create(
-        type: TransactionType.transfer,
-        accountId: rubCash.id,
-        targetAccountId: rubCard.id,
-        amountMinor: 1000,
-      );
-      expect(transfer.targetAmountMinor, isNull);
-      expect(transfer.currencyCode, 'RUB');
-
-      // Передача значения при одинаковых валютах — отказ.
-      await expectLater(
-        f.transactions.create(
+    test(
+      'перевод в одной валюте: target_amount_minor обязана быть NULL',
+      () async {
+        final Transaction transfer = await f.transactions.create(
           type: TransactionType.transfer,
           accountId: rubCash.id,
           targetAccountId: rubCard.id,
           amountMinor: 1000,
-          targetAmountMinor: 900,
-        ),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.invalidInput,
+        );
+        expect(transfer.targetAmountMinor, isNull);
+        expect(transfer.currencyCode, 'RUB');
+
+        // Передача значения при одинаковых валютах — отказ.
+        await expectLater(
+          f.transactions.create(
+            type: TransactionType.transfer,
+            accountId: rubCash.id,
+            targetAccountId: rubCard.id,
+            amountMinor: 1000,
+            targetAmountMinor: 900,
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.invalidInput,
+            ),
+          ),
+        );
+      },
+    );
 
     test('перевод между валютами: обе суммы обязательны', () async {
       await expectLater(
@@ -106,29 +108,31 @@ void main() {
       expect(transfer.targetAccountId, usdCash.id);
     });
 
-    test('мультивалютный перевод: неположительная сумма зачисления — отказ',
-        () async {
-      await expectLater(
-        f.transactions.create(
-          type: TransactionType.transfer,
-          accountId: rubCash.id,
-          targetAccountId: usdCash.id,
-          amountMinor: 7900,
-          targetAmountMinor: 0,
-        ),
-        throwsA(isA<DataValidationException>()),
-      );
-      await expectLater(
-        f.transactions.create(
-          type: TransactionType.transfer,
-          accountId: rubCash.id,
-          targetAccountId: usdCash.id,
-          amountMinor: 7900,
-          targetAmountMinor: -5,
-        ),
-        throwsA(isA<DataValidationException>()),
-      );
-    });
+    test(
+      'мультивалютный перевод: неположительная сумма зачисления — отказ',
+      () async {
+        await expectLater(
+          f.transactions.create(
+            type: TransactionType.transfer,
+            accountId: rubCash.id,
+            targetAccountId: usdCash.id,
+            amountMinor: 7900,
+            targetAmountMinor: 0,
+          ),
+          throwsA(isA<DataValidationException>()),
+        );
+        await expectLater(
+          f.transactions.create(
+            type: TransactionType.transfer,
+            accountId: rubCash.id,
+            targetAccountId: usdCash.id,
+            amountMinor: 7900,
+            targetAmountMinor: -5,
+          ),
+          throwsA(isA<DataValidationException>()),
+        );
+      },
+    );
 
     test('не-перевод с суммой зачисления — отказ', () async {
       await expectLater(
@@ -209,62 +213,66 @@ void main() {
       expect(both.targetAmountMinor, 102);
     });
 
-    test('одно-валютный перевод: target_amount_minor обязана остаться NULL',
-        () async {
-      final Transaction transfer = await f.transactions.create(
-        type: TransactionType.transfer,
-        accountId: rubCash.id,
-        targetAccountId: rubCard.id,
-        amountMinor: 1000,
-      );
+    test(
+      'одно-валютный перевод: target_amount_minor обязана остаться NULL',
+      () async {
+        final Transaction transfer = await f.transactions.create(
+          type: TransactionType.transfer,
+          accountId: rubCash.id,
+          targetAccountId: rubCard.id,
+          amountMinor: 1000,
+        );
 
-      // Появление суммы зачисления — отказ.
-      await expectLater(
-        f.transactions.updateTransaction(
+        // Появление суммы зачисления — отказ.
+        await expectLater(
+          f.transactions.updateTransaction(
+            transfer.id,
+            targetAmountMinor: const Value<int?>(100),
+          ),
+          throwsA(isA<DataValidationException>()),
+        );
+
+        // amount правится один раз — допустимо (валюты совпадают).
+        final Transaction amountOnly = await f.transactions.updateTransaction(
           transfer.id,
-          targetAmountMinor: const Value<int?>(100),
-        ),
-        throwsA(isA<DataValidationException>()),
-      );
+          amountMinor: const Value<int>(2000),
+        );
+        expect(amountOnly.amountMinor, 2000);
+        expect(amountOnly.targetAmountMinor, isNull);
+      },
+    );
 
-      // amount правится один раз — допустимо (валюты совпадают).
-      final Transaction amountOnly = await f.transactions.updateTransaction(
-        transfer.id,
-        amountMinor: const Value<int>(2000),
-      );
-      expect(amountOnly.amountMinor, 2000);
-      expect(amountOnly.targetAmountMinor, isNull);
-    });
+    test(
+      'мультивалютный перевод нельзя сделать одно-валютным одной правкой',
+      () async {
+        final Transaction transfer = await f.transactions.create(
+          type: TransactionType.transfer,
+          accountId: rubCash.id,
+          targetAccountId: usdCash.id,
+          amountMinor: 7900,
+          targetAmountMinor: 100,
+        );
 
-    test('мультивалютный перевод нельзя сделать одно-валютным одной правкой',
-        () async {
-      final Transaction transfer = await f.transactions.create(
-        type: TransactionType.transfer,
-        accountId: rubCash.id,
-        targetAccountId: usdCash.id,
-        amountMinor: 7900,
-        targetAmountMinor: 100,
-      );
+        // Обнуление target без amount — отказ: у мультивалютного перевода
+        // суммы правятся только вместе.
+        await expectLater(
+          f.transactions.updateTransaction(
+            transfer.id,
+            targetAmountMinor: const Value<int?>(null),
+          ),
+          throwsA(isA<DataValidationException>()),
+        );
 
-      // Обнуление target без amount — отказ: у мультивалютного перевода
-      // суммы правятся только вместе.
-      await expectLater(
-        f.transactions.updateTransaction(
-          transfer.id,
-          targetAmountMinor: const Value<int?>(null),
-        ),
-        throwsA(isA<DataValidationException>()),
-      );
-
-      // Одна amount без target — тоже отказ.
-      await expectLater(
-        f.transactions.updateTransaction(
-          transfer.id,
-          amountMinor: const Value<int>(8000),
-        ),
-        throwsA(isA<DataValidationException>()),
-      );
-    });
+        // Одна amount без target — тоже отказ.
+        await expectLater(
+          f.transactions.updateTransaction(
+            transfer.id,
+            amountMinor: const Value<int>(8000),
+          ),
+          throwsA(isA<DataValidationException>()),
+        );
+      },
+    );
 
     test('не-переводу сумму зачисления поставить нельзя', () async {
       final Transaction expense = await f.transactions.create(
@@ -281,8 +289,7 @@ void main() {
       );
     });
 
-    test('неположительная сумма в паре — отказ, прежние данные целы',
-        () async {
+    test('неположительная сумма в паре — отказ, прежние данные целы', () async {
       final Transaction transfer = await f.transactions.create(
         type: TransactionType.transfer,
         accountId: rubCash.id,
@@ -314,10 +321,10 @@ void main() {
         targetAmountMinor: 100,
       );
 
-      final TransactionView row =
-          await f.transactions.watchFilteredView().first.then(
-                (List<TransactionView> rows) => rows.single,
-              );
+      final TransactionView row = await f.transactions
+          .watchFilteredView()
+          .first
+          .then((List<TransactionView> rows) => rows.single);
       expect(row.accountCurrencyCode, 'RUB');
       expect(row.targetCurrencyCode, 'USD');
       expect(row.transaction.targetAmountMinor, 100);
@@ -330,10 +337,10 @@ void main() {
         amountMinor: 100,
       );
 
-      final TransactionView row =
-          await f.transactions.watchFilteredView().first.then(
-                (List<TransactionView> rows) => rows.single,
-              );
+      final TransactionView row = await f.transactions
+          .watchFilteredView()
+          .first
+          .then((List<TransactionView> rows) => rows.single);
       expect(row.accountCurrencyCode, 'RUB');
       expect(row.targetCurrencyCode, isNull);
       expect(row.targetAccountName, isNull);

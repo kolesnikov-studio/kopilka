@@ -20,9 +20,7 @@ import 'package:kopilka/data/providers.dart';
 typedef AccountRow = AccountBalance;
 
 /// Список счетов с балансами (DAO пересчитывает его сам).
-final accountsWithBalancesProvider = StreamProvider<List<AccountRow>>((
-  ref,
-) {
+final accountsWithBalancesProvider = StreamProvider<List<AccountRow>>((ref) {
   return ref.watch(accountsDaoProvider).watchBalances();
 });
 
@@ -110,5 +108,6 @@ class AccountsController extends Notifier {
   }
 }
 
-final accountsControllerProvider =
-    NotifierProvider<AccountsController, void>(AccountsController.new);
+final accountsControllerProvider = NotifierProvider<AccountsController, void>(
+  AccountsController.new,
+);

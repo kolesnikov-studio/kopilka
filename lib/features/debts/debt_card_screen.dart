@@ -15,8 +15,7 @@ import 'package:kopilka/features/debts/debt_form_dialog.dart';
 import 'package:kopilka/features/debts/debt_payment_dialog.dart';
 import 'package:kopilka/features/debts/debts_controller.dart';
 import 'package:kopilka/features/transactions/attachment_section.dart';
-import 'package:kopilka/data/attachments_service.dart'
-    show AttachmentOwnerKind;
+import 'package:kopilka/data/attachments_service.dart' show AttachmentOwnerKind;
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Карточка долга (спека §2): сводка `watchSummary` (NULL → errorNotFound
@@ -29,8 +28,9 @@ class DebtCardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final AsyncValue<DebtSummary?> summary =
-        ref.watch(debtSummaryProvider(debtId));
+    final AsyncValue<DebtSummary?> summary = ref.watch(
+      debtSummaryProvider(debtId),
+    );
 
     return Scaffold(
       body: summary.when(
@@ -76,15 +76,16 @@ class _DebtCardBody extends ConsumerWidget {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final Debt debt = summary.debt;
     final String locale = Localizations.localeOf(context).toString();
-    final String symbol = ref.watch(currenciesMapProvider).value?[debt.currencyCode]?.symbol ??
+    final String symbol =
+        ref.watch(currenciesMapProvider).value?[debt.currencyCode]?.symbol ??
         debt.currencyCode;
     final int exponent = currencyExponentByCode(debt.currencyCode);
     String money(int minor) => formatMoneyMinor(
-          minor,
-          symbol: symbol,
-          locale: locale,
-          exponent: exponent,
-        );
+      minor,
+      symbol: symbol,
+      locale: locale,
+      exponent: exponent,
+    );
 
     final DateTime? due = _dueDateOf(debt);
     final bool overdue = due != null && due.isBefore(DateTime.now());
@@ -108,9 +109,8 @@ class _DebtCardBody extends ConsumerWidget {
                         ? l10n.debtDirectionTheyOweMe
                         : l10n.debtDirectionIOweThem,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -143,9 +143,7 @@ class _DebtCardBody extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   l10n.debtOverdueBadge,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
+                  style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: Theme.of(context).colorScheme.error),
                 ),
               ],
@@ -194,8 +192,8 @@ class _DebtCardBody extends ConsumerWidget {
           Text(
             l10n.debtExtraHelper,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         const SizedBox(height: 12),
         FilledButton.icon(
@@ -233,10 +231,9 @@ class _DebtCardBody extends ConsumerWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    final Result<void> result =
-        await ref.read(debtsControllerProvider.notifier).deleteDebt(
-              summary.debt.id,
-            );
+    final Result<void> result = await ref
+        .read(debtsControllerProvider.notifier)
+        .deleteDebt(summary.debt.id);
     if (!context.mounted) {
       return;
     }
@@ -271,12 +268,10 @@ class _DebtPaymentsList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final String locale = Localizations.localeOf(context).toString();
-    final List<DebtPayment> payments = ref
-        .watch(debtPaymentsProvider(debt.id))
-        .value ?? const <DebtPayment>[];
-    final String symbol = ref
-            .watch(currenciesMapProvider)
-            .value?[debt.currencyCode]?.symbol ??
+    final List<DebtPayment> payments =
+        ref.watch(debtPaymentsProvider(debt.id)).value ?? const <DebtPayment>[];
+    final String symbol =
+        ref.watch(currenciesMapProvider).value?[debt.currencyCode]?.symbol ??
         debt.currencyCode;
     final int exponent = currencyExponentByCode(debt.currencyCode);
 
@@ -312,12 +307,8 @@ class _DebtPaymentsList extends ConsumerWidget {
                 : null,
             // Удаление — со свайпа-меню: подтверждение (§2); редактирования
             // нет — delete+create покрывает правку (D-89).
-            onLongPress: () => _confirmDeletePayment(
-              context,
-              ref,
-              l10n,
-              payment,
-            ),
+            onLongPress: () =>
+                _confirmDeletePayment(context, ref, l10n, payment),
           ),
       ],
     );
@@ -345,10 +336,9 @@ class _DebtPaymentsList extends ConsumerWidget {
     if (!confirmed || !context.mounted) {
       return;
     }
-    final Result<void> result =
-        await ref.read(debtsControllerProvider.notifier).deletePayment(
-              payment.id,
-            );
+    final Result<void> result = await ref
+        .read(debtsControllerProvider.notifier)
+        .deletePayment(payment.id);
     if (result.isFailure && context.mounted) {
       await showDataFailureSnack(context, result.failure);
     }

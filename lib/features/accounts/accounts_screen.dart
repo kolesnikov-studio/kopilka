@@ -84,11 +84,11 @@ class _AccountTile extends ConsumerWidget {
     // персональный баланс плитки считается как раньше.
     final String subtitle =
         '${l10n.kindLabel}: ${switch (AccountKind.fromDb(row.account.kind)) {
-      AccountKind.cash => l10n.accountKindCash,
-      AccountKind.bank => l10n.accountKindBank,
-      AccountKind.card => l10n.accountKindCard,
-      AccountKind.other => l10n.accountKindOther,
-    }}';
+          AccountKind.cash => l10n.accountKindCash,
+          AccountKind.bank => l10n.accountKindBank,
+          AccountKind.card => l10n.accountKindCard,
+          AccountKind.other => l10n.accountKindOther,
+        }}';
 
     // M6-шаг D (спека §2): признак накопительного — бейдж в том же
     // стиле (значок savings_outlined + подпись); при обоих флагах —
@@ -120,8 +120,8 @@ class _AccountTile extends ConsumerWidget {
                   Text(
                     l10n.accountSavingsBadge,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
                 if (isExcluded) ...<Widget>[
@@ -133,8 +133,8 @@ class _AccountTile extends ConsumerWidget {
                   Text(
                     l10n.accountExcludedBadge,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ],
@@ -144,7 +144,10 @@ class _AccountTile extends ConsumerWidget {
           row.balanceMinor,
           // R5: символ по карте справочника (уходит линейный поиск);
           // код вне справочника — fallback на сам код.
-          symbol: ref.watch(currenciesMapProvider).value?[row.account.currencyCode]
+          symbol:
+              ref
+                  .watch(currenciesMapProvider)
+                  .value?[row.account.currencyCode]
                   ?.symbol ??
               row.account.currencyCode,
           locale: locale,

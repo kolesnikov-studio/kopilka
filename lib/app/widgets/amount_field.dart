@@ -82,13 +82,13 @@ class AmountField extends StatelessWidget {
           return null;
         }
         return parseAmountToMinor(
-              text,
-              allowZero: allowZero,
-              exponent: exponent,
-            ) ==
-            null
-        ? (invalidText ?? l10n.amountInvalid)
-        : null;
+                  text,
+                  allowZero: allowZero,
+                  exponent: exponent,
+                ) ==
+                null
+            ? (invalidText ?? l10n.amountInvalid)
+            : null;
       },
       onFieldSubmitted: onSubmitted,
     );
@@ -105,8 +105,8 @@ class AmountInputFormatter extends TextInputFormatter {
     : _allowed = exponent > 0
           ? RegExp(
               r'^\d+([ \u00A0\u202F]\d+)*(\.\d{0,' +
-              exponent.toString() +
-              r'})?$',
+                  exponent.toString() +
+                  r'})?$',
             )
           : RegExp(r'^\d*$');
 

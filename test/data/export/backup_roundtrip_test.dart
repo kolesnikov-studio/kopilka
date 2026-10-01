@@ -26,12 +26,14 @@ import 'package:kopilka/data/attachments_storage.dart';
 /// идентификаторы категорий с иконкой/без и id операции с вложением —
 /// они нужны проверкам v4/v6.
 Future<
-    ({
-      AppDatabase db,
-      String groceriesId,
-      String milkId,
-      String attachmentTransactionId,
-    })> richSeeded() async {
+  ({
+    AppDatabase db,
+    String groceriesId,
+    String milkId,
+    String attachmentTransactionId,
+  })
+>
+richSeeded() async {
   final AppDatabase database = AppDatabase.forTesting(NativeDatabase.memory());
   await seedDefaultsIfEmpty(database);
 
@@ -102,10 +104,7 @@ Future<
     limitMinor: 11111,
   );
   await database.budgetsDao.softDelete(deadBudget.id);
-  await database.budgetsDao.create(
-    categoryId: milk.id,
-    limitMinor: 12345,
-  );
+  await database.budgetsDao.create(categoryId: milk.id, limitMinor: 12345);
 
   // Все виды операций: расход (живой/удалённый), доход с заметкой,
   // перевод между счетами в разных валютах (D-17: обе суммы, вторая —
@@ -150,8 +149,7 @@ Future<
 
   // Вложение (v6, D-64): метаданные через DAO живой операции. Файл на
   // диске не нужен: бэкап переносит только метаданные (D-63).
-  final Transaction groceriesExpense =
-      await database.transactionsDao.create(
+  final Transaction groceriesExpense = await database.transactionsDao.create(
     type: TransactionType.expense,
     accountId: card.id,
     categoryId: groceries.id,
@@ -221,9 +219,7 @@ Future<
 /// Канонизирует документ для сравнения: таблицы как множества строк
 /// (порядок строк формат v1 не задаёт), exported_at проверяется отдельно
 /// (обновляется при каждом экспорте). Ключ строки — её jsonEncode.
-typedef CanonicalDocument = ({
-  Map<String, Set<String>> tables,
-});
+typedef CanonicalDocument = ({Map<String, Set<String>> tables});
 
 CanonicalDocument canonical(Map<String, dynamic> document) {
   final Map<String, dynamic> data = document['data'] as Map<String, dynamic>;
@@ -250,7 +246,9 @@ void main() {
 
     // Импортируем в чистую базу: посев не делаем — документ должен
     // самостоятельно восстановить справочники первого запуска.
-    final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
+    final AppDatabase restored = AppDatabase.forTesting(
+      NativeDatabase.memory(),
+    );
     addTearDown(restored.close);
     await BackupService(restored).importJson(firstJson);
 
@@ -261,10 +259,7 @@ void main() {
     // Оболочка формата: версия совпадает, exported_at — свежее время
     // (обновляется при экспорте, идентичность данных это не нарушает).
     expect(second['schema_version'], first['schema_version']);
-    expect(
-      DateTime.parse(second['exported_at'] as String).isUtc,
-      isTrue,
-    );
+    expect(DateTime.parse(second['exported_at'] as String).isUtc, isTrue);
 
     // Данные: таблицы как множества строк (jsonEncode каждой строки).
     final CanonicalDocument expected = canonical(first);
@@ -278,199 +273,225 @@ void main() {
     }
   });
 
-  test('round-trip сохраняет содержимое: суммы, валюты, курсы, ссылки', () async {
-    final (
-      db: AppDatabase source,
-      groceriesId: String groceriesId,
-      milkId: String milkId,
-      attachmentTransactionId: String attachmentTransactionId,
-    ) =
-        await richSeeded();
-    addTearDown(source.close);
+  test(
+    'round-trip сохраняет содержимое: суммы, валюты, курсы, ссылки',
+    () async {
+      final (
+        db: AppDatabase source,
+        groceriesId: String groceriesId,
+        milkId: String milkId,
+        attachmentTransactionId: String attachmentTransactionId,
+      ) = await richSeeded();
+      addTearDown(source.close);
 
-    final String firstJson = await BackupService(source).exportJson();
-    final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(restored.close);
-    await BackupService(restored).importJson(firstJson);
+      final String firstJson = await BackupService(source).exportJson();
+      final AppDatabase restored = AppDatabase.forTesting(
+        NativeDatabase.memory(),
+      );
+      addTearDown(restored.close);
+      await BackupService(restored).importJson(firstJson);
 
-    // Деньги в минорных единицах не искажаются.
-    final List<Account> accounts = await restored.accountsDao.getAlive();
-    expect(accounts, hasLength(4)); // один счёт мягко удалён + накопительный v7
-    final Account card = accounts.singleWhere((Account a) => a.name == 'Карта');
-    expect(card.initialBalanceMinor, 150000);
-    final Account savings = accounts.singleWhere((Account a) => a.name == 'Накопления');
-    expect(savings.currencyCode, 'USD');
+      // Деньги в минорных единицах не искажаются.
+      final List<Account> accounts = await restored.accountsDao.getAlive();
+      expect(
+        accounts,
+        hasLength(4),
+      ); // один счёт мягко удалён + накопительный v7
+      final Account card = accounts.singleWhere(
+        (Account a) => a.name == 'Карта',
+      );
+      expect(card.initialBalanceMinor, 150000);
+      final Account savings = accounts.singleWhere(
+        (Account a) => a.name == 'Накопления',
+      );
+      expect(savings.currencyCode, 'USD');
 
-    // Нецелый курс double сохраняется без искажений.
-    final Currency usd = await restored.currenciesDao.findAlive('USD')
-        as Currency;
-    expect(usd.rateToBase, 79.375);
+      // Нецелый курс double сохраняется без искажений.
+      final Currency usd =
+          await restored.currenciesDao.findAlive('USD') as Currency;
+      expect(usd.rateToBase, 79.375);
 
-    // Иконки категорий (v4, D-54) переживают round-trip дословно:
-    // выбранная — сохраняется, NULL — остаётся NULL. Проверяем по id
-    // фикстуры: посев создаёт одноимённую системную «Продукты» без иконки
-    // (замок на посев менять нельзя, §8).
-    expect(
-      (await restored.categoriesDao.findById(groceriesId))?.iconCode,
-      'groceries',
-    );
-    expect(
-      (await restored.categoriesDao.findById(milkId))?.iconCode,
-      isNull,
-    );
+      // Иконки категорий (v4, D-54) переживают round-trip дословно:
+      // выбранная — сохраняется, NULL — остаётся NULL. Проверяем по id
+      // фикстуры: посев создаёт одноимённую системную «Продукты» без иконки
+      // (замок на посев менять нельзя, §8).
+      expect(
+        (await restored.categoriesDao.findById(groceriesId))?.iconCode,
+        'groceries',
+      );
+      expect((await restored.categoriesDao.findById(milkId))?.iconCode, isNull);
 
-    // Вложенность и мягко удалённые строки физически в базе.
-    final List<QueryRow> nested = await restored.customSelect(
-      "SELECT c2.name AS child, c1.name AS parent FROM categories c1 "
-      "JOIN categories c2 ON c2.parent_id = c1.id WHERE c2.deleted_at IS NULL",
-    ).get();
-    expect(nested.single.data['child'], 'Молочка');
-    expect(nested.single.data['parent'], 'Продукты');
+      // Вложенность и мягко удалённые строки физически в базе.
+      final List<QueryRow> nested = await restored
+          .customSelect(
+            "SELECT c2.name AS child, c1.name AS parent FROM categories c1 "
+            "JOIN categories c2 ON c2.parent_id = c1.id WHERE c2.deleted_at IS NULL",
+          )
+          .get();
+      expect(nested.single.data['child'], 'Молочка');
+      expect(nested.single.data['parent'], 'Продукты');
 
-    // Все виды операций живыми: расход (4, с категорией и без — включая
-    // носителя вложения на 1500), доход (2, в т.ч. в USD), перевод между
-    // счетами в разных валютах; один расход мягко удалён и в живой список
-    // не входит.
-    final List<Transaction> alive =
-        await restored.transactionsDao.getFiltered();
-    expect(alive, hasLength(7));
-    final Transaction transfer = alive.singleWhere(
+      // Все виды операций живыми: расход (4, с категорией и без — включая
+      // носителя вложения на 1500), доход (2, в т.ч. в USD), перевод между
+      // счетами в разных валютах; один расход мягко удалён и в живой список
+      // не входит.
+      final List<Transaction> alive = await restored.transactionsDao
+          .getFiltered();
+      expect(alive, hasLength(7));
+      final Transaction transfer = alive.singleWhere(
         (Transaction t) =>
-            TransactionType.fromDb(t.type) == TransactionType.transfer);
-    expect(transfer.accountId, isNotNull);
-    expect(transfer.targetAccountId, isNotNull);
-    // Вторая сумма перевода (D-17) пережила round-trip без искажений.
-    expect(transfer.amountMinor, 7000);
-    expect(transfer.targetAmountMinor, 88);
+            TransactionType.fromDb(t.type) == TransactionType.transfer,
+      );
+      expect(transfer.accountId, isNotNull);
+      expect(transfer.targetAccountId, isNotNull);
+      // Вторая сумма перевода (D-17) пережила round-trip без искажений.
+      expect(transfer.amountMinor, 7000);
+      expect(transfer.targetAmountMinor, 88);
 
-    // Заметка с разделителем CSV и кавычками — исключительно вопрос
-    // JSON-дампа: строка не искажается.
-    final Transaction income =
-        alive.singleWhere((Transaction t) => t.note != null && t.note!.contains(';'));
-    expect(income.note, 'зарплата; премия "за всё"');
+      // Заметка с разделителем CSV и кавычками — исключительно вопрос
+      // JSON-дампа: строка не искажается.
+      final Transaction income = alive.singleWhere(
+        (Transaction t) => t.note != null && t.note!.contains(';'),
+      );
+      expect(income.note, 'зарплата; премия "за всё"');
 
-    // Балансы совпадают: RESTORED база эквивалентна источнику.
-    final int sourceBalance = await source.accountsDao.balanceMinor(card.id);
-    final int restoredBalance = await restored.accountsDao.balanceMinor(card.id);
-    expect(restoredBalance, sourceBalance);
+      // Балансы совпадают: RESTORED база эквивалентна источнику.
+      final int sourceBalance = await source.accountsDao.balanceMinor(card.id);
+      final int restoredBalance = await restored.accountsDao.balanceMinor(
+        card.id,
+      );
+      expect(restoredBalance, sourceBalance);
 
-    // Бюджеты (v2): живой один, мягко удалённый физически на месте.
-    final List<Budget> budgets = await restored.budgetsDao.getAlive();
-    expect(budgets, hasLength(1));
-    expect(budgets.single.limitMinor, 12345);
-    // Ссылка категории сходится по имени (milk внутри фикстуры не виден).
-    final List<QueryRow> budgetCategory = await restored.customSelect(
-      'SELECT c.name AS name FROM budgets b '
-      'JOIN categories c ON c.id = b.category_id '
-      "WHERE b.deleted_at IS NULL",
-    ).get();
-    expect(budgetCategory.single.read<String>('name'), 'Молочка');
-    final List<QueryRow> deadBudgets = await restored.customSelect(
-      'SELECT COUNT(*) AS c FROM budgets WHERE deleted_at IS NOT NULL',
-    ).get();
-    expect(deadBudgets.single.read<int>('c'), 1);
+      // Бюджеты (v2): живой один, мягко удалённый физически на месте.
+      final List<Budget> budgets = await restored.budgetsDao.getAlive();
+      expect(budgets, hasLength(1));
+      expect(budgets.single.limitMinor, 12345);
+      // Ссылка категории сходится по имени (milk внутри фикстуры не виден).
+      final List<QueryRow> budgetCategory = await restored
+          .customSelect(
+            'SELECT c.name AS name FROM budgets b '
+            'JOIN categories c ON c.id = b.category_id '
+            "WHERE b.deleted_at IS NULL",
+          )
+          .get();
+      expect(budgetCategory.single.read<String>('name'), 'Молочка');
+      final List<QueryRow> deadBudgets = await restored
+          .customSelect(
+            'SELECT COUNT(*) AS c FROM budgets WHERE deleted_at IS NOT NULL',
+          )
+          .get();
+      expect(deadBudgets.single.read<int>('c'), 1);
 
-    // Вложение (v6, D-64): метаданные пережили round-trip дословно;
-    // файл на диске НЕ требуется — бэкап его не переносит (D-63),
-    // отсутствие файла — норма (UI 6в обязан показывать это без падения).
-    final Attachment? attachment =
-        await restored.attachmentsDao.findByTransaction(attachmentTransactionId);
-    expect(attachment, isNotNull);
-    expect(attachment!.mimeType, 'image/jpeg');
-    expect(attachment.fileSize, 2048);
-    expect(
-      AttachmentsStorage.isMimeTypeAllowed(attachment.mimeType),
-      isTrue,
-    );
-    expect(attachment.filePath, endsWith('.jpg'));
+      // Вложение (v6, D-64): метаданные пережили round-trip дословно;
+      // файл на диске НЕ требуется — бэкап его не переносит (D-63),
+      // отсутствие файла — норма (UI 6в обязан показывать это без падения).
+      final Attachment? attachment = await restored.attachmentsDao
+          .findByTransaction(attachmentTransactionId);
+      expect(attachment, isNotNull);
+      expect(attachment!.mimeType, 'image/jpeg');
+      expect(attachment.fileSize, 2048);
+      expect(AttachmentsStorage.isMimeTypeAllowed(attachment.mimeType), isTrue);
+      expect(attachment.filePath, endsWith('.jpg'));
 
-    // Мягко удалённая операция без вложения: вложений два — операция (v6)
-    // и долг (M6/D-90).
-    final List<QueryRow> attachmentsCount = await restored.customSelect(
-      'SELECT COUNT(*) AS c FROM attachments',
-    ).get();
-    expect(attachmentsCount.single.read<int>('c'), 2);
+      // Мягко удалённая операция без вложения: вложений два — операция (v6)
+      // и долг (M6/D-90).
+      final List<QueryRow> attachmentsCount = await restored
+          .customSelect('SELECT COUNT(*) AS c FROM attachments')
+          .get();
+      expect(attachmentsCount.single.read<int>('c'), 2);
 
-    // Долги (v7, D-85): живой долг с телом/переплатой/сроком пережил
-    // round-trip дословно; платёж сохранил ссылку на перевод; мягко
-    // удалённый долг остался физически.
-    final List<Debt> aliveDebts = await restored.debtsDao.watchAlive().first;
-    expect(aliveDebts, hasLength(1));
-    final Debt restoredDebt = aliveDebts.single;
-    expect(restoredDebt.person, 'Алексей');
-    expect(restoredDebt.direction, 'they_owe_me');
-    expect(restoredDebt.amountMinor, 500000);
-    expect(restoredDebt.extraMinor, 25000);
-    expect(restoredDebt.dueDate, '2026-11-01T00:00:00.000Z');
-    expect(restoredDebt.note, 'под расписку');
-    final List<DebtPayment> payments =
-        await restored.debtsDao.watchPayments(restoredDebt.id).first;
-    expect(payments, hasLength(1));
-    expect(payments.single.amountMinor, 100000);
-    expect(payments.single.transactionId, attachmentTransactionId);
-    final List<QueryRow> deadDebts = await restored.customSelect(
-      "SELECT COUNT(*) AS c FROM debts WHERE deleted_at IS NOT NULL",
-    ).get();
-    expect(deadDebts.single.read<int>('c'), 1);
+      // Долги (v7, D-85): живой долг с телом/переплатой/сроком пережил
+      // round-trip дословно; платёж сохранил ссылку на перевод; мягко
+      // удалённый долг остался физически.
+      final List<Debt> aliveDebts = await restored.debtsDao.watchAlive().first;
+      expect(aliveDebts, hasLength(1));
+      final Debt restoredDebt = aliveDebts.single;
+      expect(restoredDebt.person, 'Алексей');
+      expect(restoredDebt.direction, 'they_owe_me');
+      expect(restoredDebt.amountMinor, 500000);
+      expect(restoredDebt.extraMinor, 25000);
+      expect(restoredDebt.dueDate, '2026-11-01T00:00:00.000Z');
+      expect(restoredDebt.note, 'под расписку');
+      final List<DebtPayment> payments = await restored.debtsDao
+          .watchPayments(restoredDebt.id)
+          .first;
+      expect(payments, hasLength(1));
+      expect(payments.single.amountMinor, 100000);
+      expect(payments.single.transactionId, attachmentTransactionId);
+      final List<QueryRow> deadDebts = await restored
+          .customSelect(
+            "SELECT COUNT(*) AS c FROM debts WHERE deleted_at IS NOT NULL",
+          )
+          .get();
+      expect(deadDebts.single.read<int>('c'), 1);
 
-    // Вложение долга (D-90): ключ владельца d:<id> пережил round-trip —
-    // вложение живёт в восстановленном файле и найдено findByDebt.
-    final Attachment? debtAttachment =
-        await restored.attachmentsDao.findByDebt(restoredDebt.id);
-    expect(debtAttachment, isNotNull);
-    expect(debtAttachment!.filePath, 'debt-check.jpg');
-    expect(debtAttachment.fileSize, 4096);
+      // Вложение долга (D-90): ключ владельца d:<id> пережил round-trip —
+      // вложение живёт в восстановленном файле и найдено findByDebt.
+      final Attachment? debtAttachment = await restored.attachmentsDao
+          .findByDebt(restoredDebt.id);
+      expect(debtAttachment, isNotNull);
+      expect(debtAttachment!.filePath, 'debt-check.jpg');
+      expect(debtAttachment.fileSize, 4096);
 
-    // Накопительный счёт (v7, D-81): дата напоминания восстановлена.
-    final Account restoredSavings = accounts
-        .singleWhere((Account a) => a.name == 'Накопительный RUB');
-    expect(restoredSavings.interestReminderDate,
-        '2026-10-30T00:00:00.000Z');
-  });
+      // Накопительный счёт (v7, D-81): дата напоминания восстановлена.
+      final Account restoredSavings = accounts.singleWhere(
+        (Account a) => a.name == 'Накопительный RUB',
+      );
+      expect(restoredSavings.interestReminderDate, '2026-10-30T00:00:00.000Z');
+    },
+  );
 
   test('round-trip мягко удалённых строк: удалённые остаются удалёнными', () async {
     final AppDatabase source = (await richSeeded()).db;
     addTearDown(source.close);
 
     final String firstJson = await BackupService(source).exportJson();
-    final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
+    final AppDatabase restored = AppDatabase.forTesting(
+      NativeDatabase.memory(),
+    );
     addTearDown(restored.close);
     await BackupService(restored).importJson(firstJson);
 
     // Счёт: 1 мягко удалён физически и не входит в живые.
-    final List<QueryRow> deletedAccounts = await restored.customSelect(
-      'SELECT COUNT(*) AS c FROM accounts WHERE deleted_at IS NOT NULL',
-    ).get();
+    final List<QueryRow> deletedAccounts = await restored
+        .customSelect(
+          'SELECT COUNT(*) AS c FROM accounts WHERE deleted_at IS NOT NULL',
+        )
+        .get();
     expect(deletedAccounts.single.data['c'], 1);
     expect(
-      (await restored.accountsDao.getAlive())
-          .where((Account a) => a.name == 'Закрытый счёт'),
+      (await restored.accountsDao.getAlive()).where(
+        (Account a) => a.name == 'Закрытый счёт',
+      ),
       isEmpty,
     );
 
     // Категория: мягко удалена, вложенные live-операции нет (у неё не было
     // операций), системная не удалялась.
-    final List<QueryRow> deletedCategories = await restored.customSelect(
-      'SELECT COUNT(*) AS c FROM categories WHERE deleted_at IS NOT NULL',
-    ).get();
+    final List<QueryRow> deletedCategories = await restored
+        .customSelect(
+          'SELECT COUNT(*) AS c FROM categories WHERE deleted_at IS NOT NULL',
+        )
+        .get();
     expect(deletedCategories.single.data['c'], 1);
 
     // Операция: мягко удалена, физически в дампе.
-    final List<QueryRow> deletedTransactions = await restored.customSelect(
-      'SELECT COUNT(*) AS c FROM transactions WHERE deleted_at IS NOT NULL',
-    ).get();
+    final List<QueryRow> deletedTransactions = await restored
+        .customSelect(
+          'SELECT COUNT(*) AS c FROM transactions WHERE deleted_at IS NOT NULL',
+        )
+        .get();
     expect(deletedTransactions.single.data['c'], 1);
 
     // Вложения — метаданные в дампе (v6 + M6-долг, D-90), файлы на диске
     // не требуются: вложение операции и вложение долга.
-    final List<QueryRow> attachments = await restored.customSelect(
-      'SELECT COUNT(*) AS c FROM attachments',
-    ).get();
+    final List<QueryRow> attachments = await restored
+        .customSelect('SELECT COUNT(*) AS c FROM attachments')
+        .get();
     expect(attachments.single.read<int>('c'), 2);
   });
 
-  test('повторный round-trip стабилен: экспорт → импорт → экспорт → импорт → экспорт',
-      () async {
+  test('повторный round-trip стабилен: экспорт → импорт → экспорт → импорт → экспорт', () async {
     final AppDatabase source = (await richSeeded()).db;
     addTearDown(source.close);
 
@@ -487,11 +508,18 @@ void main() {
     await BackupService(b).importJson(secondJson);
     final String thirdJson = await BackupService(b).exportJson();
 
-    final CanonicalDocument two = canonical(jsonDecode(secondJson) as Map<String, dynamic>);
-    final CanonicalDocument three = canonical(jsonDecode(thirdJson) as Map<String, dynamic>);
+    final CanonicalDocument two = canonical(
+      jsonDecode(secondJson) as Map<String, dynamic>,
+    );
+    final CanonicalDocument three = canonical(
+      jsonDecode(thirdJson) as Map<String, dynamic>,
+    );
     for (final String table in two.tables.keys) {
-      expect(three.tables[table], two.tables[table],
-          reason: 'таблица $table изменилась на втором цикле');
+      expect(
+        three.tables[table],
+        two.tables[table],
+        reason: 'таблица $table изменилась на втором цикле',
+      );
     }
   });
 }

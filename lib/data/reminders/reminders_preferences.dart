@@ -40,17 +40,16 @@ class RemindersPreferencesStore implements RemindersPreferencesFake {
   Future<bool> readEnabled() async => (await _readAll())[_keyEnabled] == true;
 
   @override
-  Future<void> writeEnabled(bool enabled) async => _writeAll(
-        <String, dynamic>{...(await _readAll()), _keyEnabled: enabled},
-      );
+  Future<void> writeEnabled(bool enabled) async =>
+      _writeAll(<String, dynamic>{...(await _readAll()), _keyEnabled: enabled});
 }
 
 /// Провайдер хранилища; создаётся в `main` (платформенный путь) и
 /// передаётся override'ом — тот же приём, что у остальных настроек (D-43).
-final remindersPreferencesStoreProvider = Provider<RemindersPreferencesStore>(
-  (ref) {
-    throw UnimplementedError(
-      'создаётся в main: RemindersPreferencesStore(baseDirectory: getApplicationSupportDirectory())',
-    );
-  },
-);
+final remindersPreferencesStoreProvider = Provider<RemindersPreferencesStore>((
+  ref,
+) {
+  throw UnimplementedError(
+    'создаётся в main: RemindersPreferencesStore(baseDirectory: getApplicationSupportDirectory())',
+  );
+});

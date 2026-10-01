@@ -26,8 +26,9 @@ ProviderContainer _container(Directory directory) {
 }
 
 Directory _tempDir() {
-  final Directory directory = Directory.systemTemp
-      .createTempSync('kopilka_theme_test');
+  final Directory directory = Directory.systemTemp.createTempSync(
+    'kopilka_theme_test',
+  );
   addTearDown(() => directory.deleteSync(recursive: true));
   return directory;
 }
@@ -51,16 +52,20 @@ void main() {
 
       expect(
         light.colorScheme,
-        ColorScheme.fromSeed(seedColor: oceanPreset.seed)
-            .copyWith(surface: oceanPreset.lightSurface,
-                onSurface: oceanPreset.lightOnSurface),
+        ColorScheme.fromSeed(seedColor: oceanPreset.seed).copyWith(
+          surface: oceanPreset.lightSurface,
+          onSurface: oceanPreset.lightOnSurface,
+        ),
       );
       expect(
         dark.colorScheme,
-        ColorScheme.fromSeed(seedColor: oceanPreset.seed,
-                brightness: Brightness.dark)
-            .copyWith(surface: oceanPreset.darkSurface,
-                onSurface: oceanPreset.darkOnSurface),
+        ColorScheme.fromSeed(
+          seedColor: oceanPreset.seed,
+          brightness: Brightness.dark,
+        ).copyWith(
+          surface: oceanPreset.darkSurface,
+          onSurface: oceanPreset.darkOnSurface,
+        ),
       );
     });
 
@@ -73,15 +78,17 @@ void main() {
   });
 
   group('контроллер темы (два поля состояния, §5 спеки)', () {
-    test('до load — системная основа и пресет default (первый запуск)',
-        () async {
-      final ProviderContainer container = _container(_tempDir());
+    test(
+      'до load — системная основа и пресет default (первый запуск)',
+      () async {
+        final ProviderContainer container = _container(_tempDir());
 
-      final ThemeState initial = container.read(themeProvider);
-      expect(initial.preset, same(defaultPreset));
-      expect(initial.mode, ThemeMode.system);
-      expect(container.read(themeModeProvider), ThemeMode.system);
-    });
+        final ThemeState initial = container.read(themeProvider);
+        expect(initial.preset, same(defaultPreset));
+        expect(initial.mode, ThemeMode.system);
+        expect(container.read(themeModeProvider), ThemeMode.system);
+      },
+    );
 
     test('setPreset и setMode применяются немедленно и пишут файл', () async {
       final Directory directory = _tempDir();
@@ -95,14 +102,14 @@ void main() {
       expect(state.mode, ThemeMode.dark);
       expect(container.read(themeModeProvider), ThemeMode.dark);
 
-      final ThemePreferencesStore store =
-          ThemePreferencesStore(baseDirectory: directory);
+      final ThemePreferencesStore store = ThemePreferencesStore(
+        baseDirectory: directory,
+      );
       expect(await store.readPresetId(), 'ocean');
       expect(await store.readMode(), ThemeMode.dark);
     });
 
-    test('load восстанавливает пресет и основу после «перезапуска»',
-        () async {
+    test('load восстанавливает пресет и основу после «перезапуска»', () async {
       final Directory directory = _tempDir();
       final ProviderContainer first = _container(directory);
       await first.read(themeProvider.notifier).setPreset(graphitePreset);
@@ -112,8 +119,11 @@ void main() {
       final ProviderContainer second = _container(directory);
       final ThemeState beforeLoad = second.read(themeProvider);
       expect(beforeLoad.preset, same(defaultPreset));
-      expect(beforeLoad.mode, ThemeMode.system,
-          reason: 'до load состояние — значения по умолчанию');
+      expect(
+        beforeLoad.mode,
+        ThemeMode.system,
+        reason: 'до load состояние — значения по умолчанию',
+      );
       await second.read(themeProvider.notifier).load();
 
       final ThemeState state = second.read(themeProvider);
@@ -121,16 +131,18 @@ void main() {
       expect(state.mode, ThemeMode.light);
     });
 
-    test('load при пустом каталоге (файла нет) — дефолты без исключений',
-        () async {
-      final ProviderContainer container = _container(_tempDir());
+    test(
+      'load при пустом каталоге (файла нет) — дефолты без исключений',
+      () async {
+        final ProviderContainer container = _container(_tempDir());
 
-      await container.read(themeProvider.notifier).load();
+        await container.read(themeProvider.notifier).load();
 
-      final ThemeState state = container.read(themeProvider);
-      expect(state.preset, same(defaultPreset));
-      expect(state.mode, ThemeMode.system);
-    });
+        final ThemeState state = container.read(themeProvider);
+        expect(state.preset, same(defaultPreset));
+        expect(state.mode, ThemeMode.system);
+      },
+    );
 
     test('load с чужим id в файле — молча default (§4 спеки)', () async {
       final Directory directory = _tempDir();
@@ -150,8 +162,9 @@ void main() {
   group('персист theme-preferences.json (образец D-43)', () {
     test('файл не создаётся до первого изменения (первый запуск)', () async {
       final Directory directory = _tempDir();
-      final ThemePreferencesStore store =
-          ThemePreferencesStore(baseDirectory: directory);
+      final ThemePreferencesStore store = ThemePreferencesStore(
+        baseDirectory: directory,
+      );
 
       expect(await store.readPresetId(), isNull);
       expect(await store.readMode(), isNull);
@@ -163,8 +176,9 @@ void main() {
 
     test('happy path: записанное читается тем же хранилищем', () async {
       final Directory directory = _tempDir();
-      final ThemePreferencesStore store =
-          ThemePreferencesStore(baseDirectory: directory);
+      final ThemePreferencesStore store = ThemePreferencesStore(
+        baseDirectory: directory,
+      );
 
       await store.writePresetId('sunset');
       await store.writeMode(ThemeMode.dark);
@@ -181,12 +195,12 @@ void main() {
 
     test('битый JSON — чтение молча даёт null (T-2, D-43.г)', () async {
       final Directory directory = _tempDir();
-      final File file =
-          File('${directory.path}/theme-preferences.json');
+      final File file = File('${directory.path}/theme-preferences.json');
       // Полусформированный/повреждённый файл: запись оборвалась.
       await file.writeAsString('{oops');
-      final ThemePreferencesStore store =
-          ThemePreferencesStore(baseDirectory: directory);
+      final ThemePreferencesStore store = ThemePreferencesStore(
+        baseDirectory: directory,
+      );
 
       expect(await store.readPresetId(), isNull);
       expect(await store.readMode(), isNull);
@@ -194,8 +208,9 @@ void main() {
 
     test('чужой id и чужая строка mode не распознаются (§4 спеки)', () async {
       final Directory directory = _tempDir();
-      final ThemePreferencesStore store =
-          ThemePreferencesStore(baseDirectory: directory);
+      final ThemePreferencesStore store = ThemePreferencesStore(
+        baseDirectory: directory,
+      );
 
       await store.writePresetId('no-such-preset');
       await store.writeMode(ThemeMode.dark); // поверх — перезапись целиком

@@ -14,20 +14,18 @@ import 'package:kopilka/data/db/dao/currencies_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/rates/rate_sync_service.dart';
 
-http.Response ratesResponse(Map<String, Object?> rates) =>
-    http.Response(
-      jsonEncode(<String, dynamic>{'result': 'success', 'rates': rates}),
-      200,
-      headers: <String, String>{'content-type': 'application/json'},
-    );
+http.Response ratesResponse(Map<String, Object?> rates) => http.Response(
+  jsonEncode(<String, dynamic>{'result': 'success', 'rates': rates}),
+  200,
+  headers: <String, String>{'content-type': 'application/json'},
+);
 
 http.Client clientAnswering(Future<http.Response> Function() answer) =>
     MockClient((http.Request request) async => answer());
 
 /// Фикстура со справочником RUB(база) + USD + EUR.
 class RatesFixture {
-  RatesFixture()
-    : db = AppDatabase.forTesting(NativeDatabase.memory()) {
+  RatesFixture() : db = AppDatabase.forTesting(NativeDatabase.memory()) {
     dao = CurrenciesDao(db);
   }
 
@@ -57,8 +55,10 @@ void main() {
     });
 
     test('не success, не объект или без словаря rates — null', () {
-      expect(parseRatesResponse(<String, dynamic>{'result': 'failure'}),
-          isNull);
+      expect(
+        parseRatesResponse(<String, dynamic>{'result': 'failure'}),
+        isNull,
+      );
       expect(parseRatesResponse(<String>['список']), isNull);
       expect(parseRatesResponse('строка'), isNull);
       expect(
@@ -120,23 +120,29 @@ void main() {
       expect(await f.rateOf('EUR'), 95.25);
     });
 
-    test('база не трогается, валюты вне словаря пропускаются (не добавляются)',
-        () async {
-      await f.seed();
+    test(
+      'база не трогается, валюты вне словаря пропускаются (не добавляются)',
+      () async {
+        await f.seed();
 
-      final RateSyncResult result = await RateSyncService().applyRates(
-        f.dao,
-        <String, double>{'RUB': 1, 'USD': 80, 'JPY': 0.5},
-        baseCode: 'RUB',
-      );
+        final RateSyncResult result = await RateSyncService().applyRates(
+          f.dao,
+          <String, double>{'RUB': 1, 'USD': 80, 'JPY': 0.5},
+          baseCode: 'RUB',
+        );
 
-      // JPY в базе пользователя нет — не создаётся; обновлён только USD.
-      expect((result as RateSyncUpdated).updatedCount, 1);
-      expect(await f.dao.findAlive('JPY'), isNull);
-      expect(await f.rateOf('RUB'), 1);
-      expect((await f.dao.baseCurrency())?.code, 'RUB');
-      expect(await f.rateOf('EUR'), 100, reason: 'вне словаря — прежний курс');
-    });
+        // JPY в базе пользователя нет — не создаётся; обновлён только USD.
+        expect((result as RateSyncUpdated).updatedCount, 1);
+        expect(await f.dao.findAlive('JPY'), isNull);
+        expect(await f.rateOf('RUB'), 1);
+        expect((await f.dao.baseCurrency())?.code, 'RUB');
+        expect(
+          await f.rateOf('EUR'),
+          100,
+          reason: 'вне словаря — прежний курс',
+        );
+      },
+    );
 
     test('мягко удалённая валюта не участвует', () async {
       await f.seed();
@@ -152,25 +158,37 @@ void main() {
       expect(await f.dao.findAlive('EUR'), isNull);
     });
 
-    test('повторный запуск идемпотентен (тот же источник — то же состояние)',
-        () async {
-      await f.seed();
-      final RateSyncService service = RateSyncService();
-      final Map<String, double> rates = <String, double>{'USD': 80, 'EUR': 95};
+    test(
+      'повторный запуск идемпотентен (тот же источник — то же состояние)',
+      () async {
+        await f.seed();
+        final RateSyncService service = RateSyncService();
+        final Map<String, double> rates = <String, double>{
+          'USD': 80,
+          'EUR': 95,
+        };
 
-      await service.applyRates(f.dao, rates, baseCode: 'RUB');
-      final DateTime stamp = (await f.dao.findAlive('USD'))!.updatedAt;
-      final RateSyncResult second =
-          await service.applyRates(f.dao, rates, baseCode: 'RUB');
+        await service.applyRates(f.dao, rates, baseCode: 'RUB');
+        final DateTime stamp = (await f.dao.findAlive('USD'))!.updatedAt;
+        final RateSyncResult second = await service.applyRates(
+          f.dao,
+          rates,
+          baseCode: 'RUB',
+        );
 
-      expect(second, isA<RateSyncUpdated>());
-      expect((second as RateSyncUpdated).updatedCount, 2);
-      expect((await f.dao.findAlive('USD'))!.updatedAt, stamp,
-          reason: 'повторная запись того же курса перезаписывает строку — '
-              'состояние справочника идемпотентно');
-      expect(await f.rateOf('USD'), 80);
-      expect(await f.rateOf('EUR'), 95);
-    });
+        expect(second, isA<RateSyncUpdated>());
+        expect((second as RateSyncUpdated).updatedCount, 2);
+        expect(
+          (await f.dao.findAlive('USD'))!.updatedAt,
+          stamp,
+          reason:
+              'повторная запись того же курса перезаписывает строку — '
+              'состояние справочника идемпотентно',
+        );
+        expect(await f.rateOf('USD'), 80);
+        expect(await f.rateOf('EUR'), 95);
+      },
+    );
   });
 
   group('RateSyncService.syncNow (end-to-end на MockClient)', () {
@@ -179,34 +197,39 @@ void main() {
     setUp(() => f = RatesFixture());
     tearDown(() => f.dispose());
 
-    test('успех: запрос к источнику, курсы записаны, база не тронута',
-        () async {
-      await f.seed();
-      late Uri requestedUrl;
-      final RateSyncResult result = await RateSyncService(
-        client: MockClient((http.Request request) async {
-          requestedUrl = request.url;
-          return ratesResponse(<String, Object?>{
-            'USD': 0.0125,
-            'EUR': 0.0105,
-            'RUB': 1,
-          });
-        }),
-      ).syncNow(f.dao);
+    test(
+      'успех: запрос к источнику, курсы записаны, база не тронута',
+      () async {
+        await f.seed();
+        late Uri requestedUrl;
+        final RateSyncResult result = await RateSyncService(
+          client: MockClient((http.Request request) async {
+            requestedUrl = request.url;
+            return ratesResponse(<String, Object?>{
+              'USD': 0.0125,
+              'EUR': 0.0105,
+              'RUB': 1,
+            });
+          }),
+        ).syncNow(f.dao);
 
-      expect(requestedUrl.host, 'open.er-api.com');
-      expect(requestedUrl.path, '/v6/latest/RUB');
-      expect(result, isA<RateSyncUpdated>());
-      // Единицы источника — «CODE за единицу базы» (реальный ответ
-      // open.er-api.com /latest/RUB: USD ≈ 0.0111 — долларов за рубль);
-      // в справочник пишется обратная величина (D-42).
-      expect((result as RateSyncUpdated).updatedCount, 2);
-      expect(await f.rateOf('USD'), closeTo(80, 1e-9));
-      expect(await f.rateOf('EUR'), closeTo(95.238095238, 1e-8));
-      expect(await f.dao.findAlive('RUB'), isNotNull,
-          reason: 'RUB есть в базе пользователя, но базовая — не трогается');
-      expect(await f.rateOf('RUB'), 1);
-    });
+        expect(requestedUrl.host, 'open.er-api.com');
+        expect(requestedUrl.path, '/v6/latest/RUB');
+        expect(result, isA<RateSyncUpdated>());
+        // Единицы источника — «CODE за единицу базы» (реальный ответ
+        // open.er-api.com /latest/RUB: USD ≈ 0.0111 — долларов за рубль);
+        // в справочник пишется обратная величина (D-42).
+        expect((result as RateSyncUpdated).updatedCount, 2);
+        expect(await f.rateOf('USD'), closeTo(80, 1e-9));
+        expect(await f.rateOf('EUR'), closeTo(95.238095238, 1e-8));
+        expect(
+          await f.dao.findAlive('RUB'),
+          isNotNull,
+          reason: 'RUB есть в базе пользователя, но базовая — не трогается',
+        );
+        expect(await f.rateOf('RUB'), 1);
+      },
+    );
 
     test('таймаут: тихий отказ, курсы не изменились', () async {
       await f.seed();
@@ -238,9 +261,7 @@ void main() {
     test('не-2xx: тихий отказ сети', () async {
       await f.seed();
       final RateSyncResult result = await RateSyncService(
-        client: clientAnswering(
-          () async => http.Response('rate limited', 403),
-        ),
+        client: clientAnswering(() async => http.Response('rate limited', 403)),
       ).syncNow(f.dao);
 
       expect(result, isA<RateSyncOffline>());

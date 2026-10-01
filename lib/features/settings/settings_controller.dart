@@ -86,19 +86,19 @@ class AutoBackupDirectoryStore {
 }
 
 /// Провайдер хранилища каталога; файл — в каталоге поддержки приложения.
-final autoBackupDirectoryStoreProvider = Provider<AutoBackupDirectoryStore>(
-  (ref) {
-    throw UnimplementedError(
-      'создаётся в main после открытия БД: AutoBackupDirectoryStore(baseDirectory: getApplicationSupportDirectory())',
-    );
-  },
-);
+final autoBackupDirectoryStoreProvider = Provider<AutoBackupDirectoryStore>((
+  ref,
+) {
+  throw UnimplementedError(
+    'создаётся в main после открытия БД: AutoBackupDirectoryStore(baseDirectory: getApplicationSupportDirectory())',
+  );
+});
 
 /// Выбранный каталог автобэкапа в состоянии ('' = не выбран).
 final autoBackupDirectoryProvider =
     NotifierProvider<AutoBackupDirectoryController, String>(
-  AutoBackupDirectoryController.new,
-);
+      AutoBackupDirectoryController.new,
+    );
 
 class AutoBackupDirectoryController extends Notifier<String> {
   @override
@@ -124,10 +124,8 @@ class SettingsController extends Notifier {
 
   BackupService get _service => ref.watch(backupServiceProvider);
 
-  static String _stamp() => DateTime.now()
-      .toUtc()
-      .toIso8601String()
-      .replaceAll(':', '-');
+  static String _stamp() =>
+      DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
 
   /// Диалог выбора каталога; возвращает выбранный путь или null.
   Future<String?> pickDirectory() => FilePicker.getDirectoryPath();
@@ -141,10 +139,9 @@ class SettingsController extends Notifier {
     }
     try {
       final String json = await _service.exportJson();
-      final File file = File(p.join(
-        directory,
-        'kopilka-backup-${_stamp()}.json',
-      ));
+      final File file = File(
+        p.join(directory, 'kopilka-backup-${_stamp()}.json'),
+      );
       await file.writeAsString(json, flush: true);
       await _share(file);
       return SettingsFileSaved(path: file.path);
@@ -180,10 +177,9 @@ class SettingsController extends Notifier {
     }
     try {
       final String csv = await _service.exportTransactionsCsv();
-      final File file = File(p.join(
-        directory,
-        'kopilka-transactions-${_stamp()}.csv',
-      ));
+      final File file = File(
+        p.join(directory, 'kopilka-transactions-${_stamp()}.csv'),
+      );
       await file.writeAsString(csv, flush: true);
       await _share(file);
       return SettingsFileSaved(path: file.path);
@@ -208,8 +204,9 @@ class SettingsController extends Notifier {
   }
 }
 
-final settingsControllerProvider =
-    NotifierProvider<SettingsController, void>(SettingsController.new);
+final settingsControllerProvider = NotifierProvider<SettingsController, void>(
+  SettingsController.new,
+);
 
 /// Автобэкап при запуске приложения (§4): каталог читается из
 /// [AutoBackupDirectoryStore], результат игнорируется тихо — запуск не
@@ -224,8 +221,10 @@ Future<void> runAutoBackupOnLaunch({
     if (path.isEmpty) {
       return;
     }
-    await BackupService(db, clock: clock ?? utcNow)
-        .runAutoBackup(Directory(path));
+    await BackupService(
+      db,
+      clock: clock ?? utcNow,
+    ).runAutoBackup(Directory(path));
   } on IOException {
     // Тихо: автобэкап не критичен для запуска (§4).
   }

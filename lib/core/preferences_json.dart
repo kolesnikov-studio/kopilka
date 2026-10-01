@@ -32,7 +32,10 @@ Future<Map<String, dynamic>> readPreferencesJson(File file) async {
 
 /// Записывает словарь настроек в [file]; отказ ФС глушится — см. контракт
 /// [readPreferencesJson].
-Future<void> writePreferencesJson(File file, Map<String, dynamic> values) async {
+Future<void> writePreferencesJson(
+  File file,
+  Map<String, dynamic> values,
+) async {
   try {
     await file.writeAsString(jsonEncode(values), flush: true);
   } on IOException {

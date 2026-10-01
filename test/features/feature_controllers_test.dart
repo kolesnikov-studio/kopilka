@@ -81,16 +81,17 @@ void main() {
     final Fixture f = Fixture();
     await seedDefaultsIfEmpty(f.db);
 
-    final List<Currency> currencies =
-        await f.db.currenciesDao.getAlive();
+    final List<Currency> currencies = await f.db.currenciesDao.getAlive();
     expect(currencies, hasLength(1));
     expect(currencies.single.code, baseCurrencyCode);
     expect(currencies.single.isBase, isTrue);
 
-    final List<Category> expense =
-        await f.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-    final List<Category> income =
-        await f.db.categoriesDao.getAlive(kind: CategoryKind.income);
+    final List<Category> expense = await f.db.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
+    );
+    final List<Category> income = await f.db.categoriesDao.getAlive(
+      kind: CategoryKind.income,
+    );
     expect(expense, isNotEmpty);
     expect(income, isNotEmpty);
     expect(expense.every((Category c) => c.isSystem), isTrue);
@@ -120,44 +121,48 @@ void main() {
 
     // Идемпотентность: повторный вызов не удваивает набор.
     await seedDefaultsIfEmpty(f.db);
-    expect(await f.db.categoriesDao.getAlive(), hasLength(expense.length + income.length));
-  });
-
-  test('контроллер счетов: создание и watchBalances отдают баланс DAO', () async {
-    final Fixture f = Fixture();
-    await seedDefaultsIfEmpty(f.db);
-
-    final String id = await f.newAccount('Наличные', initial: 10000);
-    final Result<void> expense = await f.transactions.createIncomeOrExpense(
-      type: TransactionType.expense,
-      accountId: id,
-      amountMinor: 1500,
+    expect(
+      await f.db.categoriesDao.getAlive(),
+      hasLength(expense.length + income.length),
     );
-    expect(expense.isSuccess, isTrue);
-
-    final List<AccountBalance> balances = await f.db.accountsDao.getBalances();
-    expect(balances, hasLength(1));
-    expect(balances.single.balanceMinor, 8500);
   });
 
   test(
-    'удаление счёта с операциями — отказ accountHasTransactions',
+    'контроллер счетов: создание и watchBalances отдают баланс DAO',
     () async {
       final Fixture f = Fixture();
       await seedDefaultsIfEmpty(f.db);
 
-      final String id = await f.newAccount('Карта');
-      await f.transactions.createIncomeOrExpense(
-        type: TransactionType.income,
+      final String id = await f.newAccount('Наличные', initial: 10000);
+      final Result<void> expense = await f.transactions.createIncomeOrExpense(
+        type: TransactionType.expense,
         accountId: id,
-        amountMinor: 500,
+        amountMinor: 1500,
       );
+      expect(expense.isSuccess, isTrue);
 
-      final Result<void> result = await f.accounts.deleteAccount(id);
-      expect(result.isFailure, isTrue);
-      expect(result.failure, DataFailure.accountHasTransactions);
+      final List<AccountBalance> balances = await f.db.accountsDao
+          .getBalances();
+      expect(balances, hasLength(1));
+      expect(balances.single.balanceMinor, 8500);
     },
   );
+
+  test('удаление счёта с операциями — отказ accountHasTransactions', () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+
+    final String id = await f.newAccount('Карта');
+    await f.transactions.createIncomeOrExpense(
+      type: TransactionType.income,
+      accountId: id,
+      amountMinor: 500,
+    );
+
+    final Result<void> result = await f.accounts.deleteAccount(id);
+    expect(result.isFailure, isTrue);
+    expect(result.failure, DataFailure.accountHasTransactions);
+  });
 
   test('удаление чистого счёта проходит', () async {
     final Fixture f = Fixture();
@@ -173,49 +178,59 @@ void main() {
     final Fixture f = Fixture();
     await seedDefaultsIfEmpty(f.db);
 
-    final List<Category> expense =
-        await f.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-    final Result<void> result = await f.categories.deleteCategory(expense.first.id);
+    final List<Category> expense = await f.db.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
+    );
+    final Result<void> result = await f.categories.deleteCategory(
+      expense.first.id,
+    );
     expect(result.isFailure, isTrue);
     expect(result.failure, DataFailure.categoryIsSystem);
   });
 
-  test('категория с операциями не удаляется — отказ categoryHasTransactions',
-      () async {
+  test(
+    'категория с операциями не удаляется — отказ categoryHasTransactions',
+    () async {
+      final Fixture f = Fixture();
+      await seedDefaultsIfEmpty(f.db);
+
+      final String accountId = await f.newAccount('Наличные');
+      final String categoryId = await f.newCategory(
+        'Мойки',
+        CategoryKind.expense,
+      );
+      await f.transactions.createIncomeOrExpense(
+        type: TransactionType.expense,
+        accountId: accountId,
+        categoryId: categoryId,
+        amountMinor: 700,
+      );
+
+      final Result<void> result = await f.categories.deleteCategory(categoryId);
+      expect(result.isFailure, isTrue);
+      expect(result.failure, DataFailure.categoryHasTransactions);
+    },
+  );
+
+  test('скрытие системной категории убирает из живых потоков, возврат возвращает (M5-шаг 3)', () async {
     final Fixture f = Fixture();
     await seedDefaultsIfEmpty(f.db);
 
-    final String accountId = await f.newAccount('Наличные');
-    final String categoryId = await f.newCategory('Мойки', CategoryKind.expense);
-    await f.transactions.createIncomeOrExpense(
-      type: TransactionType.expense,
-      accountId: accountId,
-      categoryId: categoryId,
-      amountMinor: 700,
+    final List<Category> seeded = await f.db.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
     );
-
-    final Result<void> result = await f.categories.deleteCategory(categoryId);
-    expect(result.isFailure, isTrue);
-    expect(result.failure, DataFailure.categoryHasTransactions);
-  });
-
-  test('скрытие системной категории убирает из живых потоков, возврат возвращает (M5-шаг 3)',
-      () async {
-    final Fixture f = Fixture();
-    await seedDefaultsIfEmpty(f.db);
-
-    final List<Category> seeded =
-        await f.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-    final String id =
-        seeded.firstWhere((Category c) => c.name == 'Транспорт').id;
+    final String id = seeded
+        .firstWhere((Category c) => c.name == 'Транспорт')
+        .id;
 
     // Инициализируем потоки (StreamProvider ленивый и умирает без слушателя,
     // замок из теста R5 ниже): до скрытия категория живая, скрытых нет.
     f.container.listen(allCategoriesProvider, (_, _) {});
     f.container.listen(hiddenSystemCategoriesProvider, (_, _) {});
     await waitUntil(
-      () => (f.container.read(allCategoriesProvider).value ?? <Category>[])
-          .any((Category c) => c.id == id),
+      () => (f.container.read(allCategoriesProvider).value ?? <Category>[]).any(
+        (Category c) => c.id == id,
+      ),
     );
 
     // Скрываем через контроллер — из живого потока категория уходит.
@@ -226,38 +241,37 @@ void main() {
           .every((Category c) => c.id != id),
     );
     expect(
-      (f.container.read(allCategoriesProvider).value ?? <Category>[])
-          .where((Category c) => c.isSystem),
+      (f.container.read(allCategoriesProvider).value ?? <Category>[]).where(
+        (Category c) => c.isSystem,
+      ),
       isNotEmpty,
       reason: 'остальные предустановки на месте',
     );
     // Скрытая — в потоке скрытых (провайдер настроек).
     await waitUntil(
-      () => (f.container
-                  .read(hiddenSystemCategoriesProvider)
-                  .value ??
-              <Category>[])
-          .any((Category c) => c.id == id),
+      () =>
+          (f.container.read(hiddenSystemCategoriesProvider).value ??
+                  <Category>[])
+              .any((Category c) => c.id == id),
     );
 
     // Возвращаем через контроллер — категория снова во всех живых списках.
     final Result<Category> restored = await f.categories.restoreCategory(id);
     expect(restored.isSuccess, isTrue);
     await waitUntil(
-      () => (f.container.read(allCategoriesProvider).value ?? <Category>[])
-          .any((Category c) => c.id == id),
+      () => (f.container.read(allCategoriesProvider).value ?? <Category>[]).any(
+        (Category c) => c.id == id,
+      ),
     );
     await waitUntil(
-      () => (f.container
-                  .read(hiddenSystemCategoriesProvider)
-                  .value ??
-              <Category>[])
-          .every((Category c) => c.id != id),
+      () =>
+          (f.container.read(hiddenSystemCategoriesProvider).value ??
+                  <Category>[])
+              .every((Category c) => c.id != id),
     );
   });
 
-  test('скрытие не-системной и повторное скрытие — отказы; удаление пустой работает (M5-шаг 3)',
-      () async {
+  test('скрытие не-системной и повторное скрытие — отказы; удаление пустой работает (M5-шаг 3)', () async {
     final Fixture f = Fixture();
     await seedDefaultsIfEmpty(f.db);
 
@@ -266,8 +280,9 @@ void main() {
     expect(notSystem.isFailure, isTrue);
     expect(notSystem.failure, DataFailure.categoryIsSystem);
 
-    final List<Category> seeded =
-        await f.db.categoriesDao.getAlive(kind: CategoryKind.expense);
+    final List<Category> seeded = await f.db.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
+    );
     final String systemId = seeded.first.id;
     expect((await f.categories.hideCategory(systemId)).isSuccess, isTrue);
     // Повторное скрытие — отказ (уже скрыта, живой строки нет).
@@ -279,8 +294,9 @@ void main() {
     final Result<void> deleted = await f.categories.deleteCategory(userId);
     expect(deleted.isSuccess, isTrue);
     // А системная не удаляется и скрытой — тоже (категорияIsSystem).
-    final Result<void> deleteHiddenSystem =
-        await f.categories.deleteCategory(systemId);
+    final Result<void> deleteHiddenSystem = await f.categories.deleteCategory(
+      systemId,
+    );
     expect(deleteHiddenSystem.isFailure, isTrue);
     expect(deleteHiddenSystem.failure, DataFailure.notFound);
   });
@@ -352,8 +368,10 @@ void main() {
       const TransactionFilter(search: 'кофе'),
     );
     expect(searched, hasLength(1));
-    expect(TransactionType.fromDb(searched.single.type),
-        TransactionType.expense);
+    expect(
+      TransactionType.fromDb(searched.single.type),
+      TransactionType.expense,
+    );
   });
 
   test('операция удаляется мягко: строка остаётся в таблице', () async {
@@ -363,13 +381,14 @@ void main() {
     final String accountId = await f.newAccount('Наличные');
     final Result<Transaction> created = await f.transactions
         .createIncomeOrExpense(
-      type: TransactionType.expense,
-      accountId: accountId,
-      amountMinor: 100,
-    );
+          type: TransactionType.expense,
+          accountId: accountId,
+          amountMinor: 100,
+        );
 
-    final Result<void> result =
-        await f.transactions.deleteTransaction(created.value.id);
+    final Result<void> result = await f.transactions.deleteTransaction(
+      created.value.id,
+    );
     expect(result.isSuccess, isTrue);
     expect(await f.db.transactionsDao.getFiltered(), isEmpty);
 
@@ -379,28 +398,32 @@ void main() {
     expect(raw.single.read<int>('count'), 1);
   });
 
-  test('currenciesMapProvider: карта код → валюта (R5), базовая из потока (R5)',
-      () async {
-    final Fixture f = Fixture();
-    await seedDefaultsIfEmpty(f.db);
+  test(
+    'currenciesMapProvider: карта код → валюта (R5), базовая из потока (R5)',
+    () async {
+      final Fixture f = Fixture();
+      await seedDefaultsIfEmpty(f.db);
 
-    // autoDispose-провайдеры живут, только пока есть слушатель.
-    f.container.listen(currenciesMapProvider, (_, _) {});
-    f.container.listen(baseCurrencyStreamProvider, (_, _) {});
+      // autoDispose-провайдеры живут, только пока есть слушатель.
+      f.container.listen(currenciesMapProvider, (_, _) {});
+      f.container.listen(baseCurrencyStreamProvider, (_, _) {});
 
-    final Map<String, Currency> map =
-        await f.container.read(currenciesMapProvider.future);
-    expect(map[baseCurrencyCode], isNotNull);
-    expect(map[baseCurrencyCode]!.isBase, isTrue);
+      final Map<String, Currency> map = await f.container.read(
+        currenciesMapProvider.future,
+      );
+      expect(map[baseCurrencyCode], isNotNull);
+      expect(map[baseCurrencyCode]!.isBase, isTrue);
 
-    final Currency base =
-        await f.container.read(baseCurrencyStreamProvider.future);
-    expect(base.code, baseCurrencyCode);
-    expect(base.symbol, '₽');
+      final Currency base = await f.container.read(
+        baseCurrencyStreamProvider.future,
+      );
+      expect(base.code, baseCurrencyCode);
+      expect(base.symbol, '₽');
 
-    // Символ по коду — то, чем пользуются плитки после R4/R5.
-    expect(map['RUB']!.symbol, '₽');
-  });
+      // Символ по коду — то, чем пользуются плитки после R4/R5.
+      expect(map['RUB']!.symbol, '₽');
+    },
+  );
 
   test('общий баланс дашборда: конвертация по текущему курсу (D-18)', () async {
     final Fixture f = Fixture();
@@ -437,172 +460,168 @@ void main() {
     );
   });
 
-  test(
-    'счёт с флагом «не учитывать в балансе» выпадает из суммарного, персональный цел (v5/D-54)',
-    () async {
-      final Fixture f = Fixture();
-      await seedDefaultsIfEmpty(f.db);
-      f.container.listen(totalBalanceProvider, (_, _) {});
-
-      final String normal = await f.newAccount('Рублёвый', initial: 100000);
-      final Account excluded = await f.db.accountsDao.create(
-        name: 'Накопительный',
-        kind: AccountKind.bank,
-        currencyCode: baseCurrencyCode,
-        initialBalanceMinor: 900000,
-        excludeFromBalance: true,
-      );
-      // У исключённого счёта живёт история: её смена не должна попадать
-      // в общий итог.
-      await f.db.transactionsDao.create(
-        type: TransactionType.expense,
-        accountId: excluded.id,
-        amountMinor: 50000,
-      );
-
-      // В суммарном — только обычный счёт; накопительный с балансом
-      // 850 000 не раздувает итог (идея 14/D-54).
-      await waitUntil(
-        () => f.container.read(totalBalanceProvider).value == 100000,
-      );
-
-      // Персональный баланс исключённого счёта не изменился.
-      expect(
-        await f.db.accountsDao.balanceMinor(excluded.id),
-        850000,
-      );
-
-      // Переключение флага у живого счёта возвращает его в суммарный.
-      await f.db.accountsDao.updateAccount(
-        excluded.id,
-        excludeFromBalance: const Value<bool>(false),
-      );
-      await waitUntil(
-        () => f.container.read(totalBalanceProvider).value == 950000,
-      );
-
-      // И обратно: включение флага убирает счёт из суммы.
-      await f.db.accountsDao.updateAccount(
-        normal,
-        excludeFromBalance: const Value<bool>(true),
-      );
-      await waitUntil(
-        () => f.container.read(totalBalanceProvider).value == 850000,
-      );
-    },
-  );
-
-  test(
-    'DoD v0.5: флаг «не учитывать в балансе» не трогает донат и динамику — '
-    'операции исключённого счёта считаются в отчётах (D-54/D-60)',
-    () async {
-      final Fixture f = Fixture();
-      await seedDefaultsIfEmpty(f.db);
-      f.container.listen(totalBalanceProvider, (_, _) {});
-      f.container.listen(expensesByCategoryProvider, (_, _) {});
-      f.container.listen(monthTotalsProvider, (_, _) {});
-
-      // Отчётный месяц зафиксирован — тест не зависит от реальной даты.
-      final DateTime month = DateTime.utc(2026, 9, 15);
-      f.container.read(reportsMonthProvider.notifier).state = month;
-
-      final Account excluded = await f.db.accountsDao.create(
-        name: 'Накопительный',
-        kind: AccountKind.bank,
-        currencyCode: baseCurrencyCode,
-        excludeFromBalance: true,
-      );
-      final String hobby = await f.newCategory('Хобби', CategoryKind.expense);
-      await f.db.transactionsDao.create(
-        type: TransactionType.expense,
-        accountId: excluded.id,
-        categoryId: hobby,
-        amountMinor: 50000,
-        date: month,
-      );
-
-      // Расход исключённого счёта виден в донате и динамике: исключение
-      // по D-60 живёт только в общем балансе, отчёты честные.
-      await waitUntil(
-        () => (f.container.read(expensesByCategoryProvider).value ??
-                    const <CategoryExpenseBase>[])
-                .length ==
-            1,
-      );
-      expect(
-        f.container.read(expensesByCategoryProvider).value!.single.amountMinor,
-        50000,
-      );
-      expect(
-        f.container.read(expensesByCategoryProvider).value!.single.categoryName,
-        'Хобби',
-      );
-      final MonthTotalsBase september =
-          (f.container.read(monthTotalsProvider).value ?? const <MonthTotalsBase>[])
-              .singleWhere((MonthTotalsBase t) => t.monthKey == '2026-09');
-      expect(september.expenseMinor, 50000);
-      expect(september.incomeMinor, 0);
-
-      // Переключение флага общий баланс меняет, агрегаты отчётов — нет:
-      // граница решения D-60, SQL отчётов флаг не читает.
-      await f.db.accountsDao.updateAccount(
-        excluded.id,
-        excludeFromBalance: const Value<bool>(false),
-      );
-      await waitUntil(
-        () => f.container.read(totalBalanceProvider).value == -50000,
-      );
-      expect(
-        f.container.read(expensesByCategoryProvider).value!.single.amountMinor,
-        50000,
-        reason: 'донат считает операции и учитываемого счёта так же',
-      );
-      final MonthTotalsBase septemberAfter =
-          (f.container.read(monthTotalsProvider).value ?? const <MonthTotalsBase>[])
-              .singleWhere((MonthTotalsBase t) => t.monthKey == '2026-09');
-      expect(septemberAfter.expenseMinor, 50000);
-    },
-  );
-
-  test('reportsMultiCurrencyProvider: одна валюта — false, две — true (B5)',
-      () async {
+  test('счёт с флагом «не учитывать в балансе» выпадает из суммарного, персональный цел (v5/D-54)', () async {
     final Fixture f = Fixture();
     await seedDefaultsIfEmpty(f.db);
-    f.container.listen(reportsMultiCurrencyProvider, (_, _) {});
+    f.container.listen(totalBalanceProvider, (_, _) {});
 
-    await f.newAccount('Рублёвый');
-    await waitUntil(
-      () => f.container.read(reportsMultiCurrencyProvider).value == false,
+    final String normal = await f.newAccount('Рублёвый', initial: 100000);
+    final Account excluded = await f.db.accountsDao.create(
+      name: 'Накопительный',
+      kind: AccountKind.bank,
+      currencyCode: baseCurrencyCode,
+      initialBalanceMinor: 900000,
+      excludeFromBalance: true,
+    );
+    // У исключённого счёта живёт история: её смена не должна попадать
+    // в общий итог.
+    await f.db.transactionsDao.create(
+      type: TransactionType.expense,
+      accountId: excluded.id,
+      amountMinor: 50000,
     );
 
-    await f.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 2);
-    await f.db.accountsDao.create(
-      name: 'Долларовый',
-      kind: AccountKind.card,
-      currencyCode: 'USD',
+    // В суммарном — только обычный счёт; накопительный с балансом
+    // 850 000 не раздувает итог (идея 14/D-54).
+    await waitUntil(
+      () => f.container.read(totalBalanceProvider).value == 100000,
+    );
+
+    // Персональный баланс исключённого счёта не изменился.
+    expect(await f.db.accountsDao.balanceMinor(excluded.id), 850000);
+
+    // Переключение флага у живого счёта возвращает его в суммарный.
+    await f.db.accountsDao.updateAccount(
+      excluded.id,
+      excludeFromBalance: const Value<bool>(false),
     );
     await waitUntil(
-      () => f.container.read(reportsMultiCurrencyProvider).value == true,
+      () => f.container.read(totalBalanceProvider).value == 950000,
+    );
+
+    // И обратно: включение флага убирает счёт из суммы.
+    await f.db.accountsDao.updateAccount(
+      normal,
+      excludeFromBalance: const Value<bool>(true),
+    );
+    await waitUntil(
+      () => f.container.read(totalBalanceProvider).value == 850000,
     );
   });
 
+  test('DoD v0.5: флаг «не учитывать в балансе» не трогает донат и динамику — '
+      'операции исключённого счёта считаются в отчётах (D-54/D-60)', () async {
+    final Fixture f = Fixture();
+    await seedDefaultsIfEmpty(f.db);
+    f.container.listen(totalBalanceProvider, (_, _) {});
+    f.container.listen(expensesByCategoryProvider, (_, _) {});
+    f.container.listen(monthTotalsProvider, (_, _) {});
+
+    // Отчётный месяц зафиксирован — тест не зависит от реальной даты.
+    final DateTime month = DateTime.utc(2026, 9, 15);
+    f.container.read(reportsMonthProvider.notifier).state = month;
+
+    final Account excluded = await f.db.accountsDao.create(
+      name: 'Накопительный',
+      kind: AccountKind.bank,
+      currencyCode: baseCurrencyCode,
+      excludeFromBalance: true,
+    );
+    final String hobby = await f.newCategory('Хобби', CategoryKind.expense);
+    await f.db.transactionsDao.create(
+      type: TransactionType.expense,
+      accountId: excluded.id,
+      categoryId: hobby,
+      amountMinor: 50000,
+      date: month,
+    );
+
+    // Расход исключённого счёта виден в донате и динамике: исключение
+    // по D-60 живёт только в общем балансе, отчёты честные.
+    await waitUntil(
+      () =>
+          (f.container.read(expensesByCategoryProvider).value ??
+                  const <CategoryExpenseBase>[])
+              .length ==
+          1,
+    );
+    expect(
+      f.container.read(expensesByCategoryProvider).value!.single.amountMinor,
+      50000,
+    );
+    expect(
+      f.container.read(expensesByCategoryProvider).value!.single.categoryName,
+      'Хобби',
+    );
+    final MonthTotalsBase september =
+        (f.container.read(monthTotalsProvider).value ??
+                const <MonthTotalsBase>[])
+            .singleWhere((MonthTotalsBase t) => t.monthKey == '2026-09');
+    expect(september.expenseMinor, 50000);
+    expect(september.incomeMinor, 0);
+
+    // Переключение флага общий баланс меняет, агрегаты отчётов — нет:
+    // граница решения D-60, SQL отчётов флаг не читает.
+    await f.db.accountsDao.updateAccount(
+      excluded.id,
+      excludeFromBalance: const Value<bool>(false),
+    );
+    await waitUntil(
+      () => f.container.read(totalBalanceProvider).value == -50000,
+    );
+    expect(
+      f.container.read(expensesByCategoryProvider).value!.single.amountMinor,
+      50000,
+      reason: 'донат считает операции и учитываемого счёта так же',
+    );
+    final MonthTotalsBase septemberAfter =
+        (f.container.read(monthTotalsProvider).value ??
+                const <MonthTotalsBase>[])
+            .singleWhere((MonthTotalsBase t) => t.monthKey == '2026-09');
+    expect(septemberAfter.expenseMinor, 50000);
+  });
+
+  test(
+    'reportsMultiCurrencyProvider: одна валюта — false, две — true (B5)',
+    () async {
+      final Fixture f = Fixture();
+      await seedDefaultsIfEmpty(f.db);
+      f.container.listen(reportsMultiCurrencyProvider, (_, _) {});
+
+      await f.newAccount('Рублёвый');
+      await waitUntil(
+        () => f.container.read(reportsMultiCurrencyProvider).value == false,
+      );
+
+      await f.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 2);
+      await f.db.accountsDao.create(
+        name: 'Долларовый',
+        kind: AccountKind.card,
+        currencyCode: 'USD',
+      );
+      await waitUntil(
+        () => f.container.read(reportsMultiCurrencyProvider).value == true,
+      );
+    },
+  );
+
   test('convertBalanceToBase: half-up по модулю, знак отдельно (D-22)', () {
     int convert(int minor, double rate) => convertBalanceToBase(
-          AccountBalance(
-            account: Account(
-              id: 'a',
-              name: 'А',
-              kind: 'cash',
-              currencyCode: 'USD',
-              initialBalanceMinor: 0,
-              sortOrder: 0,
-              createdAt: DateTime.utc(2026),
-              updatedAt: DateTime.utc(2026),
-            ),
-            balanceMinor: minor,
-          ),
-          <String, double>{'USD': rate},
-        );
+      AccountBalance(
+        account: Account(
+          id: 'a',
+          name: 'А',
+          kind: 'cash',
+          currencyCode: 'USD',
+          initialBalanceMinor: 0,
+          sortOrder: 0,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        ),
+        balanceMinor: minor,
+      ),
+      <String, double>{'USD': rate},
+    );
 
     // Половина округляется вверх по модулю: 0.5 → 1, −0.5 → −1.
     expect(convert(1, 0.5), 1);

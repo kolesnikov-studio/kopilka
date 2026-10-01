@@ -5,6 +5,7 @@ import 'package:kopilka/core/text.dart';
 import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
+
 // DebtDirection (v7, D-81) читается из enums.dart вместе с остальными.
 
 // Формат бэкапа (ARCHITECTURE.md §4):
@@ -114,14 +115,17 @@ Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
     3 => (Map<String, dynamic> document) => document,
     2 => (Map<String, dynamic> document) => document,
     1 => (Map<String, dynamic> document) {
-        final Map<String, dynamic> data = _requireObject(document['data'], 'data');
-        data['budgets'] = const <dynamic>[];
-        return document;
-      },
+      final Map<String, dynamic> data = _requireObject(
+        document['data'],
+        'data',
+      );
+      data['budgets'] = const <dynamic>[];
+      return document;
+    },
     _ => throw BackupValidationException(
-        'нет миграции формата экспорта с версии $from',
-        kind: BackupFailure.tooOld,
-      ),
+      'нет миграции формата экспорта с версии $from',
+      kind: BackupFailure.tooOld,
+    ),
   };
 }
 
@@ -199,11 +203,7 @@ String? _optionalString(Object? value, String what) =>
 /// [BackupValidationException] с видом [BackupFailure.invalidData] —
 /// неизвестное значение в файле бэкапа это битые данные формата, а не
 /// ошибка правила данных DAO.
-T _enumFromDb<T>(
-  T Function(String value) parse,
-  Object? value,
-  String what,
-) {
+T _enumFromDb<T>(T Function(String value) parse, Object? value, String what) {
   final String raw = _requireString(value, what);
   try {
     return parse(raw);
@@ -262,9 +262,9 @@ Object? _encodeValue(String column, Object? value) {
 /// Сериализует сырую строку таблицы (customSelect: snake_case-колонки, даты
 /// — unix-секунды, булевы — 0/1) в JSON-объект формата v1.
 Map<String, dynamic> encodeRow(Map<String, Object?> row) => <String, dynamic>{
-      for (final MapEntry<String, Object?> field in row.entries)
-        field.key: _encodeValue(field.key, field.value),
-    };
+  for (final MapEntry<String, Object?> field in row.entries)
+    field.key: _encodeValue(field.key, field.value),
+};
 
 /// Полный дамп базы в JSON-объект текущего формата (§4: все таблицы,
 /// включая мягко удалённые строки). Имена таблиц — только из константного
@@ -322,9 +322,9 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   final int version = switch (document['schema_version']) {
     final int value => value,
     _ => throw BackupValidationException(
-        'schema_version должен быть целым числом',
-        kind: BackupFailure.invalidFormat,
-      ),
+      'schema_version должен быть целым числом',
+      kind: BackupFailure.invalidFormat,
+    ),
   };
   if (version > backupSchemaVersion) {
     throw BackupValidationException(
@@ -339,8 +339,10 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   final Map<String, dynamic> data = _requireObject(migrated['data'], 'data');
 
   final List<BackupCurrency> currencies = <BackupCurrency>[
-    for (final Map<String, dynamic> row
-        in _requireTable(data['currencies'], 'currencies'))
+    for (final Map<String, dynamic> row in _requireTable(
+      data['currencies'],
+      'currencies',
+    ))
       BackupCurrency(
         code: _requireString(row['code'], 'currencies.code'),
         symbol: _requireString(row['symbol'], 'currencies.symbol'),
@@ -349,9 +351,9 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
           final double value => value,
           final int value => value.toDouble(),
           _ => throw BackupValidationException(
-              'currencies.rate_to_base должен быть числом',
-              kind: BackupFailure.invalidData,
-            ),
+            'currencies.rate_to_base должен быть числом',
+            kind: BackupFailure.invalidData,
+          ),
         },
         createdAt: _requireDate(row['created_at'], 'currencies.created_at'),
         updatedAt: _requireDate(row['updated_at'], 'currencies.updated_at'),
@@ -362,16 +364,14 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   ];
 
   final List<BackupAccount> accounts = <BackupAccount>[
-    for (final Map<String, dynamic> row
-        in _requireTable(data['accounts'], 'accounts'))
+    for (final Map<String, dynamic> row in _requireTable(
+      data['accounts'],
+      'accounts',
+    ))
       BackupAccount(
         id: _requireString(row['id'], 'accounts.id'),
         name: _requireString(row['name'], 'accounts.name'),
-        kind: _enumFromDb(
-          AccountKind.fromDb,
-          row['kind'],
-          'accounts.kind',
-        ),
+        kind: _enumFromDb(AccountKind.fromDb, row['kind'], 'accounts.kind'),
         currencyCode: _requireString(
           row['currency_code'],
           'accounts.currency_code',
@@ -392,9 +392,9 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
           null => null,
           final bool value => value,
           _ => throw BackupValidationException(
-              'accounts.exclude_from_balance должен быть булевым или отсутствовать',
-              kind: BackupFailure.invalidData,
-            ),
+            'accounts.exclude_from_balance должен быть булевым или отсутствовать',
+            kind: BackupFailure.invalidData,
+          ),
         },
         // v7 (D-81/D-85): необязательное поле; нет поля = NULL (файлы
         // v1–v6). Строгая валидация (D-25): нестроковое значение — отказ,
@@ -415,29 +415,30 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   ];
 
   final List<BackupCategory> categories = <BackupCategory>[
-    for (final Map<String, dynamic> row
-        in _requireTable(data['categories'], 'categories'))
+    for (final Map<String, dynamic> row in _requireTable(
+      data['categories'],
+      'categories',
+    ))
       BackupCategory(
         id: _requireString(row['id'], 'categories.id'),
         name: _requireString(row['name'], 'categories.name'),
-        kind: _enumFromDb(
-          CategoryKind.fromDb,
-          row['kind'],
-          'categories.kind',
-        ),
+        kind: _enumFromDb(CategoryKind.fromDb, row['kind'], 'categories.kind'),
         parentId: _optionalString(row['parent_id'], 'categories.parent_id'),
         icon: _optionalString(row['icon'], 'categories.icon'),
         // v4 (D-54): необязательное поле; нет поля = NULL (v1/v2/v3).
         // Строгая валидация: неизвестный справочнику код — отказ импорта
         // (прецедент D-25), не тихий пропуск.
-        iconCode: switch (_optionalString(row['icon_code'], 'categories.icon_code')) {
+        iconCode: switch (_optionalString(
+          row['icon_code'],
+          'categories.icon_code',
+        )) {
           null => null,
           final String code when categoryIconByCode(code) != null => code,
           final String code => throw BackupValidationException(
-              'categories.icon_code: неизвестный справочнику код «$code» — '
-              'отказ импорта (D-54/D-25)',
-              kind: BackupFailure.invalidData,
-            ),
+            'categories.icon_code: неизвестный справочнику код «$code» — '
+            'отказ импорта (D-54/D-25)',
+            kind: BackupFailure.invalidData,
+          ),
         },
         color: _optionalString(row['color'], 'categories.color'),
         isSystem: row['is_system'] == true,
@@ -450,8 +451,10 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   ];
 
   final List<BackupTransaction> transactions = <BackupTransaction>[
-    for (final Map<String, dynamic> row
-        in _requireTable(data['transactions'], 'transactions'))
+    for (final Map<String, dynamic> row in _requireTable(
+      data['transactions'],
+      'transactions',
+    ))
       BackupTransaction(
         id: _requireString(row['id'], 'transactions.id'),
         type: _enumFromDb(
@@ -494,7 +497,10 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   ];
 
   final List<BackupBudget> budgets = <BackupBudget>[
-    for (final Map<String, dynamic> row in _requireTable(data['budgets'], 'budgets'))
+    for (final Map<String, dynamic> row in _requireTable(
+      data['budgets'],
+      'budgets',
+    ))
       BackupBudget(
         id: _requireString(row['id'], 'budgets.id'),
         categoryId: _requireString(row['category_id'], 'budgets.category_id'),
@@ -513,9 +519,10 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   // неизвестный direction, пустой person, суммы вне правил — отказ
   // импорта, не тихая нормализация.
   final List<BackupDebt> debts = <BackupDebt>[
-    for (final Map<String, dynamic> row in data['debts'] == null
-        ? const <Map<String, dynamic>>[]
-        : _requireTable(data['debts'], 'debts'))
+    for (final Map<String, dynamic> row
+        in data['debts'] == null
+            ? const <Map<String, dynamic>>[]
+            : _requireTable(data['debts'], 'debts'))
       BackupDebt(
         id: _requireString(row['id'], 'debts.id'),
         person: _requireString(row['person'], 'debts.person'),
@@ -524,23 +531,27 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
           row['direction'],
           'debts.direction',
         ),
-        amountMinor: switch (
-            _requireInt(row['amount_minor'], 'debts.amount_minor')) {
+        amountMinor: switch (_requireInt(
+          row['amount_minor'],
+          'debts.amount_minor',
+        )) {
           final int amount when amount > 0 => amount,
           final int amount => throw BackupValidationException(
-              'debts.amount_minor: тело долга $amount не положительно — '
-              'отказ импорта (D-85/D-25)',
-              kind: BackupFailure.invalidData,
-            ),
+            'debts.amount_minor: тело долга $amount не положительно — '
+            'отказ импорта (D-85/D-25)',
+            kind: BackupFailure.invalidData,
+          ),
         },
-        extraMinor: switch (
-            _requireInt(row['extra_minor'], 'debts.extra_minor')) {
+        extraMinor: switch (_requireInt(
+          row['extra_minor'],
+          'debts.extra_minor',
+        )) {
           final int extra when extra >= 0 => extra,
           final int extra => throw BackupValidationException(
-              'debts.extra_minor: отрицательная переплата $extra — '
-              'отказ импорта (D-85/D-25)',
-              kind: BackupFailure.invalidData,
-            ),
+            'debts.extra_minor: отрицательная переплата $extra — '
+            'отказ импорта (D-85/D-25)',
+            kind: BackupFailure.invalidData,
+          ),
         },
         currencyCode: _requireString(
           row['currency_code'],
@@ -559,9 +570,10 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   ];
 
   final List<BackupDebtPayment> debtPayments = <BackupDebtPayment>[
-    for (final Map<String, dynamic> row in data['debt_payments'] == null
-        ? const <Map<String, dynamic>>[]
-        : _requireTable(data['debt_payments'], 'debt_payments'))
+    for (final Map<String, dynamic> row
+        in data['debt_payments'] == null
+            ? const <Map<String, dynamic>>[]
+            : _requireTable(data['debt_payments'], 'debt_payments'))
       BackupDebtPayment(
         id: _requireString(row['id'], 'debt_payments.id'),
         debtId: _requireString(row['debt_id'], 'debt_payments.debt_id'),
@@ -569,14 +581,16 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
           row['transaction_id'],
           'debt_payments.transaction_id',
         ),
-        amountMinor: switch (
-            _requireInt(row['amount_minor'], 'debt_payments.amount_minor')) {
+        amountMinor: switch (_requireInt(
+          row['amount_minor'],
+          'debt_payments.amount_minor',
+        )) {
           final int amount when amount > 0 => amount,
           final int amount => throw BackupValidationException(
-              'debt_payments.amount_minor: сумма платежа $amount не '
-              'положительна — отказ импорта (D-85/D-25)',
-              kind: BackupFailure.invalidData,
-            ),
+            'debt_payments.amount_minor: сумма платежа $amount не '
+            'положительна — отказ импорта (D-85/D-25)',
+            kind: BackupFailure.invalidData,
+          ),
         },
         paidAt: _requireDate(row['paid_at'], 'debt_payments.paid_at'),
         createdAt: _requireDate(row['created_at'], 'debt_payments.created_at'),
@@ -591,9 +605,10 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
   // пустой список (образец v1→v2 в каркасе миграций формата); ключ есть,
   // но не массив — отказ invalidFormat по общему правилу _requireTable.
   final List<BackupAttachment> attachments = <BackupAttachment>[
-    for (final Map<String, dynamic> row in data['attachments'] == null
-        ? const <Map<String, dynamic>>[]
-        : _requireTable(data['attachments'], 'attachments'))
+    for (final Map<String, dynamic> row
+        in data['attachments'] == null
+            ? const <Map<String, dynamic>>[]
+            : _requireTable(data['attachments'], 'attachments'))
       BackupAttachment(
         id: _requireString(row['id'], 'attachments.id'),
         transactionId: _requireString(
@@ -604,22 +619,28 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
         // списка (широкий isMimeTypeAllowed), размер — неотрицательный
         // int; отказ импорта, не тихая нормализация (прецедент D-25).
         filePath: _requireString(row['file_path'], 'attachments.file_path'),
-        mimeType: switch (_requireString(row['mime_type'], 'attachments.mime_type')) {
+        mimeType: switch (_requireString(
+          row['mime_type'],
+          'attachments.mime_type',
+        )) {
           final String mime when AttachmentsStorage.isMimeTypeAllowed(mime) =>
             mime,
           final String mime => throw BackupValidationException(
-              'attachments.mime_type: тип «$mime» вне белого списка '
-              '(image/*, application/pdf) — отказ импорта (D-64)',
-              kind: BackupFailure.invalidData,
-            ),
+            'attachments.mime_type: тип «$mime» вне белого списка '
+            '(image/*, application/pdf) — отказ импорта (D-64)',
+            kind: BackupFailure.invalidData,
+          ),
         },
-        fileSize: switch (_requireInt(row['file_size'], 'attachments.file_size')) {
+        fileSize: switch (_requireInt(
+          row['file_size'],
+          'attachments.file_size',
+        )) {
           final int size when size >= 0 => size,
           final int size => throw BackupValidationException(
-              'attachments.file_size: отрицательный размер $size — '
-              'отказ импорта (D-64)',
-              kind: BackupFailure.invalidData,
-            ),
+            'attachments.file_size: отрицательный размер $size — '
+            'отказ импорта (D-64)',
+            kind: BackupFailure.invalidData,
+          ),
         },
         createdAt: _requireDate(row['created_at'], 'attachments.created_at'),
         updatedAt: _requireDate(row['updated_at'], 'attachments.updated_at'),

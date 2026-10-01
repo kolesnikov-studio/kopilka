@@ -93,10 +93,11 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   /// рестарт, пользовательские удаления посев не воскрешает.
   Future<bool> hasAny({required CategoryKind kind}) async {
     final Expression<int> count = categories.id.count();
-    final TypedResult row = await (selectOnly(categories)
-          ..addColumns([count])
-          ..where(categories.kind.equals(kind.dbValue)))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(categories)
+              ..addColumns([count])
+              ..where(categories.kind.equals(kind.dbValue)))
+            .getSingle();
     return (row.read(count) ?? 0) > 0;
   }
 
@@ -234,14 +235,14 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
   /// Возвращает скрытую системную категорию в живые списки (M5, D-54 идея 3).
   Future<Category> restore(String id) async {
-    final Category? current = await (select(categories)
-          ..where(
-            (t) =>
-                t.id.equals(id) &
-                t.deletedAt.isNotNull() &
-                t.isSystem.equals(true),
-          ))
-        .getSingleOrNull();
+    final Category? current =
+        await (select(categories)..where(
+              (t) =>
+                  t.id.equals(id) &
+                  t.deletedAt.isNotNull() &
+                  t.isSystem.equals(true),
+            ))
+            .getSingleOrNull();
     if (current == null) {
       throw DataValidationException(
         'скрытая системная категория $id не найдена',
@@ -250,7 +251,10 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     }
     final DateTime now = clock();
     await (update(categories)..where((t) => t.id.equals(id))).write(
-      CategoriesCompanion(deletedAt: const Value<DateTime?>(null), updatedAt: Value(now)),
+      CategoriesCompanion(
+        deletedAt: const Value<DateTime?>(null),
+        updatedAt: Value(now),
+      ),
     );
     return _requireAlive(id);
   }
@@ -373,33 +377,38 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> _aliveChildrenCount(String id) async {
     final Expression<int> count = categories.id.count();
-    final TypedResult row = await (selectOnly(categories)
-          ..addColumns([count])
-          ..where(
-            categories.parentId.equals(id) & categories.deletedAt.isNull(),
-          ))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(categories)
+              ..addColumns([count])
+              ..where(
+                categories.parentId.equals(id) & categories.deletedAt.isNull(),
+              ))
+            .getSingle();
     return row.read(count) ?? 0;
   }
 
   Future<int> _aliveTransactionCount(String id) async {
     final Expression<int> count = transactions.id.count();
-    final TypedResult row = await (selectOnly(transactions)
-          ..addColumns([count])
-          ..where(
-            transactions.categoryId.equals(id) &
-                transactions.deletedAt.isNull(),
-          ))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(transactions)
+              ..addColumns([count])
+              ..where(
+                transactions.categoryId.equals(id) &
+                    transactions.deletedAt.isNull(),
+              ))
+            .getSingle();
     return row.read(count) ?? 0;
   }
 
   Future<int> _aliveBudgetCount(String id) async {
     final Expression<int> count = budgets.id.count();
-    final TypedResult row = await (selectOnly(budgets)
-          ..addColumns([count])
-          ..where(budgets.categoryId.equals(id) & budgets.deletedAt.isNull()))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(budgets)
+              ..addColumns([count])
+              ..where(
+                budgets.categoryId.equals(id) & budgets.deletedAt.isNull(),
+              ))
+            .getSingle();
     return row.read(count) ?? 0;
   }
 }

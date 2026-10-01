@@ -22,14 +22,12 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 /// доход не должен прятаться за фильтром (замечание оператора 2026-09-28).
 Future<void> showTransactionTypePicker(BuildContext context) async {
   final AppLocalizations l10n = AppLocalizations.of(context);
-  const List<(TransactionType, IconData)> options = <(
-    TransactionType,
-    IconData
-  )>[
-    (TransactionType.expense, Icons.south_west),
-    (TransactionType.income, Icons.north_east),
-    (TransactionType.transfer, Icons.swap_horiz),
-  ];
+  const List<(TransactionType, IconData)> options =
+      <(TransactionType, IconData)>[
+        (TransactionType.expense, Icons.south_west),
+        (TransactionType.income, Icons.north_east),
+        (TransactionType.transfer, Icons.swap_horiz),
+      ];
   final TransactionType? picked = await showModalBottomSheet<TransactionType>(
     context: context,
     showDragHandle: true,
@@ -70,7 +68,8 @@ class TransactionsScreen extends ConsumerWidget {
     final AsyncValue<List<TransactionView>> transactions = ref.watch(
       filteredTransactionViewsProvider,
     );
-    final bool filtered = filter.type != null ||
+    final bool filtered =
+        filter.type != null ||
         filter.accountId != null ||
         filter.search.isNotEmpty;
 
@@ -115,12 +114,30 @@ class TransactionsScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       _allTypesChip(context, ref, filter, l10n),
-                      _typeChip(context, ref, filter, l10n,
-                          TransactionType.income, l10n.filterIncomes),
-                      _typeChip(context, ref, filter, l10n,
-                          TransactionType.expense, l10n.filterExpenses),
-                      _typeChip(context, ref, filter, l10n,
-                          TransactionType.transfer, l10n.filterTransfers),
+                      _typeChip(
+                        context,
+                        ref,
+                        filter,
+                        l10n,
+                        TransactionType.income,
+                        l10n.filterIncomes,
+                      ),
+                      _typeChip(
+                        context,
+                        ref,
+                        filter,
+                        l10n,
+                        TransactionType.expense,
+                        l10n.filterExpenses,
+                      ),
+                      _typeChip(
+                        context,
+                        ref,
+                        filter,
+                        l10n,
+                        TransactionType.transfer,
+                        l10n.filterTransfers,
+                      ),
                     ],
                   ),
                 ),
@@ -158,9 +175,7 @@ class TransactionsScreen extends ConsumerWidget {
                                 .read(transactionsFilterProvider.notifier)
                                 .clearAll(),
                             icon: const Icon(Icons.filter_alt_off),
-                            label: Text(
-                              l10n.transactionsEmptyFilteredAction,
-                            ),
+                            label: Text(l10n.transactionsEmptyFilteredAction),
                           ),
                         ],
                       ),
@@ -201,9 +216,8 @@ class TransactionsScreen extends ConsumerWidget {
       child: FilterChip(
         selected: filter.type == null,
         label: Text(l10n.filterAll),
-        onSelected: (_) => ref
-            .read(transactionsFilterProvider.notifier)
-            .setType(null),
+        onSelected: (_) =>
+            ref.read(transactionsFilterProvider.notifier).setType(null),
       ),
     );
   }
@@ -240,20 +254,17 @@ class TransactionsScreen extends ConsumerWidget {
     final String label = filter.accountId == null
         ? l10n.filterAllAccounts
         : (accounts
-                .where((Account account) => account.id == filter.accountId)
-                .map((Account account) => account.name)
-                .toList()
-                .firstOrNull ??
-            l10n.filterAllAccounts);
+                  .where((Account account) => account.id == filter.accountId)
+                  .map((Account account) => account.name)
+                  .toList()
+                  .firstOrNull ??
+              l10n.filterAllAccounts);
     return PopupMenuButton<String>(
       initialValue: filter.accountId,
-      onSelected: (String? accountId) => ref
-          .read(transactionsFilterProvider.notifier)
-          .setAccount(accountId),
+      onSelected: (String? accountId) =>
+          ref.read(transactionsFilterProvider.notifier).setAccount(accountId),
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-        PopupMenuItem<String>(
-          child: Text(l10n.filterAllAccounts),
-        ),
+        PopupMenuItem<String>(child: Text(l10n.filterAllAccounts)),
         for (final Account account in accounts)
           PopupMenuItem<String>(value: account.id, child: Text(account.name)),
       ],
@@ -269,7 +280,6 @@ class TransactionsScreen extends ConsumerWidget {
 }
 
 class _QuickEntryFab extends ConsumerWidget {
-
   const _QuickEntryFab({required this.filter});
 
   final TransactionsFilterState filter;
@@ -322,30 +332,30 @@ class _TransactionTile extends ConsumerWidget {
     // U4: вместо «—» — локализованные тексты; имена приходят из DAO (R7).
     final String line = switch (type) {
       TransactionType.transfer => transferLine(
-          row.accountName,
-          row.targetAccountName,
-        ),
-      TransactionType.income ||
-      TransactionType.expense =>
+        row.accountName,
+        row.targetAccountName,
+      ),
+      TransactionType.income || TransactionType.expense =>
         row.categoryName ??
             (row.accountName.isNotEmpty
                 ? row.accountName
                 : l10n.transactionTileAccountGone),
     };
     // Категории у операции может не быть (не задана) — «Без категории» (U4).
-    final String subtitleCategoryName = row.categoryName ??
-        (type == TransactionType.transfer ? '' : l10n.transactionTileNoCategory);
+    final String subtitleCategoryName =
+        row.categoryName ??
+        (type == TransactionType.transfer
+            ? ''
+            : l10n.transactionTileNoCategory);
 
     final Color amountColor = switch (type) {
       TransactionType.income => Colors.green.shade700,
-      TransactionType.expense =>
-        Theme.of(context).colorScheme.onSurface,
-      TransactionType.transfer =>
-        Theme.of(context).colorScheme.onSurfaceVariant,
+      TransactionType.expense => Theme.of(context).colorScheme.onSurface,
+      TransactionType.transfer => Theme.of(
+        context,
+      ).colorScheme.onSurfaceVariant,
     };
-    final TextStyle amountStyle = Theme.of(context)
-        .textTheme
-        .titleMedium!
+    final TextStyle amountStyle = Theme.of(context).textTheme.titleMedium!
         .copyWith(color: amountColor);
 
     // Символ валюты из справочника (R4/A7); код вне справочника — fallback
@@ -353,17 +363,18 @@ class _TransactionTile extends ConsumerWidget {
     final Map<String, Currency> currencies =
         ref.watch(currenciesMapProvider).value ?? const <String, Currency>{};
     String amountText(int amountMinor, String? code) => formatMoneyMinor(
-          amountMinor,
-          symbol: currencies[code]?.symbol ?? (code ?? ''),
-          locale: locale,
-          exponent: currencyExponentByCode(code ?? ''),
-        );
+      amountMinor,
+      symbol: currencies[code]?.symbol ?? (code ?? ''),
+      locale: locale,
+      exponent: currencyExponentByCode(code ?? ''),
+    );
 
     // B4.3: сумма справа. У мультивалютного перевода — обе суммы в
     // компактном формате «− 100,00 ₽ → 1,00 $», каждая по экспоненту
     // своей валюты; строка не помещается — перенос на вторую (Wrap),
     // сокращать группировку и округлять нельзя. Курс в список не выводим.
-    final bool multiCurrencyTransfer = type == TransactionType.transfer &&
+    final bool multiCurrencyTransfer =
+        type == TransactionType.transfer &&
         row.targetCurrencyCode != null &&
         row.targetCurrencyCode != row.accountCurrencyCode &&
         transaction.targetAmountMinor != null;
@@ -373,8 +384,10 @@ class _TransactionTile extends ConsumerWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 4,
             children: <Widget>[
-              Text(amountText(transaction.amountMinor, row.accountCurrencyCode),
-                  style: amountStyle),
+              Text(
+                amountText(transaction.amountMinor, row.accountCurrencyCode),
+                style: amountStyle,
+              ),
               Text('→', style: amountStyle),
               Text(
                 amountText(
@@ -385,31 +398,29 @@ class _TransactionTile extends ConsumerWidget {
               ),
             ],
           )
-        : Text(
-            switch (type) {
-              TransactionType.income => '+ ${amountText(transaction.amountMinor, transaction.currencyCode)}',
-              TransactionType.expense => '− ${amountText(transaction.amountMinor, transaction.currencyCode)}',
-              // U5: «⇄» читается хуже «→»; направление совпадает со строкой.
-              TransactionType.transfer => '→ ${amountText(transaction.amountMinor, transaction.currencyCode)}',
-            },
-            style: amountStyle,
-          );
+        : Text(switch (type) {
+            TransactionType.income =>
+              '+ ${amountText(transaction.amountMinor, transaction.currencyCode)}',
+            TransactionType.expense =>
+              '− ${amountText(transaction.amountMinor, transaction.currencyCode)}',
+            // U5: «⇄» читается хуже «→»; направление совпадает со строкой.
+            TransactionType.transfer =>
+              '→ ${amountText(transaction.amountMinor, transaction.currencyCode)}',
+          }, style: amountStyle);
 
     return ListTile(
-      leading: Icon(
-        switch (type) {
-          TransactionType.income => Icons.north_east,
-          TransactionType.expense => Icons.south_west,
-          TransactionType.transfer => Icons.swap_horiz,
-        },
-      ),
+      leading: Icon(switch (type) {
+        TransactionType.income => Icons.north_east,
+        TransactionType.expense => Icons.south_west,
+        TransactionType.transfer => Icons.swap_horiz,
+      }),
       title: Text(line),
       subtitle: Text(
         MaterialLocalizations.of(context).formatMediumDate(transaction.date) +
             (transaction.note == null
                 ? (subtitleCategoryName.isEmpty
-                    ? ''
-                    : ' · $subtitleCategoryName')
+                      ? ''
+                      : ' · $subtitleCategoryName')
                 : ' · ${transaction.note}'),
       ),
       // Маркер вложения (M5-шаг 6в): у операции живой файл — иконка

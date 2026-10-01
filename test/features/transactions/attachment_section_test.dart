@@ -61,9 +61,8 @@ class _AttachmentSectionHost extends StatelessWidget {
   final String transactionId;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: AttachmentSection.forTransaction(transactionId),
-      );
+  Widget build(BuildContext context) =>
+      Scaffold(body: AttachmentSection.forTransaction(transactionId));
 }
 
 /// Тестовый сервис вложений: логика «файл + БД» с in-memory файлами.
@@ -71,10 +70,10 @@ class _AttachmentSectionHost extends StatelessWidget {
 /// по флагу, замена удаляет прежний файл, delete = soft delete + файл.
 class _FakeAttachmentsService extends AttachmentsService {
   _FakeAttachmentsService(this.dao)
-      : super(
-          AttachmentsStorage(rootDirectory: Directory.systemTemp),
-          _UnusedDao(),
-        );
+    : super(
+        AttachmentsStorage(rootDirectory: Directory.systemTemp),
+        _UnusedDao(),
+      );
 
   AttachmentsDao? dao;
 
@@ -114,8 +113,7 @@ class _FakeAttachmentsService extends AttachmentsService {
         kind: DataFailure.invalidInput,
       );
     }
-    final String? extension =
-        AttachmentsStorage.extensionForMimeType(mimeType);
+    final String? extension = AttachmentsStorage.extensionForMimeType(mimeType);
     if (extension == null) {
       throw DataValidationException(
         'тестовый отказ mime',
@@ -259,8 +257,9 @@ void main() {
       expect(find.textContaining('.png'), findsOneWidget);
       expect(find.byIcon(Icons.image_outlined), findsOneWidget);
 
-      final Attachment? att =
-          await app.db.attachmentsDao.findByTransaction(tx.id);
+      final Attachment? att = await app.db.attachmentsDao.findByTransaction(
+        tx.id,
+      );
       expect(att, isNotNull);
       expect(att!.mimeType, 'image/png');
       expect(att.fileSize, _pngBytes.length);
@@ -290,8 +289,10 @@ void main() {
     (WidgetTester tester) async {
       final (AppHarness app, _) = await _pumpAppWithFake(tester);
       final Transaction tx = await _seedTransaction(app);
-      final List<int> oversized =
-          List<int>.filled(AttachmentsStorage.maxFileSizeBytes + 1, 1);
+      final List<int> oversized = List<int>.filled(
+        AttachmentsStorage.maxFileSizeBytes + 1,
+        1,
+      );
       final File picked = await _tempFile(tester, 'huge.png', oversized);
       installFilePickerShim(path: picked.path, bytes: oversized);
       addTearDown(restoreFilePickerPlatform);
@@ -312,10 +313,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text(app.l10n.attachmentPickTitle), findsNothing);
-      expect(
-        await app.db.attachmentsDao.findByTransaction(tx.id),
-        isNull,
-      );
+      expect(await app.db.attachmentsDao.findByTransaction(tx.id), isNull);
     },
   );
 
@@ -354,8 +352,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Замена прошла: одна живая запись, файл новый, старый файл удалён.
-      final Attachment? att2 =
-          await app.db.attachmentsDao.findByTransaction(tx.id);
+      final Attachment? att2 = await app.db.attachmentsDao.findByTransaction(
+        tx.id,
+      );
       expect(att2, isNotNull);
       expect(att2!.filePath, endsWith('.jpg'));
       expect(att2.id, isNot(att1.id));
@@ -402,8 +401,9 @@ void main() {
         find.widgetWithText(FilledButton, app.l10n.attachmentReplaceAction),
       );
       await tester.pumpAndSettle();
-      final Attachment? att2 =
-          await app.db.attachmentsDao.findByTransaction(tx.id);
+      final Attachment? att2 = await app.db.attachmentsDao.findByTransaction(
+        tx.id,
+      );
       expect(att2, isNotNull);
       expect(att2!.id, isNot(att1.id));
       expect(fake.files[att2.filePath], isNotNull);
@@ -411,46 +411,39 @@ void main() {
     },
   );
 
-  testWidgets(
-    'удаление: подтверждение — запись мягко удалена, файл убран',
-    (WidgetTester tester) async {
-      final (AppHarness app, _FakeAttachmentsService fake) =
-          await _pumpAppWithFake(tester);
-      final Transaction tx = await _seedTransaction(app);
-      final Attachment att = await fake.attach(
-        transactionId: tx.id,
-        mimeType: 'image/png',
-        bytes: _pngBytes,
-      );
+  testWidgets('удаление: подтверждение — запись мягко удалена, файл убран', (
+    WidgetTester tester,
+  ) async {
+    final (AppHarness app, _FakeAttachmentsService fake) =
+        await _pumpAppWithFake(tester);
+    final Transaction tx = await _seedTransaction(app);
+    final Attachment att = await fake.attach(
+      transactionId: tx.id,
+      mimeType: 'image/png',
+      bytes: _pngBytes,
+    );
 
-      await _pumpSection(tester, app, tx.id);
+    await _pumpSection(tester, app, tx.id);
 
-      // Удаление: подтверждение обязательно (отмена ничего не меняет).
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await tester.pumpAndSettle();
-      expect(find.text(app.l10n.attachmentDeleteTitle), findsOneWidget);
-      await tester.tap(find.text(app.l10n.cancelAction));
-      await tester.pumpAndSettle();
-      expect(
-        await app.db.attachmentsDao.findByTransaction(tx.id),
-        isNotNull,
-      );
+    // Удаление: подтверждение обязательно (отмена ничего не меняет).
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    expect(find.text(app.l10n.attachmentDeleteTitle), findsOneWidget);
+    await tester.tap(find.text(app.l10n.cancelAction));
+    await tester.pumpAndSettle();
+    expect(await app.db.attachmentsDao.findByTransaction(tx.id), isNotNull);
 
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(app.l10n.deleteAction));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.deleteAction));
+    await tester.pumpAndSettle();
 
-      expect(
-        await app.db.attachmentsDao.findByTransaction(tx.id),
-        isNull,
-      );
-      // Файл убран «с диска» (из памяти фейка).
-      expect(fake.files[att.filePath], isNull);
-      // Секция вернулась к пустому состоянию.
-      expect(find.text(app.l10n.attachmentPickAction), findsOneWidget);
-    },
-  );
+    expect(await app.db.attachmentsDao.findByTransaction(tx.id), isNull);
+    // Файл убран «с диска» (из памяти фейка).
+    expect(fake.files[att.filePath], isNull);
+    // Секция вернулась к пустому состоянию.
+    expect(find.text(app.l10n.attachmentPickAction), findsOneWidget);
+  });
 
   testWidgets(
     'отсутствие файла на диске (восстановленный бэкап): без падения, отказ при открытии',
@@ -517,10 +510,7 @@ void main() {
       await tester.tap(find.text(app.l10n.cancelAction));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
-      expect(
-        await app.db.attachmentsDao.findByTransaction(tx.id),
-        isNotNull,
-      );
+      expect(await app.db.attachmentsDao.findByTransaction(tx.id), isNotNull);
     },
   );
 
@@ -538,23 +528,19 @@ void main() {
       await tester.tap(find.text(app.l10n.attachmentPickAction));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(app.l10n.attachmentMimeTypeUnsupported),
-        findsOneWidget,
-      );
+      expect(find.text(app.l10n.attachmentMimeTypeUnsupported), findsOneWidget);
       expect(find.text(app.l10n.attachmentPickTitle), findsNothing);
-      expect(
-        await app.db.attachmentsDao.findByTransaction(tx.id),
-        isNull,
-      );
+      expect(await app.db.attachmentsDao.findByTransaction(tx.id), isNull);
     },
   );
 
   testWidgets(
     'отказ ФС при записи (storageFailure): снекбар, вложения нет, операция цела',
     (WidgetTester tester) async {
-      final (AppHarness app, _) =
-          await _pumpAppWithFake(tester, failStorage: true);
+      final (AppHarness app, _) = await _pumpAppWithFake(
+        tester,
+        failStorage: true,
+      );
       final Transaction tx = await _seedTransaction(app);
       final File picked = await _tempFile(tester, 'check.png', _pngBytes);
       installFilePickerShim(path: picked.path, bytes: _pngBytes);
@@ -566,15 +552,9 @@ void main() {
       await _confirmAttach(tester, app);
 
       expect(find.text(app.l10n.errorAttachmentStorage), findsOneWidget);
-      expect(
-        await app.db.attachmentsDao.findByTransaction(tx.id),
-        isNull,
-      );
+      expect(await app.db.attachmentsDao.findByTransaction(tx.id), isNull);
       // Операция цела (D-63: отказ не теряет данные пользователя).
-      expect(
-        await app.db.transactionsDao.findById(tx.id),
-        isNotNull,
-      );
+      expect(await app.db.transactionsDao.findById(tx.id), isNotNull);
     },
   );
 
@@ -623,13 +603,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(app.l10n.attachmentSaved), findsOneWidget);
       final Attachment saved =
-          await app.db.attachmentsDao.findByTransaction(tx.id)
-              as Attachment;
+          await app.db.attachmentsDao.findByTransaction(tx.id) as Attachment;
       expect(saved.fileSize, _pngBytes.length);
       expect(
-        (await app.db.customSelect(
-          'SELECT COUNT(*) AS c FROM attachments',
-        ).get())
+        (await app.db
+                .customSelect('SELECT COUNT(*) AS c FROM attachments')
+                .get())
             .single
             .read<int>('c'),
         1,

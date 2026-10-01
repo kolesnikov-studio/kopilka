@@ -31,10 +31,9 @@ void main() {
 
     test('словарь RU-названий ровно на список, без лишних ключей', () {
       expect(currencyNamesRu.length, isoCurrencies.length);
-      expect(
-        currencyNamesRu.keys.toSet(),
-        <String>{for (final CurrencyInfo info in isoCurrencies) info.code},
-      );
+      expect(currencyNamesRu.keys.toSet(), <String>{
+        for (final CurrencyInfo info in isoCurrencies) info.code,
+      });
     });
 
     test('экспонент только 0/2/3', () {
@@ -98,16 +97,18 @@ void main() {
       expect(minorToMajorString(1, exponent: 3), '0.001');
     });
 
-    test('справочник: RUB двухзнаковый, JPY без дробной части, KWD трёхзнаковый',
-        () {
-      expect(currencyExponentByCode('RUB'), 2);
-      expect(currencyExponentByCode('JPY'), 0);
-      expect(currencyExponentByCode('KWD'), 3);
-      // Код вне справочника — экспонент по умолчанию 2.
-      expect(currencyExponentByCode('XXX'), 2);
-      expect(currencyInfoByCode('USD')?.symbol, r'$');
-      expect(currencyNamesRu['RUB'], 'Российский рубль');
-    });
+    test(
+      'справочник: RUB двухзнаковый, JPY без дробной части, KWD трёхзнаковый',
+      () {
+        expect(currencyExponentByCode('RUB'), 2);
+        expect(currencyExponentByCode('JPY'), 0);
+        expect(currencyExponentByCode('KWD'), 3);
+        // Код вне справочника — экспонент по умолчанию 2.
+        expect(currencyExponentByCode('XXX'), 2);
+        expect(currencyInfoByCode('USD')?.symbol, r'$');
+        expect(currencyNamesRu['RUB'], 'Российский рубль');
+      },
+    );
   });
 
   group('convertMinor (D-22)', () {
@@ -160,29 +161,20 @@ void main() {
     test('JPY (экспонент 0) → RUB: без дробной части источника', () {
       // 1000 минорных йен = 1000 мажорных × 0.6 = 600 мажорных RUB =
       // 60 000 минорных (перевод йен: предзаполнение второй суммы).
-      expect(
-        convertMinorCross(1000, 0.6, 1, fromExponent: 0),
-        60000,
-      );
+      expect(convertMinorCross(1000, 0.6, 1, fromExponent: 0), 60000);
     });
 
     test('USD → JPY (экспонент 0): half-up по модулю на делении', () {
       // 1 $ (100 минорных USD, курс 97,5) → база 9750 минорных →
       // JPY: 97,5 / 0,6 = 162,5 йены → 163 (половина вверх по модулю).
-      expect(
-        convertMinorCross(100, 97.5, 0.6, toExponent: 0),
-        163,
-      );
+      expect(convertMinorCross(100, 97.5, 0.6, toExponent: 0), 163);
     });
 
     test('KWD (экспонент 3) → RUB и знак сохраняется', () {
       // 1234 минорных динара = 1,234 KWD × 300 = 370,2 ₽ → 37020 минорных.
       expect(convertMinorCross(1234, 300, 1, fromExponent: 3), 37020);
       // Отрицательная сумма (не бывает в форме, но контракт общий с D-22).
-      expect(
-        convertMinorCross(-1234, 300, 1, fromExponent: 3),
-        -37020,
-      );
+      expect(convertMinorCross(-1234, 300, 1, fromExponent: 3), -37020);
     });
 
     test('ноль конвертируется в ноль', () {

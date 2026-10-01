@@ -35,9 +35,8 @@ class RateSyncPreferencesStore {
   /// Включена ли синхронизация курсов (D-36: по умолчанию выкл).
   Future<bool> readEnabled() async => (await _readAll())[_keyEnabled] == true;
 
-  Future<void> writeEnabled(bool enabled) async => _writeAll(
-        <String, dynamic>{...(await _readAll()), _keyEnabled: enabled},
-      );
+  Future<void> writeEnabled(bool enabled) async =>
+      _writeAll(<String, dynamic>{...(await _readAll()), _keyEnabled: enabled});
 }
 
 /// Провайдер хранилища; создаётся в `main` (платформенный путь) и
@@ -45,10 +44,10 @@ class RateSyncPreferencesStore {
 /// Загрузку значения в состояние выполняет [RateSyncEnabledController.load]
 /// из контроллерного файла — экран вызывает её при старте, как у
 /// автопроверки обновлений.
-final rateSyncPreferencesStoreProvider = Provider<RateSyncPreferencesStore>(
-  (ref) {
-    throw UnimplementedError(
-      'создаётся в main: RateSyncPreferencesStore(baseDirectory: getApplicationSupportDirectory())',
-    );
-  },
-);
+final rateSyncPreferencesStoreProvider = Provider<RateSyncPreferencesStore>((
+  ref,
+) {
+  throw UnimplementedError(
+    'создаётся в main: RateSyncPreferencesStore(baseDirectory: getApplicationSupportDirectory())',
+  );
+});

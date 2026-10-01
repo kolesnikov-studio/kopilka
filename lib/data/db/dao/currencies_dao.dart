@@ -67,16 +67,17 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
           kind: DataFailure.invalidInput,
         );
       } else {
-        await (update(currencies)..where((t) => t.code.equals(normalizedCode)))
-            .write(
-              CurrenciesCompanion(
-                symbol: Value(normalizedSymbol),
-                isBase: Value(isBase),
-                rateToBase: Value(rateToBase),
-                deletedAt: const Value<DateTime?>(null),
-                updatedAt: Value(now),
-              ),
-            );
+        await (update(
+          currencies,
+        )..where((t) => t.code.equals(normalizedCode))).write(
+          CurrenciesCompanion(
+            symbol: Value(normalizedSymbol),
+            isBase: Value(isBase),
+            rateToBase: Value(rateToBase),
+            deletedAt: const Value<DateTime?>(null),
+            updatedAt: Value(now),
+          ),
+        );
       }
       if (isBase) {
         await _demoteOtherBase(normalizedCode, now);
@@ -93,9 +94,10 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Живая валюта по коду.
-  Future<Currency?> findAlive(String code) => (select(currencies)
-        ..where((t) => t.code.equals(code) & t.deletedAt.isNull()))
-      .getSingleOrNull();
+  Future<Currency?> findAlive(String code) =>
+      (select(currencies)
+            ..where((t) => t.code.equals(code) & t.deletedAt.isNull()))
+          .getSingleOrNull();
 
   /// Все живые валюты, по алфавиту кода.
   Future<List<Currency>> getAlive() => _aliveQuery().get();
@@ -104,9 +106,10 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
   Stream<List<Currency>> watchAlive() => _aliveQuery().watch();
 
   /// Базовая валюта приложения (сейчас — одна).
-  Future<Currency?> baseCurrency() => (select(currencies)
-        ..where((t) => t.isBase.equals(true) & t.deletedAt.isNull()))
-      .getSingleOrNull();
+  Future<Currency?> baseCurrency() =>
+      (select(currencies)
+            ..where((t) => t.isBase.equals(true) & t.deletedAt.isNull()))
+          .getSingleOrNull();
 
   /// Меняет реквизиты валюты; не переданные поля (`Value.absent()`) остаются
   /// как были. `updatedAt` обновляется всегда.
@@ -184,19 +187,17 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
       // завершения другие транзакции видят ровно одну базовую (R9).
       await _demoteOtherBase(code, now);
       // Пересчёт курсов: живые валюты, кроме новой базовой.
-      final List<Currency> alive = await (select(currencies)
-            ..where(
-              (t) => t.deletedAt.isNull() & t.code.equals(code).not(),
-            ))
-          .get();
+      final List<Currency> alive = await (select(
+        currencies,
+      )..where((t) => t.deletedAt.isNull() & t.code.equals(code).not())).get();
       final double oldTargetRate = target.rateToBase;
       for (final Currency currency in alive) {
         final double recalculated = currency.isBase
             ? 1.0 / oldTargetRate
             : currency.rateToBase / oldTargetRate;
-        await (update(currencies)
-                ..where((t) => t.code.equals(currency.code)))
-            .write(
+        await (update(
+          currencies,
+        )..where((t) => t.code.equals(currency.code))).write(
           CurrenciesCompanion(
             rateToBase: Value(recalculated),
             isBase: const Value<bool>(false),
@@ -298,12 +299,14 @@ class CurrenciesDao extends DatabaseAccessor<AppDatabase>
 
   Future<int> _aliveAccountsUsing(String code) async {
     final Expression<int> count = accounts.id.count();
-    final TypedResult row = await (selectOnly(accounts)
-          ..addColumns([count])
-          ..where(
-            accounts.currencyCode.equals(code) & accounts.deletedAt.isNull(),
-          ))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(accounts)
+              ..addColumns([count])
+              ..where(
+                accounts.currencyCode.equals(code) &
+                    accounts.deletedAt.isNull(),
+              ))
+            .getSingle();
     return row.read(count) ?? 0;
   }
 }

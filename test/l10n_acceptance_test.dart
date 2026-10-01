@@ -44,7 +44,11 @@ void main() {
     ]) {
       expect(pair.ru, isNotEmpty);
       expect(pair.en, isNotEmpty);
-      expect(pair.ru, isNot(pair.en), reason: 'RU и EN тексты должны отличаться');
+      expect(
+        pair.ru,
+        isNot(pair.en),
+        reason: 'RU и EN тексты должны отличаться',
+      );
     }
   });
 

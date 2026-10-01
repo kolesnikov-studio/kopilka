@@ -10,10 +10,11 @@ import 'package:kopilka/data/providers.dart';
 ///
 /// Поток пересчитывается при любом изменении бюджетов, категорий и
 /// операций (customSelect с readsFrom — §2). Сортировка — DAO (createdAt).
-final budgetProgressProvider =
-    StreamProvider.autoDispose<List<BudgetProgress>>((ref) {
-  return ref.watch(budgetsDaoProvider).watchProgress(moment: utcNow());
-});
+final budgetProgressProvider = StreamProvider.autoDispose<List<BudgetProgress>>(
+  (ref) {
+    return ref.watch(budgetsDaoProvider).watchProgress(moment: utcNow());
+  },
+);
 
 /// Контроллер бюджетов: создание, лимит, удаление через DAO; отказы —
 /// как [Result], UI объясняет их по машиночитаемому виду.
@@ -68,5 +69,6 @@ class BudgetsController extends Notifier {
   }
 }
 
-final budgetsControllerProvider =
-    NotifierProvider<BudgetsController, void>(BudgetsController.new);
+final budgetsControllerProvider = NotifierProvider<BudgetsController, void>(
+  BudgetsController.new,
+);

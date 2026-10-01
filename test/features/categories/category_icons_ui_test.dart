@@ -45,69 +45,73 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsNothing);
-      final List<Category> categories =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-      final Category created =
-          categories.singleWhere((Category c) => c.name == 'Хобби');
+      final List<Category> categories = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.expense,
+      );
+      final Category created = categories.singleWhere(
+        (Category c) => c.name == 'Хобби',
+      );
       expect(created.iconCode, 'other');
     },
   );
 
-  testWidgets(
-    'создание: выбор иконки в сетке сохраняется через DAO',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_category_icons_test',
-      );
+  testWidgets('создание: выбор иконки в сетке сохраняется через DAO', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_category_icons_test',
+    );
 
-      await _openCreateDialog(tester, app);
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.nameLabel),
-        'Бензин',
-      );
-      // Сетка: тап по глифу «fuel» (tooltip — код справочника).
-      await tester.tap(find.byTooltip('fuel'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
-      await tester.pumpAndSettle();
+    await _openCreateDialog(tester, app);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.nameLabel),
+      'Бензин',
+    );
+    // Сетка: тап по глифу «fuel» (tooltip — код справочника).
+    await tester.tap(find.byTooltip('fuel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
-      final List<Category> categories =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-      final Category created =
-          categories.singleWhere((Category c) => c.name == 'Бензин');
-      expect(created.iconCode, 'fuel');
-    },
-  );
+    expect(find.byType(AlertDialog), findsNothing);
+    final List<Category> categories = await app.db.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
+    );
+    final Category created = categories.singleWhere(
+      (Category c) => c.name == 'Бензин',
+    );
+    expect(created.iconCode, 'fuel');
+  });
 
-  testWidgets(
-    'редактирование: смена иконки записывается в DAO',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_category_icons_test',
-      );
+  testWidgets('редактирование: смена иконки записывается в DAO', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_category_icons_test',
+    );
 
-      await tester.tap(find.text(app.l10n.navCategories).last);
-      await tester.pumpAndSettle();
-      // Системная «Продукты» сеется с groceries — открываем правку тапом.
-      await tester.tap(find.text('Продукты'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navCategories).last);
+    await tester.pumpAndSettle();
+    // Системная «Продукты» сеется с groceries — открываем правку тапом.
+    await tester.tap(find.text('Продукты'));
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('food'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('food'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsNothing);
-      final List<Category> categories =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-      final Category renamed =
-          categories.singleWhere((Category c) => c.name == 'Продукты');
-      expect(renamed.iconCode, 'food');
-    },
-  );
+    expect(find.byType(AlertDialog), findsNothing);
+    final List<Category> categories = await app.db.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
+    );
+    final Category renamed = categories.singleWhere(
+      (Category c) => c.name == 'Продукты',
+    );
+    expect(renamed.iconCode, 'food');
+  });
 
   testWidgets(
     'экран категорий: глиф рядом с названием, NULL живой базы — заглушка «other»',

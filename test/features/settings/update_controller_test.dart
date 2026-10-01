@@ -15,29 +15,27 @@ import 'package:kopilka/features/settings/update_preferences.dart';
 /// Фиксированный момент «сейчас».
 final DateTime _now = DateTime.utc(2026, 9, 25, 12);
 
-http.Client _clientReleasing(List<Map<String, dynamic>> releases) =>
-    MockClient(
-      (http.Request request) async => http.Response(
-        jsonEncode(releases),
-        200,
-        headers: <String, String>{'content-type': 'application/json'},
-      ),
-    );
+http.Client _clientReleasing(List<Map<String, dynamic>> releases) => MockClient(
+  (http.Request request) async => http.Response(
+    jsonEncode(releases),
+    200,
+    headers: <String, String>{'content-type': 'application/json'},
+  ),
+);
 
 http.Client _clientEmpty() => MockClient(
-      (http.Request request) async =>
-          http.Response(jsonEncode(<dynamic>[]), 200),
-    );
+  (http.Request request) async => http.Response(jsonEncode(<dynamic>[]), 200),
+);
 
 Map<String, dynamic> _release(String tag) => <String, dynamic>{
-      'tag_name': tag,
-      'name': 'Kopilka $tag',
-      'body': 'notes',
-      'html_url': 'https://github.com/kolesnikov-studio/kopilka/releases/tag/$tag',
-      'published_at': '2026-09-24T12:00:00Z',
-      'draft': false,
-      'prerelease': false,
-    };
+  'tag_name': tag,
+  'name': 'Kopilka $tag',
+  'body': 'notes',
+  'html_url': 'https://github.com/kolesnikov-studio/kopilka/releases/tag/$tag',
+  'published_at': '2026-09-24T12:00:00Z',
+  'draft': false,
+  'prerelease': false,
+};
 
 ProviderContainer _container({
   required Directory baseDirectory,
@@ -48,12 +46,8 @@ ProviderContainer _container({
       updatePreferencesStoreProvider.overrideWithValue(
         UpdatePreferencesStore(baseDirectory: baseDirectory),
       ),
-      updateServiceProvider.overrideWithValue(
-        UpdateService(client: client),
-      ),
-      currentVersionLoaderProvider.overrideWithValue(
-        () async => '0.1.0',
-      ),
+      updateServiceProvider.overrideWithValue(UpdateService(client: client)),
+      currentVersionLoaderProvider.overrideWithValue(() async => '0.1.0'),
     ],
   );
   addTearDown(container.dispose);
@@ -79,14 +73,12 @@ void main() {
         client: _clientReleasing(<Map<String, dynamic>>[_release('v0.2.0')]),
       );
 
-      final UpdateActionOutcome outcome =
-          await container.read(updateControllerProvider.notifier).checkNow();
+      final UpdateActionOutcome outcome = await container
+          .read(updateControllerProvider.notifier)
+          .checkNow();
 
       expect(outcome, isA<UpdateActionFound>());
-      expect(
-        (outcome as UpdateActionFound).update.version,
-        'v0.2.0',
-      );
+      expect((outcome as UpdateActionFound).update.version, 'v0.2.0');
     });
 
     test('актуальная версия → UpdateActionUpToDate', () async {
@@ -130,9 +122,9 @@ void main() {
         }),
       );
 
-      await container.read(updateControllerProvider.notifier).checkOnLaunch(
-            clock: () => _now,
-          );
+      await container
+          .read(updateControllerProvider.notifier)
+          .checkOnLaunch(clock: () => _now);
 
       expect(calls, 0);
     });
@@ -152,9 +144,9 @@ void main() {
         }),
       );
 
-      await container.read(updateControllerProvider.notifier).checkOnLaunch(
-            clock: () => _now,
-          );
+      await container
+          .read(updateControllerProvider.notifier)
+          .checkOnLaunch(clock: () => _now);
 
       expect(calls, 1);
       // Флаг найденного обновления поднят: экран покажет диалог.
@@ -182,9 +174,9 @@ void main() {
         }),
       );
 
-      await container.read(updateControllerProvider.notifier).checkOnLaunch(
-            clock: () => _now,
-          );
+      await container
+          .read(updateControllerProvider.notifier)
+          .checkOnLaunch(clock: () => _now);
 
       expect(calls, 0);
     });
@@ -205,16 +197,13 @@ void main() {
         }),
       );
 
-      await container.read(updateControllerProvider.notifier).checkOnLaunch(
-            clock: () => _now,
-          );
+      await container
+          .read(updateControllerProvider.notifier)
+          .checkOnLaunch(clock: () => _now);
 
       expect(calls, 1);
       // Обновления нет: foundUpdate не поднят.
-      expect(
-        container.read(updateControllerProvider).foundUpdate,
-        isNull,
-      );
+      expect(container.read(updateControllerProvider).foundUpdate, isNull);
     });
 
     test('сетевая ошибка автопроверки не роняет запуск', () async {
@@ -231,28 +220,27 @@ void main() {
       );
 
       // Не бросает.
-      await container.read(updateControllerProvider.notifier).checkOnLaunch(
-            clock: () => _now,
-          );
-      expect(
-        container.read(updateControllerProvider).foundUpdate,
-        isNull,
-      );
+      await container
+          .read(updateControllerProvider.notifier)
+          .checkOnLaunch(clock: () => _now);
+      expect(container.read(updateControllerProvider).foundUpdate, isNull);
     });
   });
 
   group('UpdatePreferencesStore', () {
-    test('по умолчанию: выключена, времени нет, предложение не показано',
-        () async {
-      final Directory directory = await tempDir();
-      final UpdatePreferencesStore store = UpdatePreferencesStore(
-        baseDirectory: directory,
-      );
+    test(
+      'по умолчанию: выключена, времени нет, предложение не показано',
+      () async {
+        final Directory directory = await tempDir();
+        final UpdatePreferencesStore store = UpdatePreferencesStore(
+          baseDirectory: directory,
+        );
 
-      expect(await store.readEnabled(), isFalse);
-      expect(await store.readLastAutoCheck(), isNull);
-      expect(await store.readOfferShown(), isFalse);
-    });
+        expect(await store.readEnabled(), isFalse);
+        expect(await store.readLastAutoCheck(), isNull);
+        expect(await store.readOfferShown(), isFalse);
+      },
+    );
 
     test('цикл записи-чтения: включение, штамп, предложение', () async {
       final Directory directory = await tempDir();
@@ -269,20 +257,22 @@ void main() {
       expect(await store.readOfferShown(), isTrue);
     });
 
-    test('битый JSON — чтение возвращает значения по умолчанию (T-2)',
-        () async {
-      final Directory directory = await tempDir();
-      final File file = File('${directory.path}/update-preferences.json');
-      await file.writeAsString('{oops');
-      final UpdatePreferencesStore store = UpdatePreferencesStore(
-        baseDirectory: directory,
-      );
+    test(
+      'битый JSON — чтение возвращает значения по умолчанию (T-2)',
+      () async {
+        final Directory directory = await tempDir();
+        final File file = File('${directory.path}/update-preferences.json');
+        await file.writeAsString('{oops');
+        final UpdatePreferencesStore store = UpdatePreferencesStore(
+          baseDirectory: directory,
+        );
 
-      // Тот же паттерн «молча выкл», что у rate-sync-персиста (D-43.г).
-      expect(await store.readEnabled(), isFalse);
-      expect(await store.readLastAutoCheck(), isNull);
-      expect(await store.readOfferShown(), isFalse);
-    });
+        // Тот же паттерн «молча выкл», что у rate-sync-персиста (D-43.г).
+        expect(await store.readEnabled(), isFalse);
+        expect(await store.readLastAutoCheck(), isNull);
+        expect(await store.readOfferShown(), isFalse);
+      },
+    );
 
     test('isAutoCheckDue: порог ровно 7 дней', () {
       expect(
@@ -302,11 +292,7 @@ void main() {
         isFalse,
       );
       expect(
-        isAutoCheckDue(
-          enabled: false,
-          lastCheck: null,
-          now: _now,
-        ),
+        isAutoCheckDue(enabled: false, lastCheck: null, now: _now),
         isFalse,
       );
     });

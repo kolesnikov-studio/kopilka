@@ -47,8 +47,8 @@ int compareSemver(
   return by(a.major, b.major) != 0
       ? by(a.major, b.major)
       : by(a.minor, b.minor) != 0
-          ? by(a.minor, b.minor)
-          : by(a.patch, b.patch);
+      ? by(a.minor, b.minor)
+      : by(a.patch, b.patch);
 }
 
 /// Выбранный релиз: самый новый релиз с парсируемым тегом, строго новее
@@ -57,8 +57,9 @@ UpdateAvailable? latestUpdate({
   required List<ReleaseInfo> releases,
   required String currentVersion,
 }) {
-  final ({int major, int minor, int patch})? current =
-      parseSemver(currentVersion);
+  final ({int major, int minor, int patch})? current = parseSemver(
+    currentVersion,
+  );
   if (current == null) {
     return null;
   }
@@ -67,8 +68,9 @@ UpdateAvailable? latestUpdate({
     if (release.draft || release.prerelease) {
       continue;
     }
-    final ({int major, int minor, int patch})? candidate =
-        parseSemver(release.tagName);
+    final ({int major, int minor, int patch})? candidate = parseSemver(
+      release.tagName,
+    );
     if (candidate == null || compareSemver(candidate, current) <= 0) {
       continue;
     }
@@ -99,17 +101,17 @@ class ReleaseInfo {
   });
 
   factory ReleaseInfo.fromJson(Map<String, dynamic> json) => ReleaseInfo(
-        tagName: json['tag_name'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        body: json['body'] as String? ?? '',
-        htmlUrl: json['html_url'] as String? ?? '',
-        publishedAt: switch (json['published_at']) {
-          final String value => DateTime.tryParse(value)?.toUtc(),
-          _ => null,
-        },
-        draft: json['draft'] == true,
-        prerelease: json['prerelease'] == true,
-      );
+    tagName: json['tag_name'] as String? ?? '',
+    name: json['name'] as String? ?? '',
+    body: json['body'] as String? ?? '',
+    htmlUrl: json['html_url'] as String? ?? '',
+    publishedAt: switch (json['published_at']) {
+      final String value => DateTime.tryParse(value)?.toUtc(),
+      _ => null,
+    },
+    draft: json['draft'] == true,
+    prerelease: json['prerelease'] == true,
+  );
 
   final String tagName;
   final String name;
@@ -212,9 +214,7 @@ class UpdateService {
         releases: releases,
         currentVersion: currentVersion,
       );
-      return update == null
-          ? const UpdateNotNeeded()
-          : UpdateFound(update);
+      return update == null ? const UpdateNotNeeded() : UpdateFound(update);
     } on FormatException {
       return const UpdateCheckFailed();
     } on Exception {

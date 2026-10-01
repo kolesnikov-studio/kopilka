@@ -115,8 +115,7 @@ void main() {
       );
     });
 
-    test('оба направления валидны и хранятся каноническими строками',
-        () async {
+    test('оба направления валидны и хранятся каноническими строками', () async {
       final Debt they = await seedDebt();
       final Debt me = await seedDebt(
         person: 'Мария',
@@ -145,33 +144,35 @@ void main() {
       expect(updated.updatedAt.toUtc(), f.clock.read());
     });
 
-    test('пустое person, суммы и валюта — те же отказы, что в create',
-        () async {
-      final Debt debt = await seedDebt();
+    test(
+      'пустое person, суммы и валюта — те же отказы, что в create',
+      () async {
+        final Debt debt = await seedDebt();
 
-      await expectLater(
-        f.debts.updateDebt(debt.id, person: const Value('  ')),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.invalidInput,
+        await expectLater(
+          f.debts.updateDebt(debt.id, person: const Value('  ')),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.invalidInput,
+            ),
           ),
-        ),
-      );
-      await expectLater(
-        f.debts.updateDebt(debt.id, amountMinor: const Value(0)),
-        throwsA(isA<DataValidationException>()),
-      );
-      await expectLater(
-        f.debts.updateDebt(debt.id, extraMinor: const Value(-5)),
-        throwsA(isA<DataValidationException>()),
-      );
-      await expectLater(
-        f.debts.updateDebt(debt.id, currencyCode: const Value('XYZ')),
-        throwsA(isA<DataValidationException>()),
-      );
-    });
+        );
+        await expectLater(
+          f.debts.updateDebt(debt.id, amountMinor: const Value(0)),
+          throwsA(isA<DataValidationException>()),
+        );
+        await expectLater(
+          f.debts.updateDebt(debt.id, extraMinor: const Value(-5)),
+          throwsA(isA<DataValidationException>()),
+        );
+        await expectLater(
+          f.debts.updateDebt(debt.id, currencyCode: const Value('XYZ')),
+          throwsA(isA<DataValidationException>()),
+        );
+      },
+    );
 
     test('мягко удалённый долг не правится — notFound', () async {
       final Debt debt = await seedDebt();
@@ -191,41 +192,48 @@ void main() {
   });
 
   group('чтение и мягкое удаление', () {
-    test('findById — только живые, requireAliveById — отказ notFound',
-        () async {
-      final Debt debt = await seedDebt();
+    test(
+      'findById — только живые, requireAliveById — отказ notFound',
+      () async {
+        final Debt debt = await seedDebt();
 
-      expect((await f.debts.findById(debt.id))?.id, debt.id);
-      expect((await f.debts.requireAliveById(debt.id)).id, debt.id);
-      await f.debts.softDelete(debt.id);
-      expect(await f.debts.findById(debt.id), isNull);
-      await expectLater(
-        f.debts.requireAliveById(debt.id),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.notFound,
+        expect((await f.debts.findById(debt.id))?.id, debt.id);
+        expect((await f.debts.requireAliveById(debt.id)).id, debt.id);
+        await f.debts.softDelete(debt.id);
+        expect(await f.debts.findById(debt.id), isNull);
+        await expectLater(
+          f.debts.requireAliveById(debt.id),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.notFound,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
-    test('watchAlive отдаёт живые, мягкое удаление убирает из потока',
-        () async {
-      final Debt first = await seedDebt(person: 'А');
-      final Debt second = await seedDebt(person: 'Б');
+    test(
+      'watchAlive отдаёт живые, мягкое удаление убирает из потока',
+      () async {
+        final Debt first = await seedDebt(person: 'А');
+        final Debt second = await seedDebt(person: 'Б');
 
-      final List<Debt> alive = await f.debts.watchAlive().first;
-      expect(alive.map((Debt d) => d.id), containsAll(<String>[first.id, second.id]));
+        final List<Debt> alive = await f.debts.watchAlive().first;
+        expect(
+          alive.map((Debt d) => d.id),
+          containsAll(<String>[first.id, second.id]),
+        );
 
-      await f.debts.softDelete(first.id);
-      final List<Debt> after = await f.debts.watchAlive().first;
-      expect(after.map((Debt d) => d.id), contains(second.id));
-      expect(after.map((Debt d) => d.id), isNot(contains(first.id)));
-      // Строка осталась физически (§3).
-      expect(await rawRowCount(f.db, 'debts'), 2);
-    });
+        await f.debts.softDelete(first.id);
+        final List<Debt> after = await f.debts.watchAlive().first;
+        expect(after.map((Debt d) => d.id), contains(second.id));
+        expect(after.map((Debt d) => d.id), isNot(contains(first.id)));
+        // Строка осталась физически (§3).
+        expect(await rawRowCount(f.db, 'debts'), 2);
+      },
+    );
 
     test('повторный softDelete — notFound (_requireAlive)', () async {
       final Debt debt = await seedDebt();
@@ -243,14 +251,20 @@ void main() {
       );
     });
 
-    test('мягкое удаление долга не трогает платежи (без каскада, §3)',
-        () async {
-      final Debt debt = await seedDebt();
-      await f.debts.addPayment(debt.id, amountMinor: 100, paidAt: f.clock.read());
-      await f.debts.softDelete(debt.id);
+    test(
+      'мягкое удаление долга не трогает платежи (без каскада, §3)',
+      () async {
+        final Debt debt = await seedDebt();
+        await f.debts.addPayment(
+          debt.id,
+          amountMinor: 100,
+          paidAt: f.clock.read(),
+        );
+        await f.debts.softDelete(debt.id);
 
-      expect(await rawRowCount(f.db, 'debt_payments'), 1);
-    });
+        expect(await rawRowCount(f.db, 'debt_payments'), 1);
+      },
+    );
   });
 
   group('платежи (D-82)', () {
@@ -264,8 +278,7 @@ void main() {
           name: 'Второй',
           kind: AccountKind.cash,
           currencyCode: 'RUB',
-        ))
-            .id,
+        )).id,
         amountMinor: 100000,
       );
 
@@ -303,8 +316,7 @@ void main() {
       );
     });
 
-    test('сумма <= 0 — отказ invalidInput; битый перевод — notFound',
-        () async {
+    test('сумма <= 0 — отказ invalidInput; битый перевод — notFound', () async {
       final Debt debt = await seedDebt();
 
       await expectLater(
@@ -334,8 +346,7 @@ void main() {
       );
     });
 
-    test('watchPayments отдаёт живые платежи долга, свежие сверху',
-        () async {
+    test('watchPayments отдаёт живые платежи долга, свежие сверху', () async {
       final Debt debt = await seedDebt();
       final DebtPayment first = await f.debts.addPayment(
         debt.id,
@@ -349,13 +360,24 @@ void main() {
       );
       // Чужой долг не подмешивается.
       final Debt other = await seedDebt(person: 'Мария');
-      await f.debts.addPayment(other.id, amountMinor: 5, paidAt: f.clock.read());
+      await f.debts.addPayment(
+        other.id,
+        amountMinor: 5,
+        paidAt: f.clock.read(),
+      );
 
-      final List<DebtPayment> payments = await f.debts.watchPayments(debt.id).first;
-      expect(payments.map((DebtPayment p) => p.id), <String>[second.id, first.id]);
+      final List<DebtPayment> payments = await f.debts
+          .watchPayments(debt.id)
+          .first;
+      expect(payments.map((DebtPayment p) => p.id), <String>[
+        second.id,
+        first.id,
+      ]);
 
       await f.debts.softDeletePayment(second.id);
-      final List<DebtPayment> alive = await f.debts.watchPayments(debt.id).first;
+      final List<DebtPayment> alive = await f.debts
+          .watchPayments(debt.id)
+          .first;
       expect(alive.map((DebtPayment p) => p.id), <String>[first.id]);
       // Строка осталась физически (§3).
       expect(await rawRowCount(f.db, 'debt_payments'), 3);
@@ -394,57 +416,70 @@ void main() {
   });
 
   group('сводка (D-82): одним SQL-агрегатом', () {
-    test('к возврату = тело + переплата, погашено = SUM живых, остаток',
-        () async {
-      final Debt debt = await seedDebt(amountMinor: 500000, extraMinor: 25000);
-      await f.debts.addPayment(
-        debt.id,
-        amountMinor: 200000,
-        paidAt: f.clock.read(),
-      );
-      f.clock.advance(const Duration(minutes: 1));
-      await f.debts.addPayment(
-        debt.id,
-        amountMinor: 125000,
-        paidAt: f.clock.read(),
-      );
+    test(
+      'к возврату = тело + переплата, погашено = SUM живых, остаток',
+      () async {
+        final Debt debt = await seedDebt(
+          amountMinor: 500000,
+          extraMinor: 25000,
+        );
+        await f.debts.addPayment(
+          debt.id,
+          amountMinor: 200000,
+          paidAt: f.clock.read(),
+        );
+        f.clock.advance(const Duration(minutes: 1));
+        await f.debts.addPayment(
+          debt.id,
+          amountMinor: 125000,
+          paidAt: f.clock.read(),
+        );
 
-      final DebtSummary? summary = await f.debts.watchSummary(debt.id).first;
-      expect(summary, isNotNull);
-      expect(summary!.totalMinor, 525000);
-      expect(summary.paidMinor, 325000);
-      expect(summary.remainingMinor, 200000);
-    });
+        final DebtSummary? summary = await f.debts.watchSummary(debt.id).first;
+        expect(summary, isNotNull);
+        expect(summary!.totalMinor, 525000);
+        expect(summary.paidMinor, 325000);
+        expect(summary.remainingMinor, 200000);
+      },
+    );
 
-    test('мягко удалённый платёж выпадает из SUM, долг не ломается (D-25)',
-        () async {
-      final Debt debt = await seedDebt(amountMinor: 100000);
-      final DebtPayment payment = await f.debts.addPayment(
-        debt.id,
-        amountMinor: 40000,
-        paidAt: f.clock.read(),
-      );
-      await f.debts.softDeletePayment(payment.id);
+    test(
+      'мягко удалённый платёж выпадает из SUM, долг не ломается (D-25)',
+      () async {
+        final Debt debt = await seedDebt(amountMinor: 100000);
+        final DebtPayment payment = await f.debts.addPayment(
+          debt.id,
+          amountMinor: 40000,
+          paidAt: f.clock.read(),
+        );
+        await f.debts.softDeletePayment(payment.id);
 
-      final DebtSummary? summary = await f.debts.watchSummary(debt.id).first;
-      expect(summary!.paidMinor, 0);
-      expect(summary.remainingMinor, 100000);
-    });
+        final DebtSummary? summary = await f.debts.watchSummary(debt.id).first;
+        expect(summary!.paidMinor, 0);
+        expect(summary.remainingMinor, 100000);
+      },
+    );
 
-    test('мягкое удаление долга убирает его из потока (watchSummary → NULL)',
-        () async {
-      final Debt debt = await seedDebt();
-      expect(await f.debts.watchSummary(debt.id).first, isNotNull);
-      await f.debts.softDelete(debt.id);
-      expect(await f.debts.watchSummary(debt.id).first, isNull);
-    });
+    test(
+      'мягкое удаление долга убирает его из потока (watchSummary → NULL)',
+      () async {
+        final Debt debt = await seedDebt();
+        expect(await f.debts.watchSummary(debt.id).first, isNotNull);
+        await f.debts.softDelete(debt.id);
+        expect(await f.debts.watchSummary(debt.id).first, isNull);
+      },
+    );
 
     test('поток живёт: новый платёж пересчитывает сводку', () async {
       final Debt debt = await seedDebt(amountMinor: 100000);
       final Stream<DebtSummary?> summaryStream = f.debts.watchSummary(debt.id);
 
       expect((await summaryStream.first)!.paidMinor, 0);
-      await f.debts.addPayment(debt.id, amountMinor: 30000, paidAt: f.clock.read());
+      await f.debts.addPayment(
+        debt.id,
+        amountMinor: 30000,
+        paidAt: f.clock.read(),
+      );
       final DebtSummary? after = await summaryStream.first;
       expect(after!.paidMinor, 30000);
       expect(after.remainingMinor, 70000);

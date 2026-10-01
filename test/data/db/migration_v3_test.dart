@@ -179,21 +179,28 @@ void main() {
     // beforeOpen после миграции: версия поднята до текущей (4; шаг v3→v4
     // исполняется следом — тест замка v2→v3 проверяет свою колонку).
     final int version =
-        (await db.customSelect('PRAGMA user_version').getSingle())
-            .read<int>('user_version');
-    expect(version, 7, reason: 'после открытия база должна быть на текущей схеме');
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        );
+    expect(
+      version,
+      7,
+      reason: 'после открытия база должна быть на текущей схеме',
+    );
 
     // Колонка существует, nullable и без default (D-21) — через S3-хелпер.
     final Map<String, String> txColumns = await columnTypes(db, 'transactions');
     expect(txColumns['target_amount_minor'], 'INTEGER');
     // Nullable и без default проверяются raw-PRAGMA: helper отдаёт только
     // имя → тип, а семантика колонки — суть этого теста миграции.
-    final List<QueryRow> rawColumns = await db.customSelect(
-      'PRAGMA table_info(transactions)',
-    ).get();
-    final Map<String, dynamic> targetColumn = rawColumns.singleWhere(
-      (QueryRow row) => row.read<String>('name') == 'target_amount_minor',
-    ).data;
+    final List<QueryRow> rawColumns = await db
+        .customSelect('PRAGMA table_info(transactions)')
+        .get();
+    final Map<String, dynamic> targetColumn = rawColumns
+        .singleWhere(
+          (QueryRow row) => row.read<String>('name') == 'target_amount_minor',
+        )
+        .data;
     expect(targetColumn['notnull'], 0, reason: 'колонка nullable');
     expect(
       targetColumn['dflt_value'],
@@ -211,28 +218,34 @@ void main() {
     final List<Account> accounts = await db.select(db.accounts).get();
     expect(accounts, hasLength(2));
 
-    final List<Transaction> transactions =
-        await db.select(db.transactions).get();
+    final List<Transaction> transactions = await db
+        .select(db.transactions)
+        .get();
     expect(transactions, hasLength(3));
-    final Transaction expense =
-        transactions.singleWhere((Transaction t) => t.id == 'tx-1');
+    final Transaction expense = transactions.singleWhere(
+      (Transaction t) => t.id == 'tx-1',
+    );
     expect(expense.amountMinor, 50050);
     expect(expense.note, 'кофе');
+    expect(expense.date.toUtc(), DateTime.utc(2026, 9, 26, 12));
     expect(
-      expense.date.toUtc(),
-      DateTime.utc(2026, 9, 26, 12),
+      expense.targetAmountMinor,
+      isNull,
+      reason: 'у не-перевода колонка NULL',
     );
-    expect(expense.targetAmountMinor, isNull,
-        reason: 'у не-перевода колонка NULL');
 
     // Старые переводы: target_amount_minor = NULL — теперь это переводы
     // в одной валюте (D-17); мягко удалённая строка тоже цела.
     for (final String id in <String>['tx-2', 'tx-3']) {
-      final Transaction transfer =
-          transactions.singleWhere((Transaction t) => t.id == id);
+      final Transaction transfer = transactions.singleWhere(
+        (Transaction t) => t.id == id,
+      );
       expect(transfer.targetAccountId, isNotNull);
-      expect(transfer.targetAmountMinor, isNull,
-          reason: 'перевод $id создан до v3 — одна валюта');
+      expect(
+        transfer.targetAmountMinor,
+        isNull,
+        reason: 'перевод $id создан до v3 — одна валюта',
+      );
     }
     expect(
       transactions.singleWhere((Transaction t) => t.id == 'tx-3').deletedAt,
@@ -244,10 +257,12 @@ void main() {
     expect(budgets.single.limitMinor, 250000);
 
     // Индексы транзакций пережили миграцию.
-    final List<QueryRow> indexes = await db.customSelect(
-      "SELECT name FROM sqlite_master WHERE type = 'index' "
-      "AND tbl_name = 'transactions'",
-    ).get();
+    final List<QueryRow> indexes = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type = 'index' "
+          "AND tbl_name = 'transactions'",
+        )
+        .get();
     expect(
       indexes.map((QueryRow row) => row.read<String>('name')),
       containsAll(<String>[
@@ -258,74 +273,79 @@ void main() {
     );
   });
 
-  test('цепочка v1 → v2 → v3: файл v0.1 открывается на текущей схеме',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
-    final Database raw = sqlite3.open(dbFile.path);
-    raw.execute('PRAGMA user_version = 1');
-    for (final String ddl in _v1Ddl) {
-      raw.execute(ddl);
-    }
-    // budgets в v1 не существует — бюджет в посев не входит.
-    _seedV02Data(raw, withBudgets: false);
-    raw.close();
+  test(
+    'цепочка v1 → v2 → v3: файл v0.1 открывается на текущей схеме',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
+      final Database raw = sqlite3.open(dbFile.path);
+      raw.execute('PRAGMA user_version = 1');
+      for (final String ddl in _v1Ddl) {
+        raw.execute(ddl);
+      }
+      // budgets в v1 не существует — бюджет в посев не входит.
+      _seedV02Data(raw, withBudgets: false);
+      raw.close();
 
-    final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(db.close);
+      final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(db.close);
 
-    expect(
-      (await db.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
+      expect(
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        ),
+        7,
+      );
 
-    // Оба шага цепочки исполнены: budgets создана, колонка добавлена.
-    final List<Transaction> transactions =
-        await db.select(db.transactions).get();
-    expect(transactions, hasLength(3));
-    expect(
-      transactions.every((Transaction t) => t.targetAmountMinor == null),
-      isTrue,
-      reason: 'все данные v0.1 — одно-валютные',
-    );
-    // Шаг v1→v2 цепочки: таблица budgets создана и пуста.
-    final List<Budget> budgets = await db.select(db.budgets).get();
-    expect(budgets, isEmpty);
-  });
+      // Оба шага цепочки исполнены: budgets создана, колонка добавлена.
+      final List<Transaction> transactions = await db
+          .select(db.transactions)
+          .get();
+      expect(transactions, hasLength(3));
+      expect(
+        transactions.every((Transaction t) => t.targetAmountMinor == null),
+        isTrue,
+        reason: 'все данные v0.1 — одно-валютные',
+      );
+      // Шаг v1→v2 цепочки: таблица budgets создана и пуста.
+      final List<Budget> budgets = await db.select(db.budgets).get();
+      expect(budgets, isEmpty);
+    },
+  );
 
-  test('повторное открытие базы v3: без ре-миграции, данные на месте',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
+  test(
+    'повторное открытие базы v3: без ре-миграции, данные на месте',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
 
-    final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
-    // Свежая база пуста — создаём справочник и бюджет.
-    await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
-    final Category food = await first.categoriesDao.create(
-      name: 'Продукты',
-      kind: CategoryKind.expense,
-    );
-    final Budget budget = await first.budgetsDao.create(
-      categoryId: food.id,
-      limitMinor: 5000,
-    );
-    await first.close();
+      final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
+      // Свежая база пуста — создаём справочник и бюджет.
+      await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
+      final Category food = await first.categoriesDao.create(
+        name: 'Продукты',
+        kind: CategoryKind.expense,
+      );
+      final Budget budget = await first.budgetsDao.create(
+        categoryId: food.id,
+        limitMinor: 5000,
+      );
+      await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 4),
-    // данные живы.
-    final AppDatabase second =
-        AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(second.close);
-    expect(
-      (await second.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
-    final List<Budget> alive = await second.budgetsDao.getAlive();
-    expect(alive.single.id, budget.id);
-    expect(alive.single.limitMinor, 5000);
-  });
+      // Повторное открытие: onUpgrade не выполняется (версия уже 4),
+      // данные живы.
+      final AppDatabase second = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(second.close);
+      expect(
+        (await second.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        7,
+      );
+      final List<Budget> alive = await second.budgetsDao.getAlive();
+      expect(alive.single.id, budget.id);
+      expect(alive.single.limitMinor, 5000);
+    },
+  );
 }

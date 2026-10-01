@@ -81,8 +81,9 @@ const List<CategoryIcon> categoryIcons = <CategoryIcon>[
 ];
 
 /// Все коды справочника — для тестов и UI-выборщика.
-Set<String> get categoryIconCodes =>
-    <String>{for (final CategoryIcon entry in categoryIcons) entry.code};
+Set<String> get categoryIconCodes => <String>{
+  for (final CategoryIcon entry in categoryIcons) entry.code,
+};
 
 /// Код нейтральной иконки «прочее» — дефолт выбора в UI и заглушка
 /// для категорий без иконки (NULL живой базы v0.4, D-55). Код существует
@@ -92,7 +93,8 @@ const String defaultCategoryIconCode = 'other';
 /// Запись для показа: известный код — из справочника; NULL и неизвестная
 /// строка (живая база v0.4 без иконок) — нейтральная заглушка «other».
 CategoryIcon categoryIconFor(String? code) =>
-    categoryIconByCode(code ?? '') ?? categoryIconByCode(defaultCategoryIconCode)!;
+    categoryIconByCode(code ?? '') ??
+    categoryIconByCode(defaultCategoryIconCode)!;
 
 /// Справка по коду; `null` — кода нет в справочнике. DAO и импорт бэкапа
 /// такой код отклоняют (строгая валидация, по образцу D-25): NULL валиден,

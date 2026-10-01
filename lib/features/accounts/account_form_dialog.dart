@@ -36,10 +36,8 @@ Future<void> showAccountFormDialog(
 }) {
   return showDialog<void>(
     context: context,
-    builder: (BuildContext dialogContext) => _AccountFormDialog(
-      initial: account,
-      savingsPreset: savingsPreset,
-    ),
+    builder: (BuildContext dialogContext) =>
+        _AccountFormDialog(initial: account, savingsPreset: savingsPreset),
   );
 }
 
@@ -105,7 +103,8 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
       final String? interest = initial.account.interestReminderDate;
       if (interest != null && interest.isNotEmpty) {
         _savings = true;
-        _interestDate = DateTime.tryParse(interest)?.toLocal() ??
+        _interestDate =
+            DateTime.tryParse(interest)?.toLocal() ??
             defaultInterestReminderDate();
       }
       // Поле «Сумма» при редактировании означает НОВЫЙ начальный баланс:
@@ -130,9 +129,9 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
 
   Future<void> _refreshCanChangeCurrency() async {
     final String id = widget.initial!.account.id;
-    final bool hasTransactions =
-        await ref.read(accountsControllerProvider.notifier)
-            .hasAliveTransactions(id);
+    final bool hasTransactions = await ref
+        .read(accountsControllerProvider.notifier)
+        .hasAliveTransactions(id);
     if (mounted && widget.initial?.account.id == id) {
       setState(() => _canChangeCurrency = !hasTransactions);
     }
@@ -271,7 +270,8 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
             _interestDate!.day,
           )
         : null;
-    final Value<DateTime?> interestPatch = savingsTouched || _interestDateChanged
+    final Value<DateTime?> interestPatch =
+        savingsTouched || _interestDateChanged
         ? Value<DateTime?>(interestDate)
         : const Value<DateTime?>.absent();
     final Result<dynamic> result;
@@ -350,10 +350,8 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
     );
     // Символ выбранной валюты — суффикс поля суммы (B3); карта R5 реактивна:
     // код вне справочника — fallback на сам код.
-    final String amountSuffix = ref
-        .watch(currenciesMapProvider)
-        .value?[_currencyCode]
-        ?.symbol ??
+    final String amountSuffix =
+        ref.watch(currenciesMapProvider).value?[_currencyCode]?.symbol ??
         (_currencyCode ?? '');
 
     return AlertDialog(
@@ -366,8 +364,8 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
               TextFormField(
                 controller: _name,
                 decoration: InputDecoration(labelText: l10n.nameLabel),
-                validator: (String? value) => (value == null ||
-                        value.trim().isEmpty)
+                validator: (String? value) =>
+                    (value == null || value.trim().isEmpty)
                     ? l10n.errorInvalidInput
                     : null,
               ),
@@ -375,19 +373,20 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
               DropdownButtonFormField<AccountKind>(
                 initialValue: _kind,
                 decoration: InputDecoration(labelText: l10n.kindLabel),
-                items: <AccountKind>[
-                  AccountKind.cash,
-                  AccountKind.bank,
-                  AccountKind.card,
-                  AccountKind.other,
-                ]
-                    .map(
-                      (AccountKind kind) => DropdownMenuItem<AccountKind>(
-                        value: kind,
-                        child: Text(_kindLabel(l10n, kind)),
-                      ),
-                    )
-                    .toList(),
+                items:
+                    <AccountKind>[
+                          AccountKind.cash,
+                          AccountKind.bank,
+                          AccountKind.card,
+                          AccountKind.other,
+                        ]
+                        .map(
+                          (AccountKind kind) => DropdownMenuItem<AccountKind>(
+                            value: kind,
+                            child: Text(_kindLabel(l10n, kind)),
+                          ),
+                        )
+                        .toList(),
                 onChanged: (AccountKind? kind) =>
                     setState(() => _kind = kind ?? AccountKind.cash),
               ),
@@ -451,9 +450,8 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                     child: Text(
                       l10n.accountCurrencyLockedHint,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
               ],
@@ -480,14 +478,14 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                 onChanged: _busy
                     ? null
                     : (bool value) =>
-                        setState(() => _excludeFromBalance = value),
+                          setState(() => _excludeFromBalance = value),
                 contentPadding: EdgeInsets.zero,
                 title: Text(l10n.excludeFromBalanceLabel),
                 subtitle: Text(
                   l10n.excludeFromBalanceHint,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               // M6-шаг D (спека §1, D-81): тумблер «Накопительный» —
@@ -500,23 +498,23 @@ class _AccountFormDialogState extends ConsumerState<_AccountFormDialog> {
                 onChanged: _busy
                     ? null
                     : (bool value) => setState(() {
-                          _savings = value;
-                          // Выключение тумблера — дата NULL (спека §1):
-                          // строка скрыта, счёт снова обычный (D-81).
-                          if (!value) {
-                            _interestDate = null;
-                          } else {
-                            _interestDate ??= defaultInterestReminderDate();
-                          }
-                          _interestDateChanged = true;
-                        }),
+                        _savings = value;
+                        // Выключение тумблера — дата NULL (спека §1):
+                        // строка скрыта, счёт снова обычный (D-81).
+                        if (!value) {
+                          _interestDate = null;
+                        } else {
+                          _interestDate ??= defaultInterestReminderDate();
+                        }
+                        _interestDateChanged = true;
+                      }),
                 contentPadding: EdgeInsets.zero,
                 title: Text(l10n.accountSavingsLabel),
                 subtitle: Text(
                   l10n.accountSavingsHint,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               // Строка даты — только при включённом тумблере (спека §1):

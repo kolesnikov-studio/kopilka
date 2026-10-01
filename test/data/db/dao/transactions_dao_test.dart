@@ -274,16 +274,10 @@ void main() {
     );
     expect(await count(TransactionFilter(from: day2)), 2);
     expect(await count(TransactionFilter(to: day2)), 1);
-    expect(
-      await count(TransactionFilter(from: day1, to: day2)),
-      1,
-    );
+    expect(await count(TransactionFilter(from: day1, to: day2)), 1);
     expect(await count(const TransactionFilter(search: 'coffee')), 1);
     expect(await count(const TransactionFilter(search: 'Кофе')), 1);
-    expect(
-      await count(TransactionFilter(search: 'офе')),
-      1,
-    );
+    expect(await count(TransactionFilter(search: 'офе')), 1);
     expect(
       await count(
         TransactionFilter(accountId: card.id, type: TransactionType.transfer),
@@ -316,57 +310,60 @@ void main() {
     expect(await count(const TransactionFilter(search: '100_')), 0);
   });
 
-  test('watchFilteredView отдаёт имена счёта, целевого счёта и категории (R7)',
-      () async {
-    await f.transactions.create(
-      type: TransactionType.expense,
-      accountId: cash.id,
-      categoryId: products.id,
-      amountMinor: 100,
-    );
-    await f.transactions.create(
-      type: TransactionType.transfer,
-      accountId: cash.id,
-      targetAccountId: card.id,
-      amountMinor: 250,
-    );
-    // Расход без категории: имя категории null (U4 — UI покажет текст).
-    await f.transactions.create(
-      type: TransactionType.income,
-      accountId: card.id,
-      amountMinor: 500,
-    );
+  test(
+    'watchFilteredView отдаёт имена счёта, целевого счёта и категории (R7)',
+    () async {
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: cash.id,
+        categoryId: products.id,
+        amountMinor: 100,
+      );
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: cash.id,
+        targetAccountId: card.id,
+        amountMinor: 250,
+      );
+      // Расход без категории: имя категории null (U4 — UI покажет текст).
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: card.id,
+        amountMinor: 500,
+      );
 
-    final List<TransactionView> rows =
-        await f.transactions.watchFilteredView().first;
-    expect(rows, hasLength(3));
+      final List<TransactionView> rows = await f.transactions
+          .watchFilteredView()
+          .first;
+      expect(rows, hasLength(3));
 
-    final TransactionView transfer = rows.firstWhere(
-      (TransactionView r) =>
-          TransactionType.fromDb(r.transaction.type) ==
-          TransactionType.transfer,
-    );
-    expect(transfer.accountName, 'Наличные');
-    expect(transfer.targetAccountName, 'Карта');
-    expect(transfer.categoryName, isNull);
+      final TransactionView transfer = rows.firstWhere(
+        (TransactionView r) =>
+            TransactionType.fromDb(r.transaction.type) ==
+            TransactionType.transfer,
+      );
+      expect(transfer.accountName, 'Наличные');
+      expect(transfer.targetAccountName, 'Карта');
+      expect(transfer.categoryName, isNull);
 
-    final TransactionView expense = rows.firstWhere(
-      (TransactionView r) =>
-          TransactionType.fromDb(r.transaction.type) ==
-          TransactionType.expense,
-    );
-    expect(expense.accountName, 'Наличные');
-    expect(expense.categoryName, 'Продукты');
-    expect(expense.targetAccountName, isNull);
+      final TransactionView expense = rows.firstWhere(
+        (TransactionView r) =>
+            TransactionType.fromDb(r.transaction.type) ==
+            TransactionType.expense,
+      );
+      expect(expense.accountName, 'Наличные');
+      expect(expense.categoryName, 'Продукты');
+      expect(expense.targetAccountName, isNull);
 
-    final TransactionView income = rows.firstWhere(
-      (TransactionView r) =>
-          TransactionType.fromDb(r.transaction.type) ==
-          TransactionType.income,
-    );
-    expect(income.accountName, 'Карта');
-    expect(income.categoryName, isNull);
-  });
+      final TransactionView income = rows.firstWhere(
+        (TransactionView r) =>
+            TransactionType.fromDb(r.transaction.type) ==
+            TransactionType.income,
+      );
+      expect(income.accountName, 'Карта');
+      expect(income.categoryName, isNull);
+    },
+  );
 
   test('watchFilteredView: view-фильтр совпадает с getFiltered', () async {
     await f.transactions.create(
@@ -398,8 +395,9 @@ void main() {
       accountId: cash.id,
       amountMinor: 100,
     );
-    final List<TransactionView> rows =
-        await f.transactions.watchFilteredView().first;
+    final List<TransactionView> rows = await f.transactions
+        .watchFilteredView()
+        .first;
     expect(rows, hasLength(1));
     expect(rows.single.accountName, 'Наличные');
   });
@@ -425,10 +423,7 @@ void main() {
     );
 
     final List<Transaction> list = await f.transactions.getFiltered();
-    expect(
-      list.map((Transaction t) => t.amountMinor),
-      <int>[200, 300, 100],
-    );
+    expect(list.map((Transaction t) => t.amountMinor), <int>[200, 300, 100]);
   });
 
   test('updateTransaction меняет сумму, дату, заметку и категорию', () async {
@@ -555,9 +550,7 @@ void main() {
     expect(await f.transactions.getFiltered(), isEmpty);
     expect(await f.transactions.findById(transaction.id), isNull);
     expect(await rawRowCount(f.db, 'transactions'), 1);
-    final Transaction raw = await (f.db.select(
-      f.db.transactions,
-    )).getSingle();
+    final Transaction raw = await (f.db.select(f.db.transactions)).getSingle();
     expect(raw.deletedAt?.toUtc(), f.clock.read());
     await expectLater(
       f.transactions.softDelete(transaction.id),
@@ -609,10 +602,8 @@ void main() {
         amountMinor: 320,
       );
 
-      final List<CategoryExpenseBase> expenses =
-          await f.db.transactionsDao.expensesByCategoryForMonthInBase(
-        moment: f.clock.read(),
-      );
+      final List<CategoryExpenseBase> expenses = await f.db.transactionsDao
+          .expensesByCategoryForMonthInBase(moment: f.clock.read());
       expect(expenses, hasLength(2));
       expect(expenses[0].categoryName, 'Еда');
       expect(expenses[0].amountMinor, 12000);
@@ -620,53 +611,56 @@ void main() {
       expect(expenses[1].amountMinor, 4000);
     });
 
-    test('смена курса пересчитывает донат без перезапуска (watch, D-16)', () async {
-      final DataLayerFixture f = DataLayerFixture();
-      addTearDown(f.dispose);
-      await f.ensureRub();
-      await f.seedCurrency('USD', symbol: r'$', rateToBase: 2);
-      final Account usd = await f.accounts.create(
-        name: 'Долларовый',
-        kind: AccountKind.card,
-        currencyCode: 'USD',
-      );
-      final Category food = await f.seedCategory(name: 'Еда');
+    test(
+      'смена курса пересчитывает донат без перезапуска (watch, D-16)',
+      () async {
+        final DataLayerFixture f = DataLayerFixture();
+        addTearDown(f.dispose);
+        await f.ensureRub();
+        await f.seedCurrency('USD', symbol: r'$', rateToBase: 2);
+        final Account usd = await f.accounts.create(
+          name: 'Долларовый',
+          kind: AccountKind.card,
+          currencyCode: 'USD',
+        );
+        final Category food = await f.seedCategory(name: 'Еда');
 
-      final Stream<List<CategoryExpenseBase>> stream = f.db.transactionsDao
-          .watchExpensesByCategoryForMonthInBase(moment: f.clock.read());
+        final Stream<List<CategoryExpenseBase>> stream = f.db.transactionsDao
+            .watchExpensesByCategoryForMonthInBase(moment: f.clock.read());
 
-      await f.transactions.create(
-        type: TransactionType.expense,
-        accountId: usd.id,
-        categoryId: food.id,
-        amountMinor: 2000,
-      );
-      await expectLater(
-        stream,
-        emitsThrough(
-          predicate<List<CategoryExpenseBase>>(
-            (List<CategoryExpenseBase> list) =>
-                list.single.amountMinor == 4000,
-            '40,00 ₽ по курсу 2',
+        await f.transactions.create(
+          type: TransactionType.expense,
+          accountId: usd.id,
+          categoryId: food.id,
+          amountMinor: 2000,
+        );
+        await expectLater(
+          stream,
+          emitsThrough(
+            predicate<List<CategoryExpenseBase>>(
+              (List<CategoryExpenseBase> list) =>
+                  list.single.amountMinor == 4000,
+              '40,00 ₽ по курсу 2',
+            ),
           ),
-        ),
-      );
+        );
 
-      await f.currencies.updateCurrency(
-        'USD',
-        rateToBase: const Value<double>(4),
-      );
-      await expectLater(
-        stream,
-        emitsThrough(
-          predicate<List<CategoryExpenseBase>>(
-            (List<CategoryExpenseBase> list) =>
-                list.single.amountMinor == 8000,
-            '80,00 ₽ по курсу 4 без перезапуска',
+        await f.currencies.updateCurrency(
+          'USD',
+          rateToBase: const Value<double>(4),
+        );
+        await expectLater(
+          stream,
+          emitsThrough(
+            predicate<List<CategoryExpenseBase>>(
+              (List<CategoryExpenseBase> list) =>
+                  list.single.amountMinor == 8000,
+              '80,00 ₽ по курсу 4 без перезапуска',
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
     test('динамика: месяцы в базовой, экспоненты JPY и KWD (D-27)', () async {
       final DataLayerFixture f = DataLayerFixture();
@@ -723,13 +717,16 @@ void main() {
         date: DateTime.utc(2026, 10, 5),
       );
 
-      final List<MonthTotalsBase> totals =
-          await f.db.transactionsDao.totalsByMonthInBase(
-        from: DateTime.utc(2026, 8, 1),
-        to: DateTime.utc(2026, 11, 1),
-      );
-      expect(totals.map((MonthTotalsBase m) => m.monthKey),
-          <String>['2026-08', '2026-09', '2026-10']);
+      final List<MonthTotalsBase> totals = await f.db.transactionsDao
+          .totalsByMonthInBase(
+            from: DateTime.utc(2026, 8, 1),
+            to: DateTime.utc(2026, 11, 1),
+          );
+      expect(totals.map((MonthTotalsBase m) => m.monthKey), <String>[
+        '2026-08',
+        '2026-09',
+        '2026-10',
+      ]);
       expect(totals[0].incomeMinor, 70000);
       expect(totals[0].expenseMinor, 0);
       expect(totals[1].expenseMinor, 14000);
@@ -737,8 +734,7 @@ void main() {
       expect(totals[2].expenseMinor, 246900);
     });
 
-    test('ожидания конвертации — через formatMoneyMinor по экспоненту базы',
-        () async {
+    test('ожидания конвертации — через formatMoneyMinor по экспоненту базы', () async {
       final DataLayerFixture f = DataLayerFixture();
       addTearDown(f.dispose);
       await f.ensureRub();
@@ -769,14 +765,13 @@ void main() {
         amountMinor: 12345,
       );
 
-      final List<CategoryExpenseBase> expenses =
-          await f.db.transactionsDao.expensesByCategoryForMonthInBase(
-        moment: f.clock.read(),
-      );
+      final List<CategoryExpenseBase> expenses = await f.db.transactionsDao
+          .expensesByCategoryForMonthInBase(moment: f.clock.read());
       expect(expenses.single.amountMinor, 248900);
       // База — экспонент 2 (D-27): суммы показываются как рублёвые с копейками,
       // независимо от экспонентов валют-источников.
-      String money(int minor) => formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
+      String money(int minor) =>
+          formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
       expect(money(expenses.single.amountMinor), money(248900));
     });
 
@@ -816,32 +811,33 @@ void main() {
         amountMinor: 10000,
       );
 
-      final List<CategoryExpenseBase> expenses =
-          await f.db.transactionsDao.expensesByCategoryForMonthInBase(
-        moment: f.clock.read(),
-      );
+      final List<CategoryExpenseBase> expenses = await f.db.transactionsDao
+          .expensesByCategoryForMonthInBase(moment: f.clock.read());
       expect(expenses, hasLength(1));
       expect(expenses.single.amountMinor, 10000);
 
-      final List<MonthTotalsBase> totals =
-          await f.db.transactionsDao.totalsByMonthInBase(
-        from: DateTime.utc(2026, 9, 1),
-        to: DateTime.utc(2026, 10, 1),
-      );
+      final List<MonthTotalsBase> totals = await f.db.transactionsDao
+          .totalsByMonthInBase(
+            from: DateTime.utc(2026, 9, 1),
+            to: DateTime.utc(2026, 10, 1),
+          );
       expect(totals.single.expenseMinor, 10000);
       expect(totals.single.incomeMinor, 0);
     });
 
-    test('пустой период динамики — отказ invalidInput (как в исходной)', () async {
-      final DataLayerFixture f = DataLayerFixture();
-      addTearDown(f.dispose);
-      await expectLater(
-        f.db.transactionsDao.totalsByMonthInBase(
-          from: DateTime.utc(2026, 9, 1),
-          to: DateTime.utc(2026, 9, 1),
-        ),
-        throwsA(isA<DataValidationException>()),
-      );
-    });
+    test(
+      'пустой период динамики — отказ invalidInput (как в исходной)',
+      () async {
+        final DataLayerFixture f = DataLayerFixture();
+        addTearDown(f.dispose);
+        await expectLater(
+          f.db.transactionsDao.totalsByMonthInBase(
+            from: DateTime.utc(2026, 9, 1),
+            to: DateTime.utc(2026, 9, 1),
+          ),
+          throwsA(isA<DataValidationException>()),
+        );
+      },
+    );
   });
 }

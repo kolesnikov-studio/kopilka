@@ -23,15 +23,13 @@ abstract final class AttachmentOwner {
   /// Владелец — операция: ключ из [AttachmentOwner.transaction] и
   /// его же id (обратное преобразование).
   static String? transactionOwner(String? value) =>
-      value == null || value.startsWith(_transactionPrefix)
-          ? null
-          : value;
+      value == null || value.startsWith(_transactionPrefix) ? null : value;
 
   /// Владелец — долг; NULL — в значении нет ключа долга.
   static String? debtOwner(String? value) =>
       value == null || !value.startsWith(_debtPrefix)
-          ? null
-          : value.substring(_debtPrefix.length);
+      ? null
+      : value.substring(_debtPrefix.length);
 
   /// Ключ владельца-долга для записи в колонку.
   static String debt(String debtId) => '$_debtPrefix$debtId';
@@ -96,12 +94,10 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
     }
     final Transaction? transaction = _transactionOf(transactionId) == null
         ? null
-        : await (select(transactions)
-              ..where(
-                (t) =>
-                    t.id.equals(transactionId) & t.deletedAt.isNull(),
+        : await (select(transactions)..where(
+                (t) => t.id.equals(transactionId) & t.deletedAt.isNull(),
               ))
-            .getSingleOrNull();
+              .getSingleOrNull();
     if (_transactionOf(transactionId) != null && transaction == null) {
       throw DataValidationException(
         'операция $transactionId не найдена',
@@ -148,20 +144,17 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
   Future<Attachment?> findByDebt(String debtId) =>
       _findByOwner(AttachmentOwner.debt(debtId));
 
-  Future<Attachment?> _findByOwner(String? owner) =>
-      owner == null
-          ? Future<Attachment?>.value()
-          : (select(attachments)..where(
-                (t) => t.transactionId.equals(owner) & t.deletedAt.isNull(),
-              ))
-              .getSingleOrNull();
+  Future<Attachment?> _findByOwner(String? owner) => owner == null
+      ? Future<Attachment?>.value()
+      : (select(attachments)..where(
+              (t) => t.transactionId.equals(owner) & t.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
 
   /// Живое вложение по id (или NULL).
-  Future<Attachment?> findById(String id) =>
-      (select(attachments)..where(
-            (t) => t.id.equals(id) & t.deletedAt.isNull(),
-          ))
-          .getSingleOrNull();
+  Future<Attachment?> findById(String id) => (select(
+    attachments,
+  )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
 
   /// Живое вложение по id или отказ [DataFailure.notFound] — для сервиса
   /// вложений перед удалением файла.
@@ -179,9 +172,9 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<Attachment> _requireAlive(String id) async {
-    final Attachment? attachment = await (select(attachments)
-          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
-        .getSingleOrNull();
+    final Attachment? attachment = await (select(
+      attachments,
+    )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
     if (attachment == null) {
       throw DataValidationException(
         'вложение $id не найдено',
@@ -279,12 +272,11 @@ class AttachmentsDao extends DatabaseAccessor<AppDatabase>
     } finally {
       await customStatement('PRAGMA foreign_keys = ON');
     }
-    return (select(attachments)
-          ..where(
-            (t) =>
-                t.transactionId.equals(AttachmentOwner.debt(debt.id)) &
-                t.deletedAt.isNull(),
-          ))
+    return (select(attachments)..where(
+          (t) =>
+              t.transactionId.equals(AttachmentOwner.debt(debt.id)) &
+              t.deletedAt.isNull(),
+        ))
         .getSingle();
   }
 }

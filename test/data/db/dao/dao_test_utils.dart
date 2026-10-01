@@ -67,11 +67,7 @@ class DataLayerFixture {
       idGenerator: sequentialIds('att'),
       clock: clock.read,
     );
-    debts = DebtsDao(
-      db,
-      idGenerator: sequentialIds('debt'),
-      clock: clock.read,
-    );
+    debts = DebtsDao(db, idGenerator: sequentialIds('debt'), clock: clock.read);
   }
 
   final AppDatabase db;
@@ -88,7 +84,8 @@ class DataLayerFixture {
 
   /// Базовая валюта RUB, если её ещё нет.
   Future<Currency> ensureRub() async =>
-      await currencies.findAlive('RUB') ?? await currencies.create(code: 'RUB', symbol: '₽', isBase: true);
+      await currencies.findAlive('RUB') ??
+      await currencies.create(code: 'RUB', symbol: '₽', isBase: true);
 
   /// Валюта по коду; создаёт при отсутствии (S1: вторая валюта для M3).
   Future<Currency> seedCurrency(

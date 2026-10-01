@@ -20,8 +20,9 @@ import 'package:kopilka/features/settings/update_preferences.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 void main() {
-  testWidgets('экран настроек показывает секции бэкапов и обновлений',
-      (WidgetTester tester) async {
+  testWidgets('экран настроек показывает секции бэкапов и обновлений', (
+    WidgetTester tester,
+  ) async {
     // Локаль задаётся до pumpWidget: MaterialApp.resolvedLocale для RU.
     tester.platformDispatcher.localeTestValue = const Locale('ru');
     tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
@@ -71,8 +72,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
+    );
     // Секция синхронизации курсов (D-36, M4-шаг 2) — сразу после «Валюты».
     expect(find.text(l10n.rateSyncSectionTitle), findsOneWidget);
     expect(find.text(l10n.rateSyncEnabled), findsOneWidget);

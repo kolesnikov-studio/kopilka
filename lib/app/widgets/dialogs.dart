@@ -40,10 +40,7 @@ Future<bool> showConfirmDialog({
 ///
 /// UI обязан объяснять пользователю отказы DAO (M1: удаление — только
 /// soft delete и запрещено при связанных живых данных).
-Future<void> showDataFailureSnack(
-  BuildContext context,
-  DataFailure failure,
-) {
+Future<void> showDataFailureSnack(BuildContext context, DataFailure failure) {
   final AppLocalizations l10n = AppLocalizations.of(context);
   return showSnack(context, localizedError(l10n, failure));
 }

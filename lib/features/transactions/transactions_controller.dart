@@ -10,22 +10,15 @@ import 'package:kopilka/data/providers.dart';
 
 /// Параметры фильтра списка операций (отображается на [TransactionFilter]).
 class TransactionsFilterState {
-  const TransactionsFilterState({
-    this.type,
-    this.accountId,
-    this.search = '',
-  });
+  const TransactionsFilterState({this.type, this.accountId, this.search = ''});
 
   final TransactionType? type;
   final String? accountId;
   final String search;
 
   /// Период не фильтруем (M1: все операции); при необходимости добавится.
-  TransactionFilter toFilter() => TransactionFilter(
-        type: type,
-        accountId: accountId,
-        search: search,
-      );
+  TransactionFilter toFilter() =>
+      TransactionFilter(type: type, accountId: accountId, search: search);
 
   TransactionsFilterState copyWith({
     TransactionType? type,
@@ -33,19 +26,18 @@ class TransactionsFilterState {
     String? search,
     bool clearType = false,
     bool clearAccount = false,
-  }) =>
-      TransactionsFilterState(
-        type: clearType ? null : (type ?? this.type),
-        accountId: clearAccount ? null : (accountId ?? this.accountId),
-        search: search ?? this.search,
-      );
+  }) => TransactionsFilterState(
+    type: clearType ? null : (type ?? this.type),
+    accountId: clearAccount ? null : (accountId ?? this.accountId),
+    search: search ?? this.search,
+  );
 }
 
 /// Текущий фильтр списка операций.
 final transactionsFilterProvider =
     NotifierProvider<TransactionsFilterController, TransactionsFilterState>(
-  TransactionsFilterController.new,
-);
+      TransactionsFilterController.new,
+    );
 
 class TransactionsFilterController extends Notifier<TransactionsFilterState> {
   @override
@@ -54,14 +46,16 @@ class TransactionsFilterController extends Notifier<TransactionsFilterState> {
   void setType(TransactionType? type) =>
       state = state.copyWith(type: type, clearType: type == null);
 
-  void setAccount(String? accountId) =>
-      state = state.copyWith(accountId: accountId, clearAccount: accountId == null);
+  void setAccount(String? accountId) => state = state.copyWith(
+    accountId: accountId,
+    clearAccount: accountId == null,
+  );
 
   void setSearch(String search) => state = TransactionsFilterState(
-        type: state.type,
-        accountId: state.accountId,
-        search: search,
-      );
+    type: state.type,
+    accountId: state.accountId,
+    search: search,
+  );
 
   /// Полный сброс фильтров (D-68.б): CTA пустого отфильтрованного результата
   /// снимает тип, счёт и поиск — иначе при фильтре «только поиск» кнопка
@@ -72,8 +66,9 @@ class TransactionsFilterController extends Notifier<TransactionsFilterState> {
 
 /// Строки списка операций с именами счетов и категории (R7): имена приходят
 /// JOIN'ом из DAO, плиткам не нужны подписки на списки счетов/категорий.
-final filteredTransactionViewsProvider =
-    StreamProvider<List<TransactionView>>((ref) {
+final filteredTransactionViewsProvider = StreamProvider<List<TransactionView>>((
+  ref,
+) {
   final TransactionsFilterState state = ref.watch(transactionsFilterProvider);
   return ref.watch(transactionsDaoProvider).watchFilteredView(state.toFilter());
 });

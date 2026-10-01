@@ -98,7 +98,7 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
     final Currency? base = ref.watch(baseCurrencyStreamProvider).value;
     final List<Category> categories =
         ref.watch(categoriesByKindProvider(CategoryKind.expense)).value ??
-            const <Category>[];
+        const <Category>[];
     // Категории с живым бюджетом показываем отключёнными: уникальность
     // живых бюджетов на категорию держит DAO (D-14), отказ объяснит снек.
     // Важно: занятые категории НЕ выбрасываются из items, иначе после
@@ -106,7 +106,7 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
     final Set<String> taken = <String>{
       for (final BudgetProgress progress
           in ref.watch(budgetProgressProvider).value ??
-          const <BudgetProgress>[])
+              const <BudgetProgress>[])
         progress.budget.categoryId,
     };
 
@@ -115,17 +115,15 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
       _categoryId ??= categories.isEmpty
           ? null
           : categories
-              .firstWhere(
-                (Category category) => !taken.contains(category.id),
-                orElse: () => categories.first,
-              )
-              .id;
+                .firstWhere(
+                  (Category category) => !taken.contains(category.id),
+                  orElse: () => categories.first,
+                )
+                .id;
     }
 
     return AlertDialog(
-      title: Text(
-        widget.existing == null ? l10n.budgetAdd : l10n.budgetEdit,
-      ),
+      title: Text(widget.existing == null ? l10n.budgetAdd : l10n.budgetEdit),
       content: Form(
         key: _formKey,
         // ListBody требует неограниченной высоты по главной оси — как и в
@@ -133,51 +131,49 @@ class _BudgetFormDialogState extends ConsumerState<_BudgetFormDialog> {
         child: SingleChildScrollView(
           child: ListBody(
             children: <Widget>[
-            if (widget.existing == null)
-              DropdownButtonFormField<String>(
-                initialValue: _categoryId,
-                decoration: InputDecoration(labelText: l10n.categoryLabel),
-                items: <DropdownMenuItem<String>>[
-                  for (final Category category in categories)
-                    DropdownMenuItem<String>(
-                      value: category.id,
-                      enabled: !taken.contains(category.id) ||
-                          category.id == _categoryId,
-                      child: Text(category.name),
-                    ),
-                ],
-                onChanged: (String? value) =>
-                    setState(() => _categoryId = value),
-              )
-            else
-              Text(
-                widget.existing!.categoryName,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            const SizedBox(height: 12),
-            AmountField(
-              controller: _limit,
-              suffixText: base?.symbol,
-            ),
-            const SizedBox(height: 8),
-            if (base != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  l10n.budgetBaseCurrencyHint(base.code),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              if (widget.existing == null)
+                DropdownButtonFormField<String>(
+                  initialValue: _categoryId,
+                  decoration: InputDecoration(labelText: l10n.categoryLabel),
+                  items: <DropdownMenuItem<String>>[
+                    for (final Category category in categories)
+                      DropdownMenuItem<String>(
+                        value: category.id,
+                        enabled:
+                            !taken.contains(category.id) ||
+                            category.id == _categoryId,
+                        child: Text(category.name),
                       ),
+                  ],
+                  onChanged: (String? value) =>
+                      setState(() => _categoryId = value),
+                )
+              else
+                Text(
+                  widget.existing!.categoryName,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              const SizedBox(height: 12),
+              AmountField(controller: _limit, suffixText: base?.symbol),
+              const SizedBox(height: 8),
+              if (base != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    l10n.budgetBaseCurrencyHint(base.code),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              // U11: бюджет повторяющийся (D-14) — предупреждаем в диалоге,
+              // чтобы «на этот месяц» не читалось как одноразовый лимит.
+              Text(
+                l10n.budgetMonthlyHint,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-            // U11: бюджет повторяющийся (D-14) — предупреждаем в диалоге,
-            // чтобы «на этот месяц» не читалось как одноразовый лимит.
-            Text(
-              l10n.budgetMonthlyHint,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
             ],
           ),
         ),

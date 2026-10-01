@@ -14,12 +14,18 @@ void main() {
 
   test('коды уникальны и в snake_case (контракт хранения в БД/бэкапе)', () {
     final Set<String> codes = categoryIconCodes;
-    expect(codes, hasLength(categoryIcons.length),
-        reason: 'коды справочника уникальны');
+    expect(
+      codes,
+      hasLength(categoryIcons.length),
+      reason: 'коды справочника уникальны',
+    );
     final RegExp snakeCase = RegExp(r'^[a-z][a-z0-9]*(_[a-z0-9]+)*$');
     for (final CategoryIcon entry in categoryIcons) {
-      expect(snakeCase.hasMatch(entry.code), isTrue,
-          reason: 'код «${entry.code}» — snake_case');
+      expect(
+        snakeCase.hasMatch(entry.code),
+        isTrue,
+        reason: 'код «${entry.code}» — snake_case',
+      );
     }
   });
 
@@ -59,8 +65,11 @@ void main() {
   test('все записи несут MaterialIcons-глиф (без новых зависимостей)', () {
     for (final CategoryIcon entry in categoryIcons) {
       expect(entry.icon, isA<IconData>());
-      expect(entry.icon.codePoint, greaterThan(0),
-          reason: 'запись «${entry.code}» с валидным глифом');
+      expect(
+        entry.icon.codePoint,
+        greaterThan(0),
+        reason: 'запись «${entry.code}» с валидным глифом',
+      );
     }
   });
 

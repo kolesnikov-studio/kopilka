@@ -66,60 +66,64 @@ void main() {
       expect(await f.attachments.findByTransaction(tx.id), att);
     });
 
-    test('превышение лимита-константы — invalidInput до записи файла',
-        () async {
-      final Transaction tx = await seedTransaction();
+    test(
+      'превышение лимита-константы — invalidInput до записи файла',
+      () async {
+        final Transaction tx = await seedTransaction();
 
-      await expectLater(
-        service.attach(
-          transactionId: tx.id,
-          mimeType: 'image/png',
-          bytes: List<int>.filled(AttachmentsStorage.maxFileSizeBytes + 1, 0),
-        ),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.invalidInput,
+        await expectLater(
+          service.attach(
+            transactionId: tx.id,
+            mimeType: 'image/png',
+            bytes: List<int>.filled(AttachmentsStorage.maxFileSizeBytes + 1, 0),
           ),
-        ),
-      );
-      expect(tempDir.listSync(), isEmpty);
-    });
-
-    test('отказ ФС — storageFailure; БД не тронута, tmp убран (D-63)',
-        () async {
-      final Transaction tx = await seedTransaction();
-      final File blocker = File('${tempDir.path}${Platform.pathSeparator}b');
-      await blocker.writeAsString('not a dir');
-      final AttachmentsStorage blocked = AttachmentsStorage(
-        rootDirectory: Directory(blocker.path),
-      );
-      final AttachmentsService blockedService = AttachmentsService(
-        blocked,
-        f.attachments,
-        idGenerator: sequentialIds('file'),
-      );
-
-      await expectLater(
-        blockedService.attach(
-          transactionId: tx.id,
-          mimeType: 'image/png',
-          bytes: <int>[1],
-        ),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.storageFailure,
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.invalidInput,
+            ),
           ),
-        ),
-      );
-      // Операция цела, вложения нет: «операция создаётся без вложения».
-      expect(await f.transactions.findById(tx.id), isNotNull);
-      expect(await f.attachments.findByTransaction(tx.id), isNull);
-      expect(await rawRowCount(f.db, 'attachments'), 0);
-    });
+        );
+        expect(tempDir.listSync(), isEmpty);
+      },
+    );
+
+    test(
+      'отказ ФС — storageFailure; БД не тронута, tmp убран (D-63)',
+      () async {
+        final Transaction tx = await seedTransaction();
+        final File blocker = File('${tempDir.path}${Platform.pathSeparator}b');
+        await blocker.writeAsString('not a dir');
+        final AttachmentsStorage blocked = AttachmentsStorage(
+          rootDirectory: Directory(blocker.path),
+        );
+        final AttachmentsService blockedService = AttachmentsService(
+          blocked,
+          f.attachments,
+          idGenerator: sequentialIds('file'),
+        );
+
+        await expectLater(
+          blockedService.attach(
+            transactionId: tx.id,
+            mimeType: 'image/png',
+            bytes: <int>[1],
+          ),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.storageFailure,
+            ),
+          ),
+        );
+        // Операция цела, вложения нет: «операция создаётся без вложения».
+        expect(await f.transactions.findById(tx.id), isNotNull);
+        expect(await f.attachments.findByTransaction(tx.id), isNull);
+        expect(await rawRowCount(f.db, 'attachments'), 0);
+      },
+    );
 
     test('операция не найдена: файл-сирота убран, БД не тронута', () async {
       await expectLater(
@@ -222,8 +226,9 @@ void main() {
         // Старый файл заменяем каталогом: deleteFile наткнётся на отказ
         // ФС уже после того, как новая запись в БД создана.
         await attachmentFile('file-1.png').delete();
-        final Directory fakeOldFile =
-            Directory('${tempDir.path}${Platform.pathSeparator}file-1.png');
+        final Directory fakeOldFile = Directory(
+          '${tempDir.path}${Platform.pathSeparator}file-1.png',
+        );
         await fakeOldFile.create();
 
         await expectLater(

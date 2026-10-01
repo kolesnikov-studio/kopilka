@@ -20,26 +20,29 @@ void main() {
     await f.dispose();
   });
 
-  test('create: корневая и вложенная категории, пустые иконка и цвет — NULL', () async {
-    final Category root = await f.seedCategory(name: 'Продукты');
-    final Category child = await f.categories.create(
-      name: ' Молочное ',
-      kind: CategoryKind.expense,
-      parentId: root.id,
-      icon: '  ',
-      color: ' ',
-    );
+  test(
+    'create: корневая и вложенная категории, пустые иконка и цвет — NULL',
+    () async {
+      final Category root = await f.seedCategory(name: 'Продукты');
+      final Category child = await f.categories.create(
+        name: ' Молочное ',
+        kind: CategoryKind.expense,
+        parentId: root.id,
+        icon: '  ',
+        color: ' ',
+      );
 
-    expect(root.id, 'cat-1');
-    expect(root.parentId, isNull);
-    expect(root.isSystem, isFalse);
-    expect(root.deletedAt, isNull);
-    expect(root.createdAt.toUtc(), f.clock.read());
-    expect(child.name, 'Молочное');
-    expect(child.parentId, root.id);
-    expect(child.icon, isNull);
-    expect(child.color, isNull);
-  });
+      expect(root.id, 'cat-1');
+      expect(root.parentId, isNull);
+      expect(root.isSystem, isFalse);
+      expect(root.deletedAt, isNull);
+      expect(root.createdAt.toUtc(), f.clock.read());
+      expect(child.name, 'Молочное');
+      expect(child.parentId, root.id);
+      expect(child.icon, isNull);
+      expect(child.color, isNull);
+    },
+  );
 
   test('create отклоняет пустое имя и некорректного родителя', () async {
     final Category expense = await f.seedCategory(name: 'Продукты');
@@ -100,33 +103,36 @@ void main() {
     final List<Category> expenses = await f.categories.getAlive(
       kind: CategoryKind.expense,
     );
-    expect(
-      expenses.map((Category c) => c.name),
-      <String>['Аренда', 'Транспорт'],
-    );
+    expect(expenses.map((Category c) => c.name), <String>[
+      'Аренда',
+      'Транспорт',
+    ]);
 
     final List<Category> all = await f.categories.getAlive();
     expect(all, hasLength(3));
     expect(all.last.name, 'Зарплата');
   });
 
-  test('updateCategory: переименование, переоформление и очистка полей', () async {
-    final Category created = await f.seedCategory();
-    f.clock.advance(const Duration(hours: 2));
+  test(
+    'updateCategory: переименование, переоформление и очистка полей',
+    () async {
+      final Category created = await f.seedCategory();
+      f.clock.advance(const Duration(hours: 2));
 
-    final Category decorated = await f.categories.updateCategory(
-      created.id,
-      name: const Value<String>(' Еда '),
-      icon: const Value<String?>(null),
-      color: const Value<String?>(' #FF0000 '),
-    );
+      final Category decorated = await f.categories.updateCategory(
+        created.id,
+        name: const Value<String>(' Еда '),
+        icon: const Value<String?>(null),
+        color: const Value<String?>(' #FF0000 '),
+      );
 
-    expect(decorated.name, 'Еда');
-    expect(decorated.icon, isNull);
-    expect(decorated.color, '#FF0000');
-    expect(decorated.createdAt.toUtc(), created.createdAt.toUtc());
-    expect(decorated.updatedAt.toUtc(), f.clock.read());
-  });
+      expect(decorated.name, 'Еда');
+      expect(decorated.icon, isNull);
+      expect(decorated.color, '#FF0000');
+      expect(decorated.createdAt.toUtc(), created.createdAt.toUtc());
+      expect(decorated.updatedAt.toUtc(), f.clock.read());
+    },
+  );
 
   test('updateCategory переносит по дереву и отклоняет циклы', () async {
     final Category root = await f.seedCategory(name: 'Еда');
@@ -141,10 +147,7 @@ void main() {
 
     // Себя родителем сделать нельзя.
     await expectLater(
-      f.categories.updateCategory(
-        root.id,
-        parentId: Value<String?>(root.id),
-      ),
+      f.categories.updateCategory(root.id, parentId: Value<String?>(root.id)),
       throwsA(isA<DataValidationException>()),
     );
     // Потомка родителем — цикл.
@@ -164,35 +167,38 @@ void main() {
     expect((await f.categories.findById(grandChild.id))?.parentId, child.id);
   });
 
-  test('updateCategory отклоняет пустое имя, чужой вид и неизвестный id', () async {
-    final Category expense = await f.seedCategory(name: 'Продукты');
-    final Category income = await f.seedCategory(
-      name: 'Зарплата',
-      kind: CategoryKind.income,
-    );
+  test(
+    'updateCategory отклоняет пустое имя, чужой вид и неизвестный id',
+    () async {
+      final Category expense = await f.seedCategory(name: 'Продукты');
+      final Category income = await f.seedCategory(
+        name: 'Зарплата',
+        kind: CategoryKind.income,
+      );
 
-    await expectLater(
-      f.categories.updateCategory(
-        expense.id,
-        name: const Value<String>('   '),
-      ),
-      throwsA(isA<DataValidationException>()),
-    );
-    await expectLater(
-      f.categories.updateCategory(
-        expense.id,
-        parentId: Value<String?>(income.id),
-      ),
-      throwsA(isA<DataValidationException>()),
-    );
-    await expectLater(
-      f.categories.updateCategory(
-        'нет-такого',
-        name: const Value<String>('Еда'),
-      ),
-      throwsA(isA<DataValidationException>()),
-    );
-  });
+      await expectLater(
+        f.categories.updateCategory(
+          expense.id,
+          name: const Value<String>('   '),
+        ),
+        throwsA(isA<DataValidationException>()),
+      );
+      await expectLater(
+        f.categories.updateCategory(
+          expense.id,
+          parentId: Value<String?>(income.id),
+        ),
+        throwsA(isA<DataValidationException>()),
+      );
+      await expectLater(
+        f.categories.updateCategory(
+          'нет-такого',
+          name: const Value<String>('Еда'),
+        ),
+        throwsA(isA<DataValidationException>()),
+      );
+    },
+  );
 
   test('системную категорию удалить нельзя', () async {
     final Category system = await f.seedCategory(
@@ -249,71 +255,77 @@ void main() {
     expect(await f.categories.getAlive(), isEmpty);
   });
 
-  test('create/updateCategory: iconCode сохраняется, NULL валиден (v4)', () async {
-    final Category created = await f.seedCategory();
-    expect(created.iconCode, isNull, reason: 'иконка не выбрана — NULL');
+  test(
+    'create/updateCategory: iconCode сохраняется, NULL валиден (v4)',
+    () async {
+      final Category created = await f.seedCategory();
+      expect(created.iconCode, isNull, reason: 'иконка не выбрана — NULL');
 
-    f.clock.advance(const Duration(hours: 1));
-    final Category withIcon = await f.categories.create(
-      name: 'Транспорт',
-      kind: CategoryKind.expense,
-      iconCode: 'transport',
-    );
-    expect(withIcon.iconCode, 'transport');
-
-    f.clock.advance(const Duration(hours: 1));
-    final Category renamed = await f.categories.updateCategory(
-      created.id,
-      iconCode: const Value<String?>('food'),
-    );
-    expect(renamed.iconCode, 'food');
-    expect(renamed.updatedAt.toUtc(), f.clock.read());
-
-    // Value(null) снимает иконку; Value.absent() не трогает её.
-    f.clock.advance(const Duration(hours: 1));
-    final Category cleared = await f.categories.updateCategory(
-      created.id,
-      iconCode: const Value<String?>(null),
-    );
-    expect(cleared.iconCode, isNull);
-
-    final Category untouched = await f.categories.updateCategory(created.id);
-    expect(untouched.iconCode, isNull);
-  });
-
-  test('create/updateCategory: неизвестный код иконки — отказ invalidInput', () async {
-    final Category created = await f.seedCategory();
-
-    await expectLater(
-      f.categories.create(
-        name: 'Еда',
+      f.clock.advance(const Duration(hours: 1));
+      final Category withIcon = await f.categories.create(
+        name: 'Транспорт',
         kind: CategoryKind.expense,
-        iconCode: 'нет-такого',
-      ),
-      throwsA(
-        isA<DataValidationException>().having(
-          (DataValidationException e) => e.kind,
-          'kind',
-          DataFailure.invalidInput,
-        ),
-      ),
-    );
-    await expectLater(
-      f.categories.updateCategory(
+        iconCode: 'transport',
+      );
+      expect(withIcon.iconCode, 'transport');
+
+      f.clock.advance(const Duration(hours: 1));
+      final Category renamed = await f.categories.updateCategory(
         created.id,
-        iconCode: const Value<String?>('нет-такого'),
-      ),
-      throwsA(
-        isA<DataValidationException>().having(
-          (DataValidationException e) => e.kind,
-          'kind',
-          DataFailure.invalidInput,
+        iconCode: const Value<String?>('food'),
+      );
+      expect(renamed.iconCode, 'food');
+      expect(renamed.updatedAt.toUtc(), f.clock.read());
+
+      // Value(null) снимает иконку; Value.absent() не трогает её.
+      f.clock.advance(const Duration(hours: 1));
+      final Category cleared = await f.categories.updateCategory(
+        created.id,
+        iconCode: const Value<String?>(null),
+      );
+      expect(cleared.iconCode, isNull);
+
+      final Category untouched = await f.categories.updateCategory(created.id);
+      expect(untouched.iconCode, isNull);
+    },
+  );
+
+  test(
+    'create/updateCategory: неизвестный код иконки — отказ invalidInput',
+    () async {
+      final Category created = await f.seedCategory();
+
+      await expectLater(
+        f.categories.create(
+          name: 'Еда',
+          kind: CategoryKind.expense,
+          iconCode: 'нет-такого',
         ),
-      ),
-    );
-    // После отказов категория осталась без иконки (отказ до записи).
-    expect((await f.categories.findById(created.id))?.iconCode, isNull);
-  });
+        throwsA(
+          isA<DataValidationException>().having(
+            (DataValidationException e) => e.kind,
+            'kind',
+            DataFailure.invalidInput,
+          ),
+        ),
+      );
+      await expectLater(
+        f.categories.updateCategory(
+          created.id,
+          iconCode: const Value<String?>('нет-такого'),
+        ),
+        throwsA(
+          isA<DataValidationException>().having(
+            (DataValidationException e) => e.kind,
+            'kind',
+            DataFailure.invalidInput,
+          ),
+        ),
+      );
+      // После отказов категория осталась без иконки (отказ до записи).
+      expect((await f.categories.findById(created.id))?.iconCode, isNull);
+    },
+  );
 
   test('watchAlive отдаёт изменения дерева категорий', () async {
     final Stream<List<Category>> stream = f.categories.watchAlive();
@@ -322,27 +334,31 @@ void main() {
     await expectLater(stream, emitsThrough(hasLength(1)));
   });
 
-  test('hide: системная скрыта из живых списков, строка в БД осталась (M5-шаг 3)', () async {
-    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
-    f.clock.advance(const Duration(hours: 1));
+  test(
+    'hide: системная скрыта из живых списков, строка в БД осталась (M5-шаг 3)',
+    () async {
+      final Category system = await f.seedCategory(
+        name: 'Прочее',
+        isSystem: true,
+      );
+      f.clock.advance(const Duration(hours: 1));
 
-    final Category hidden = await f.categories.hide(system.id);
+      final Category hidden = await f.categories.hide(system.id);
 
-    expect(hidden.deletedAt, isNotNull);
-    expect(hidden.updatedAt.toUtc(), f.clock.read());
-    // Исчезла из живых списков (getAlive/watchAlive, findById).
-    expect(await f.categories.getAlive(), isEmpty);
-    expect(
-      await f.categories.getAlive(kind: CategoryKind.expense),
-      isEmpty,
-    );
-    expect(await f.categories.findById(system.id), isNull);
-    // Но осталась в БД (soft delete, §3) и видна в списке скрытых.
-    expect(await rawRowCount(f.db, 'categories'), 1);
-    final List<Category> hiddenList =
-        await f.categories.watchHiddenSystem().first;
-    expect(hiddenList.single.id, system.id);
-  });
+      expect(hidden.deletedAt, isNotNull);
+      expect(hidden.updatedAt.toUtc(), f.clock.read());
+      // Исчезла из живых списков (getAlive/watchAlive, findById).
+      expect(await f.categories.getAlive(), isEmpty);
+      expect(await f.categories.getAlive(kind: CategoryKind.expense), isEmpty);
+      expect(await f.categories.findById(system.id), isNull);
+      // Но осталась в БД (soft delete, §3) и видна в списке скрытых.
+      expect(await rawRowCount(f.db, 'categories'), 1);
+      final List<Category> hiddenList = await f.categories
+          .watchHiddenSystem()
+          .first;
+      expect(hiddenList.single.id, system.id);
+    },
+  );
 
   test('hide: не-системную скрыть нельзя — только softDelete', () async {
     final Category user = await f.seedCategory(name: 'Хобби');
@@ -361,7 +377,10 @@ void main() {
   });
 
   test('hide: неясный id и уже скрытая — отказ notFound', () async {
-    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
+    final Category system = await f.seedCategory(
+      name: 'Прочее',
+      isSystem: true,
+    );
     await expectLater(
       f.categories.hide('нет-такого'),
       throwsA(
@@ -379,58 +398,70 @@ void main() {
     );
   });
 
-  test('restore: скрытая системная возвращается во все живые списки (M5-шаг 3)', () async {
-    final Category system = await f.seedCategory(
-      name: 'Прочее',
-      kind: CategoryKind.income,
-      isSystem: true,
-    );
-    await f.categories.hide(system.id);
-    f.clock.advance(const Duration(hours: 1));
+  test(
+    'restore: скрытая системная возвращается во все живые списки (M5-шаг 3)',
+    () async {
+      final Category system = await f.seedCategory(
+        name: 'Прочее',
+        kind: CategoryKind.income,
+        isSystem: true,
+      );
+      await f.categories.hide(system.id);
+      f.clock.advance(const Duration(hours: 1));
 
-    final Category restored = await f.categories.restore(system.id);
+      final Category restored = await f.categories.restore(system.id);
 
-    expect(restored.deletedAt, isNull);
-    expect(restored.updatedAt.toUtc(), f.clock.read());
-    expect(await f.categories.getAlive(), hasLength(1));
-    expect(
-      await f.categories.getAlive(kind: CategoryKind.income),
-      hasLength(1),
-    );
-    expect(await f.categories.findById(system.id), isNotNull);
-    expect(await f.categories.watchHiddenSystem().first, isEmpty);
-  });
+      expect(restored.deletedAt, isNull);
+      expect(restored.updatedAt.toUtc(), f.clock.read());
+      expect(await f.categories.getAlive(), hasLength(1));
+      expect(
+        await f.categories.getAlive(kind: CategoryKind.income),
+        hasLength(1),
+      );
+      expect(await f.categories.findById(system.id), isNotNull);
+      expect(await f.categories.watchHiddenSystem().first, isEmpty);
+    },
+  );
 
-  test('restore: не скрытые (живая, не-системная, удалённая) не возвращаются', () async {
-    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
-    final Category user = await f.seedCategory(name: 'Хобби');
+  test(
+    'restore: не скрытые (живая, не-системная, удалённая) не возвращаются',
+    () async {
+      final Category system = await f.seedCategory(
+        name: 'Прочее',
+        isSystem: true,
+      );
+      final Category user = await f.seedCategory(name: 'Хобби');
 
-    // Живая и не-системная: не в списке скрытых — отказ notFound.
-    await expectLater(
-      f.categories.restore(user.id),
-      throwsA(
-        isA<DataValidationException>().having(
-          (DataValidationException e) => e.kind,
-          'kind',
-          DataFailure.notFound,
+      // Живая и не-системная: не в списке скрытых — отказ notFound.
+      await expectLater(
+        f.categories.restore(user.id),
+        throwsA(
+          isA<DataValidationException>().having(
+            (DataValidationException e) => e.kind,
+            'kind',
+            DataFailure.notFound,
+          ),
         ),
-      ),
-    );
-    // Живая системная — тоже не «возврат».
-    await expectLater(
-      f.categories.restore(system.id),
-      throwsA(isA<DataValidationException>()),
-    );
-    // Удалённая не-системная — не системная, возврату не подлежит.
-    await f.categories.softDelete(user.id);
-    await expectLater(
-      f.categories.restore(user.id),
-      throwsA(isA<DataValidationException>()),
-    );
-  });
+      );
+      // Живая системная — тоже не «возврат».
+      await expectLater(
+        f.categories.restore(system.id),
+        throwsA(isA<DataValidationException>()),
+      );
+      // Удалённая не-системная — не системная, возврату не подлежит.
+      await f.categories.softDelete(user.id);
+      await expectLater(
+        f.categories.restore(user.id),
+        throwsA(isA<DataValidationException>()),
+      );
+    },
+  );
 
   test('watchHiddenSystem: скрытие добавляет, возврат убирает', () async {
-    final Category system = await f.seedCategory(name: 'Прочее', isSystem: true);
+    final Category system = await f.seedCategory(
+      name: 'Прочее',
+      isSystem: true,
+    );
     final Stream<List<Category>> stream = f.categories.watchHiddenSystem();
 
     // До скрытия — пусто; после скрытия — одна; после возврата — пусто.
@@ -446,7 +477,10 @@ void main() {
   });
 
   test('скрытие с операциями: операция живёт, имя резолвится в истории (LEFT JOIN), считается в отчётах-бюджетах', () async {
-    final Category system = await f.seedCategory(name: 'Продукты', isSystem: true);
+    final Category system = await f.seedCategory(
+      name: 'Продукты',
+      isSystem: true,
+    );
     final Account account = await f.seedAccount();
     await f.transactions.create(
       type: TransactionType.expense,
@@ -463,8 +497,9 @@ void main() {
     expect(await f.transactions.getFiltered(), hasLength(1));
     expect(await f.budgets.getAlive(), hasLength(1));
     // История (LEFT JOIN без фильтра deleted_at) — имя видно, как у удалённых.
-    final List<TransactionView> views =
-        await f.transactions.watchFilteredView().first;
+    final List<TransactionView> views = await f.transactions
+        .watchFilteredView()
+        .first;
     expect(views.single.categoryName, 'Продукты');
     // Отчёты (JOIN c.deleted_at IS NULL, D-18) — категория не считается.
     expect(
@@ -482,7 +517,10 @@ void main() {
     // Пустой вид — посеву есть что создавать.
     expect(await f.categories.hasAny(kind: CategoryKind.expense), isFalse);
 
-    final Category system = await f.seedCategory(name: 'Продукты', isSystem: true);
+    final Category system = await f.seedCategory(
+      name: 'Продукты',
+      isSystem: true,
+    );
     expect(await f.categories.hasAny(kind: CategoryKind.expense), isTrue);
 
     // Скрытие всех системных — вид НЕ пуст для посева (D-62).

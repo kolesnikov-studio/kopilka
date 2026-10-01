@@ -150,108 +150,131 @@ void main() {
     }
   });
 
-  test('миграция v6 → v7: данные v0.6 целы, долги созданы, дата напоминания NULL',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
-    final Database raw = sqlite3.open(dbFile.path);
-    raw.execute('PRAGMA user_version = 6');
-    for (final String ddl in _v6Ddl) {
-      raw.execute(ddl);
-    }
-    _seedV06Data(raw);
-    raw.close();
+  test(
+    'миграция v6 → v7: данные v0.6 целы, долги созданы, дата напоминания NULL',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
+      final Database raw = sqlite3.open(dbFile.path);
+      raw.execute('PRAGMA user_version = 6');
+      for (final String ddl in _v6Ddl) {
+        raw.execute(ddl);
+      }
+      _seedV06Data(raw);
+      raw.close();
 
-    final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(db.close);
+      final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(db.close);
 
-    // beforeOpen после миграции: версия поднята до 7.
-    final int version =
-        (await db.customSelect('PRAGMA user_version').getSingle())
-            .read<int>('user_version');
-    expect(version, 7, reason: 'после открытия база должна быть на v7');
+      // beforeOpen после миграции: версия поднята до 7.
+      final int version =
+          (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+            'user_version',
+          );
+      expect(version, 7, reason: 'после открытия база должна быть на v7');
 
-    // Таблицы долгов существуют; структурные колонки §3 на месте
-    // (S3-инвариант). Колонки — из D-81 дословно.
-    final Map<String, String> debtColumns = await columnTypes(db, 'debts');
-    expect(debtColumns.keys, containsAll(<String>[
-      'id',
-      'person',
-      'direction',
-      'amount_minor',
-      'extra_minor',
-      'currency_code',
-      'due_date',
-      'note',
-      'created_at',
-      'updated_at',
-      'deleted_at',
-    ]));
-    expect(debtColumns['id'], 'TEXT');
-    expect(debtColumns['person'], 'TEXT');
-    expect(debtColumns['direction'], 'TEXT');
-    expect(debtColumns['amount_minor'], 'INTEGER');
-    expect(debtColumns['extra_minor'], 'INTEGER');
-    expect(debtColumns['currency_code'], 'TEXT');
-    expect(debtColumns['due_date'], 'TEXT');
-    final Map<String, String> paymentColumns =
-        await columnTypes(db, 'debt_payments');
-    expect(paymentColumns.keys, containsAll(<String>[
-      'id',
-      'debt_id',
-      'transaction_id',
-      'amount_minor',
-      'paid_at',
-      'created_at',
-      'updated_at',
-      'deleted_at',
-    ]));
-    expect(paymentColumns['id'], 'TEXT');
-    expect(paymentColumns['debt_id'], 'TEXT');
-    expect(paymentColumns['transaction_id'], 'TEXT');
-    expect(paymentColumns['amount_minor'], 'INTEGER');
-    expect(paymentColumns['paid_at'], 'TEXT');
-    await expectTimestampColumns(db, expectedTablesV7);
+      // Таблицы долгов существуют; структурные колонки §3 на месте
+      // (S3-инвариант). Колонки — из D-81 дословно.
+      final Map<String, String> debtColumns = await columnTypes(db, 'debts');
+      expect(
+        debtColumns.keys,
+        containsAll(<String>[
+          'id',
+          'person',
+          'direction',
+          'amount_minor',
+          'extra_minor',
+          'currency_code',
+          'due_date',
+          'note',
+          'created_at',
+          'updated_at',
+          'deleted_at',
+        ]),
+      );
+      expect(debtColumns['id'], 'TEXT');
+      expect(debtColumns['person'], 'TEXT');
+      expect(debtColumns['direction'], 'TEXT');
+      expect(debtColumns['amount_minor'], 'INTEGER');
+      expect(debtColumns['extra_minor'], 'INTEGER');
+      expect(debtColumns['currency_code'], 'TEXT');
+      expect(debtColumns['due_date'], 'TEXT');
+      final Map<String, String> paymentColumns = await columnTypes(
+        db,
+        'debt_payments',
+      );
+      expect(
+        paymentColumns.keys,
+        containsAll(<String>[
+          'id',
+          'debt_id',
+          'transaction_id',
+          'amount_minor',
+          'paid_at',
+          'created_at',
+          'updated_at',
+          'deleted_at',
+        ]),
+      );
+      expect(paymentColumns['id'], 'TEXT');
+      expect(paymentColumns['debt_id'], 'TEXT');
+      expect(paymentColumns['transaction_id'], 'TEXT');
+      expect(paymentColumns['amount_minor'], 'INTEGER');
+      expect(paymentColumns['paid_at'], 'TEXT');
+      await expectTimestampColumns(db, expectedTablesV7);
 
-    // Дата напоминания о процентах добавлена колонкой TEXT NULL.
-    final Map<String, String> accountColumns = await columnTypes(db, 'accounts');
-    expect(accountColumns['interest_reminder_date'], 'TEXT');
-    final List<Account> accounts = await db.select(db.accounts).get();
-    expect(accounts.single.interestReminderDate, isNull,
-        reason: 'нет поля = NULL = обычный счёт (D-81)');
+      // Дата напоминания о процентах добавлена колонкой TEXT NULL.
+      final Map<String, String> accountColumns = await columnTypes(
+        db,
+        'accounts',
+      );
+      expect(accountColumns['interest_reminder_date'], 'TEXT');
+      final List<Account> accounts = await db.select(db.accounts).get();
+      expect(
+        accounts.single.interestReminderDate,
+        isNull,
+        reason: 'нет поля = NULL = обычный счёт (D-81)',
+      );
 
-    // FK без каскада: строка в sqlite_master ссылается на родителей,
-    // отдельных действий ON DELETE нет (§3, D-25).
-    final List<QueryRow> ddlRows = await db.customSelect(
-      "SELECT name, sql FROM sqlite_master WHERE type = 'table' "
-      "AND name IN ('debts', 'debt_payments')",
-    ).get();
-    final Map<String, String> ddlByName = {
-      for (final QueryRow row in ddlRows)
-        row.read<String>('name'): row.read<String>('sql'),
-    };
-    expect(ddlByName['debts'], contains('REFERENCES currencies (code)'));
-    expect(ddlByName['debt_payments'], contains('REFERENCES debts (id)'));
-    expect(ddlByName['debt_payments'], contains('REFERENCES transactions (id)'));
-    expect(ddlByName['debt_payments'], isNot(contains('ON DELETE')));
+      // FK без каскада: строка в sqlite_master ссылается на родителей,
+      // отдельных действий ON DELETE нет (§3, D-25).
+      final List<QueryRow> ddlRows = await db
+          .customSelect(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'table' "
+            "AND name IN ('debts', 'debt_payments')",
+          )
+          .get();
+      final Map<String, String> ddlByName = {
+        for (final QueryRow row in ddlRows)
+          row.read<String>('name'): row.read<String>('sql'),
+      };
+      expect(ddlByName['debts'], contains('REFERENCES currencies (code)'));
+      expect(ddlByName['debt_payments'], contains('REFERENCES debts (id)'));
+      expect(
+        ddlByName['debt_payments'],
+        contains('REFERENCES transactions (id)'),
+      );
+      expect(ddlByName['debt_payments'], isNot(contains('ON DELETE')));
 
-    // Данных долгов в v6 не было — таблицы пусты.
-    expect(await db.select(db.debts).get(), isEmpty);
-    expect(await db.select(db.debtPayments).get(), isEmpty);
+      // Данных долгов в v6 не было — таблицы пусты.
+      expect(await db.select(db.debts).get(), isEmpty);
+      expect(await db.select(db.debtPayments).get(), isEmpty);
 
-    // Данные v0.6 выжили дословно.
-    final List<Category> categories = await db.select(db.categories).get();
-    expect(categories.single.iconCode, 'groceries');
-    final List<Transaction> transactions = await db.select(db.transactions).get();
-    expect(transactions.single.amountMinor, 50050);
-    final List<Account> aliveAccounts = await db.select(db.accounts).get();
-    expect(aliveAccounts.single.initialBalanceMinor, 1000050);
-    expect(aliveAccounts.single.excludeFromBalance, isNull);
-  });
+      // Данные v0.6 выжили дословно.
+      final List<Category> categories = await db.select(db.categories).get();
+      expect(categories.single.iconCode, 'groceries');
+      final List<Transaction> transactions = await db
+          .select(db.transactions)
+          .get();
+      expect(transactions.single.amountMinor, 50050);
+      final List<Account> aliveAccounts = await db.select(db.accounts).get();
+      expect(aliveAccounts.single.initialBalanceMinor, 1000050);
+      expect(aliveAccounts.single.excludeFromBalance, isNull);
+    },
+  );
 
-  test('цепочка v1 → … → v7: файл v0.1 открывается на текущей схеме',
-      () async {
+  test('цепочка v1 → … → v7: файл v0.1 открывается на текущей схеме', () async {
     final File dbFile = File(
       '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
     );
@@ -269,14 +292,18 @@ void main() {
     addTearDown(db.close);
 
     expect(
-      (await db.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
+      (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+        'user_version',
+      ),
       7,
     );
 
     // Все шаги цепочки исполнены: budgets создана, колонки добавлены,
     // вложения и долги созданы (drift хранит boolean() как INTEGER).
-    final Map<String, String> accountColumns = await columnTypes(db, 'accounts');
+    final Map<String, String> accountColumns = await columnTypes(
+      db,
+      'accounts',
+    );
     expect(accountColumns['exclude_from_balance'], 'INTEGER');
     expect(accountColumns['interest_reminder_date'], 'TEXT');
     final Map<String, String> attColumns = await columnTypes(db, 'attachments');
@@ -285,77 +312,84 @@ void main() {
     final Map<String, String> debtColumns = await columnTypes(db, 'debts');
     expect(debtColumns['person'], 'TEXT');
     expect(debtColumns['amount_minor'], 'INTEGER');
-    final Map<String, String> paymentColumns =
-        await columnTypes(db, 'debt_payments');
+    final Map<String, String> paymentColumns = await columnTypes(
+      db,
+      'debt_payments',
+    );
     expect(paymentColumns['paid_at'], 'TEXT');
     final List<Budget> budgets = await db.select(db.budgets).get();
     expect(budgets, isEmpty);
     expect(await db.select(db.attachments).get(), isEmpty);
     expect(await db.select(db.debts).get(), isEmpty);
     expect(await db.select(db.debtPayments).get(), isEmpty);
-    final List<Transaction> transactions = await db.select(db.transactions).get();
+    final List<Transaction> transactions = await db
+        .select(db.transactions)
+        .get();
     expect(transactions, hasLength(1));
     expect(transactions.single.targetAmountMinor, isNull);
   });
 
-  test('повторное открытие базы v7: без ре-миграции, данные на месте',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
+  test(
+    'повторное открытие базы v7: без ре-миграции, данные на месте',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
 
-    final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
-    await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
-    final Account savings = await first.accountsDao.create(
-      name: 'Накопительный',
-      kind: AccountKind.bank,
-      currencyCode: 'RUB',
-      initialBalanceMinor: 9900000,
-      interestReminderDate: DateTime.utc(2026, 10, 30),
-    );
-    final Debt debt = await first.debtsDao.create(
-      person: 'Алексей',
-      direction: DebtDirection.theyOweMe,
-      amountMinor: 500000,
-      currencyCode: 'RUB',
-      extraMinor: 25000,
-      dueDate: DateTime.utc(2026, 11, 1),
-      note: 'под расписку',
-    );
-    final Account cash = await first.accountsDao.create(
-      name: 'Наличные',
-      kind: AccountKind.cash,
-      currencyCode: 'RUB',
-    );
-    final Transaction transfer = await first.transactionsDao.create(
-      type: TransactionType.transfer,
-      accountId: cash.id,
-      targetAccountId: savings.id,
-      amountMinor: 100000,
-    );
-    await first.debtsDao.addPayment(
-      debt.id,
-      transactionId: transfer.id,
-      amountMinor: 100000,
-      paidAt: DateTime.utc(2026, 10, 2),
-    );
-    await first.close();
+      final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
+      await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
+      final Account savings = await first.accountsDao.create(
+        name: 'Накопительный',
+        kind: AccountKind.bank,
+        currencyCode: 'RUB',
+        initialBalanceMinor: 9900000,
+        interestReminderDate: DateTime.utc(2026, 10, 30),
+      );
+      final Debt debt = await first.debtsDao.create(
+        person: 'Алексей',
+        direction: DebtDirection.theyOweMe,
+        amountMinor: 500000,
+        currencyCode: 'RUB',
+        extraMinor: 25000,
+        dueDate: DateTime.utc(2026, 11, 1),
+        note: 'под расписку',
+      );
+      final Account cash = await first.accountsDao.create(
+        name: 'Наличные',
+        kind: AccountKind.cash,
+        currencyCode: 'RUB',
+      );
+      final Transaction transfer = await first.transactionsDao.create(
+        type: TransactionType.transfer,
+        accountId: cash.id,
+        targetAccountId: savings.id,
+        amountMinor: 100000,
+      );
+      await first.debtsDao.addPayment(
+        debt.id,
+        transactionId: transfer.id,
+        amountMinor: 100000,
+        paidAt: DateTime.utc(2026, 10, 2),
+      );
+      await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 7),
-    // данные живы — счёт, долг, платёж и сводка читаются.
-    final AppDatabase second =
-        AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(second.close);
-    expect(
-      (await second.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
-    final Account? restored = await second.accountsDao.findById(savings.id);
-    expect(restored?.interestReminderDate, isNotNull);
-    final DebtSummary? summary = await second.debtsDao.watchSummary(debt.id).first;
-    expect(summary?.totalMinor, 525000);
-    expect(summary?.paidMinor, 100000);
-    expect(summary?.remainingMinor, 425000);
-  });
+      // Повторное открытие: onUpgrade не выполняется (версия уже 7),
+      // данные живы — счёт, долг, платёж и сводка читаются.
+      final AppDatabase second = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(second.close);
+      expect(
+        (await second.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        7,
+      );
+      final Account? restored = await second.accountsDao.findById(savings.id);
+      expect(restored?.interestReminderDate, isNotNull);
+      final DebtSummary? summary = await second.debtsDao
+          .watchSummary(debt.id)
+          .first;
+      expect(summary?.totalMinor, 525000);
+      expect(summary?.paidMinor, 100000);
+      expect(summary?.remainingMinor, 425000);
+    },
+  );
 }

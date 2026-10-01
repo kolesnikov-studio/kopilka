@@ -30,12 +30,12 @@ void main() {
     expect(db.schemaVersion, 7);
   });
 
-  test('схема создаёт семь таблиц: пять прежних, attachments и долги (v7)', () async {
-    expect(
-      await tableNames(db),
-      containsAll(expectedTablesV7),
-    );
-  });
+  test(
+    'схема создаёт семь таблиц: пять прежних, attachments и долги (v7)',
+    () async {
+      expect(await tableNames(db), containsAll(expectedTablesV7));
+    },
+  );
 
   test('ключ — UUID-текст, деньги — целые в минорных единицах', () async {
     final Map<String, String> account = await columnTypes(db, 'accounts');
@@ -43,16 +43,21 @@ void main() {
     expect(account['initial_balance_minor'], 'INTEGER');
     expect(account['currency_code'], 'TEXT');
 
-    final Map<String, String> transaction = await columnTypes(db, 'transactions');
+    final Map<String, String> transaction = await columnTypes(
+      db,
+      'transactions',
+    );
     expect(transaction['id'], 'TEXT');
     expect(transaction['amount_minor'], 'INTEGER');
     expect(transaction['date'], 'INTEGER');
   });
 
-  test('в каждой таблице есть created_at, updated_at и deleted_at (S3)',
-      () async {
-    await expectTimestampColumns(db, expectedTablesV7);
-  });
+  test(
+    'в каждой таблице есть created_at, updated_at и deleted_at (S3)',
+    () async {
+      await expectTimestampColumns(db, expectedTablesV7);
+    },
+  );
 
   test('индексы транзакций созданы', () async {
     expect(

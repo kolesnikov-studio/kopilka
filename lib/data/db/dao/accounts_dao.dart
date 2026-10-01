@@ -23,7 +23,8 @@ class AccountBalance {
 
 /// Счета: CRUD, soft delete и балансы.
 @DriftAccessor(tables: [Accounts, Transactions, Currencies])
-class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin {
+class AccountsDao extends DatabaseAccessor<AppDatabase>
+    with _$AccountsDaoMixin {
   AccountsDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
 
   /// Источник первичных ключей (в тестах подменяется на детерминированный).
@@ -66,8 +67,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
         // равнозначны («учитывать»), поэтому храним именно bool.
         excludeFromBalance: Value(excludeFromBalance),
         // Дата напоминания о процентах (v7/D-81): UTC-строка или NULL.
-        interestReminderDate:
-            Value(interestReminderDate?.toUtc().toIso8601String()),
+        interestReminderDate: Value(
+          interestReminderDate?.toUtc().toIso8601String(),
+        ),
         createdAt: now,
         updatedAt: now,
       ),
@@ -87,10 +89,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
 
   /// Живые счета с вычисленными балансами — для списка счетов.
   Future<List<AccountBalance>> getBalances() async => _mapBalances(
-    await customSelect(
-      _balancesSql,
-      readsFrom: {accounts, transactions},
-    ).get(),
+    await customSelect(_balancesSql, readsFrom: {accounts, transactions}).get(),
   );
 
   /// Поток счетов с балансами: пересчитывается при изменении счетов и операций.
@@ -168,7 +167,9 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     await (update(accounts)..where((t) => t.id.equals(id))).write(
       AccountsCompanion(
         name: newName ?? const Value.absent(),
-        kind: kind.present ? Value<String>(kind.value.dbValue) : const Value.absent(),
+        kind: kind.present
+            ? Value<String>(kind.value.dbValue)
+            : const Value.absent(),
         currencyCode: currencyCode,
         initialBalanceMinor: initialBalanceMinor,
         sortOrder: sortOrder,
@@ -191,14 +192,15 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   /// между чтением признака и записью возможна гонка.
   Future<bool> hasAliveTransactions(String id) async {
     final Expression<int> count = transactions.id.count();
-    final TypedResult row = await (selectOnly(transactions)
-          ..addColumns([count])
-          ..where(
-            transactions.deletedAt.isNull() &
-                (transactions.accountId.equals(id) |
-                    transactions.targetAccountId.equals(id)),
-          ))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(transactions)
+              ..addColumns([count])
+              ..where(
+                transactions.deletedAt.isNull() &
+                    (transactions.accountId.equals(id) |
+                        transactions.targetAccountId.equals(id)),
+              ))
+            .getSingle();
     return (row.read(count) ?? 0) > 0;
   }
 
@@ -262,24 +264,26 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
 
   Future<int> _nextSortOrder() async {
     final Expression<int> maxOrder = accounts.sortOrder.max();
-    final TypedResult row = await (selectOnly(accounts)
-          ..addColumns([maxOrder])
-          ..where(accounts.deletedAt.isNull()))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(accounts)
+              ..addColumns([maxOrder])
+              ..where(accounts.deletedAt.isNull()))
+            .getSingle();
     return (row.read(maxOrder) ?? -1) + 1;
   }
 
   /// Живые операции, где счёт — источник или счёт зачисления перевода.
   Future<int> _aliveTransactionsTouching(String id) async {
     final Expression<int> count = transactions.id.count();
-    final TypedResult row = await (selectOnly(transactions)
-          ..addColumns([count])
-          ..where(
-            transactions.deletedAt.isNull() &
-                (transactions.accountId.equals(id) |
-                    transactions.targetAccountId.equals(id)),
-          ))
-        .getSingle();
+    final TypedResult row =
+        await (selectOnly(transactions)
+              ..addColumns([count])
+              ..where(
+                transactions.deletedAt.isNull() &
+                    (transactions.accountId.equals(id) |
+                        transactions.targetAccountId.equals(id)),
+              ))
+            .getSingle();
     return row.read(count) ?? 0;
   }
 
@@ -291,8 +295,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   /// для мультивалютного перевода; у одно-валютного она NULL, и SUM
   /// падает на amount_minor. Смешения валют нет: D-17 запрещает
   /// target_amount_minor при совпадающих валютах.
-  static const String _balanceExpression =
-      '''
+  static const String _balanceExpression = '''
 a.initial_balance_minor
   + COALESCE(SUM(CASE t.type
       WHEN 'income' THEN t.amount_minor

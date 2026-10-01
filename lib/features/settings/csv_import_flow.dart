@@ -20,25 +20,30 @@ Future<void> runCsvImportFlow(BuildContext context, WidgetRef ref) async {
   final CsvImportDraft? draft = switch (picked) {
     CsvPickCancelled() => null,
     CsvPickFailed(:final failure, :final line) => _reportPickFailure(
-        context,
-        l10n,
-        failure,
-        line,
-      ),
+      context,
+      l10n,
+      failure,
+      line,
+    ),
     CsvPickLoaded(:final draft) => draft,
   };
   if (draft == null || !context.mounted) {
     return;
   }
 
-  final CsvColumnMapping? mapping =
-      await showCsvMappingDialog(context, draft: draft);
+  final CsvColumnMapping? mapping = await showCsvMappingDialog(
+    context,
+    draft: draft,
+  );
   if (mapping == null || !context.mounted) {
     return;
   }
 
-  final bool confirmed =
-      await _showCsvConfirmDialog(context, l10n, draft.rowCount);
+  final bool confirmed = await _showCsvConfirmDialog(
+    context,
+    l10n,
+    draft.rowCount,
+  );
   if (!confirmed || !context.mounted) {
     return;
   }
@@ -109,13 +114,10 @@ String csvImportFailureText(
   AppLocalizations l10n,
   CsvImportFailure failure,
   int line,
-) =>
-    switch (failure) {
-      CsvImportFailure.invalidFormat => line > 0
-          ? l10n.errorCsvInvalidFormatLine(line)
-          : l10n.errorCsvNoDataRows,
-      CsvImportFailure.invalidMapping => l10n.errorCsvInvalidMapping,
-      CsvImportFailure.invalidData => line > 0
-          ? l10n.errorCsvInvalidDataLine(line)
-          : l10n.errorCsvInvalidData,
-    };
+) => switch (failure) {
+  CsvImportFailure.invalidFormat =>
+    line > 0 ? l10n.errorCsvInvalidFormatLine(line) : l10n.errorCsvNoDataRows,
+  CsvImportFailure.invalidMapping => l10n.errorCsvInvalidMapping,
+  CsvImportFailure.invalidData =>
+    line > 0 ? l10n.errorCsvInvalidDataLine(line) : l10n.errorCsvInvalidData,
+};

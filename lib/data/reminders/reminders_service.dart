@@ -214,8 +214,11 @@ class RemindersService {
       // «Напоминания недоступны»: ни расписание, ни показ (D-83).
       return;
     }
-    final List<ReminderSlot> slots =
-        await collectSlots(accountsDao, debtsDao, nowUtc: clock());
+    final List<ReminderSlot> slots = await collectSlots(
+      accountsDao,
+      debtsDao,
+      nowUtc: clock(),
+    );
     await _replaceSchedule(slots);
     await _showOverdue(accountsDao, debtsDao);
   }

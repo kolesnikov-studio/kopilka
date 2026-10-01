@@ -37,8 +37,9 @@ int? parseAmountToMinor(
   bool allowZero = false,
   int exponent = defaultCurrencyExponent,
 }) {
-  final String normalized =
-      input.replaceAll(_whitespace, '').replaceAll(',', '.');
+  final String normalized = input
+      .replaceAll(_whitespace, '')
+      .replaceAll(',', '.');
   if (!_amountPatternFor(exponent).hasMatch(normalized)) {
     return null;
   }
@@ -47,9 +48,8 @@ int? parseAmountToMinor(
   final String fraction = parts.length > 1
       ? parts[1].padRight(exponent, '0')
       : '0' * exponent;
-  final int minor = major * pow10(exponent) + (exponent > 0
-      ? int.parse(fraction)
-      : 0);
+  final int minor =
+      major * pow10(exponent) + (exponent > 0 ? int.parse(fraction) : 0);
   return allowZero || minor > 0 ? minor : null;
 }
 

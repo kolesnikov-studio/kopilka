@@ -14,19 +14,16 @@ final aliveDebtsProvider = StreamProvider<List<Debt>>((ref) {
 });
 
 /// Сводка долга (D-82): NULL — долг удалён (D-87.1 — обязанность UI).
-final debtSummaryProvider =
-    StreamProvider.autoDispose.family<DebtSummary?, String>((ref, debtId) {
-  return ref.watch(debtsDaoProvider).watchSummary(debtId);
-});
+final debtSummaryProvider = StreamProvider.autoDispose
+    .family<DebtSummary?, String>((ref, debtId) {
+      return ref.watch(debtsDaoProvider).watchSummary(debtId);
+    });
 
 /// Живые платежи долга (свежие сверху, D-82).
-final debtPaymentsProvider =
-    StreamProvider.autoDispose.family<List<DebtPayment>, String>((
-  ref,
-  debtId,
-) {
-  return ref.watch(debtsDaoProvider).watchPayments(debtId);
-});
+final debtPaymentsProvider = StreamProvider.autoDispose
+    .family<List<DebtPayment>, String>((ref, debtId) {
+      return ref.watch(debtsDaoProvider).watchPayments(debtId);
+    });
 
 /// Параметры связанного перевода в диалоге гашения (§4/D-17): одна сумма —
 /// при равных валютах, обе — при разных.
@@ -208,5 +205,6 @@ class DebtsController extends Notifier {
   }
 }
 
-final debtsControllerProvider =
-    NotifierProvider<DebtsController, void>(DebtsController.new);
+final debtsControllerProvider = NotifierProvider<DebtsController, void>(
+  DebtsController.new,
+);

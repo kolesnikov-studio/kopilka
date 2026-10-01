@@ -160,8 +160,9 @@ class AttachmentsController extends Notifier {
     if (picked == null || picked.path == null) {
       return const AttachmentPickCancelled();
     }
-    final String? mimeType =
-        AttachmentsStorage.mimeTypeForFileName(picked.path!);
+    final String? mimeType = AttachmentsStorage.mimeTypeForFileName(
+      picked.path!,
+    );
     if (mimeType == null) {
       return const AttachmentPickRejected(DataFailure.invalidInput);
     }
@@ -189,13 +190,12 @@ class AttachmentsController extends Notifier {
     required String transactionId,
     required Uint8List bytes,
     required String mimeType,
-  }) =>
-      attachToOwnerKind(
-        owner: AttachmentOwnerKind.transaction,
-        ownerId: transactionId,
-        bytes: bytes,
-        mimeType: mimeType,
-      );
+  }) => attachToOwnerKind(
+    owner: AttachmentOwnerKind.transaction,
+    ownerId: transactionId,
+    bytes: bytes,
+    mimeType: mimeType,
+  );
 
   /// Записывает выбранное вложение на владельца-долг (M6/D-82) — образец
   /// [attachSelected]; см. [AttachmentOwnerKind.debt].
@@ -203,13 +203,12 @@ class AttachmentsController extends Notifier {
     required String debtId,
     required Uint8List bytes,
     required String mimeType,
-  }) =>
-      attachToOwnerKind(
-        owner: AttachmentOwnerKind.debt,
-        ownerId: debtId,
-        bytes: bytes,
-        mimeType: mimeType,
-      );
+  }) => attachToOwnerKind(
+    owner: AttachmentOwnerKind.debt,
+    ownerId: debtId,
+    bytes: bytes,
+    mimeType: mimeType,
+  );
 
   /// Единый путь исходов записи на владельца (M6/D-82): отказы слоя —
   /// [AttachFailed] с машиночитаемым видом (§2).
@@ -245,16 +244,17 @@ class AttachmentsController extends Notifier {
 }
 
 final attachmentsControllerProvider =
-    NotifierProvider<AttachmentsController, void>(
-  AttachmentsController.new,
-);
+    NotifierProvider<AttachmentsController, void>(AttachmentsController.new);
 
 /// Всё, что нужно карточке вложения: живая запись и признак «файл есть
 /// на диске». Проверка файла — здесь, а не в build виджета: бриф требует
 /// показывать восстановленное бэкапом вложение без падения (D-64),
 /// и I/O в состоянии провайдера проще подменять в тестах, чем в дереве.
 class AttachmentViewData {
-  const AttachmentViewData({required this.attachment, required this.fileExists});
+  const AttachmentViewData({
+    required this.attachment,
+    required this.fileExists,
+  });
 
   final Attachment attachment;
 
@@ -268,26 +268,26 @@ class AttachmentViewData {
 /// вызовом [Ref.invalidate] после успешного attach/delete (контроллер не
 /// может это сделать сам — исходы возвращаются вызывающему UI).
 final ownerAttachmentProvider = FutureProvider.autoDispose
-    .family<AttachmentViewData?, (AttachmentOwnerKind, String)>(
-  (ref, owner) async {
-    final (AttachmentOwnerKind kind, String ownerId) = owner;
-    final AttachmentsService service = ref.watch(attachmentsServiceProvider);
-    final Attachment? attachment = kind == AttachmentOwnerKind.debt
-        ? await service.findForDebt(ownerId)
-        : await service.findForTransaction(ownerId);
-    if (attachment == null) {
-      return null;
-    }
-    final String path =
-        p.join(service.directory.path, attachment.filePath);
-    return AttachmentViewData(
-      attachment: attachment,
-      // Проверка файла — через шов I/O: в виджет-тестах фейк отвечает
-      // без реальной файловой системы (§7), в живом приложении — диск.
-      fileExists: await ref.watch(attachmentsIoProvider).exists(path),
-    );
-  },
-);
+    .family<AttachmentViewData?, (AttachmentOwnerKind, String)>((
+      ref,
+      owner,
+    ) async {
+      final (AttachmentOwnerKind kind, String ownerId) = owner;
+      final AttachmentsService service = ref.watch(attachmentsServiceProvider);
+      final Attachment? attachment = kind == AttachmentOwnerKind.debt
+          ? await service.findForDebt(ownerId)
+          : await service.findForTransaction(ownerId);
+      if (attachment == null) {
+        return null;
+      }
+      final String path = p.join(service.directory.path, attachment.filePath);
+      return AttachmentViewData(
+        attachment: attachment,
+        // Проверка файла — через шов I/O: в виджет-тестах фейк отвечает
+        // без реальной файловой системы (§7), в живом приложении — диск.
+        fileExists: await ref.watch(attachmentsIoProvider).exists(path),
+      );
+    });
 
 /// Размер в человекочитаемом виде для подсказок подтверждения и отказа:
 /// меньше мегабайта — целые килобайты, дальше — мегабайты с одним знаком

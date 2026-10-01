@@ -33,12 +33,10 @@ class UpdatePreferencesStore {
       writePreferencesJson(_file, values);
 
   /// Включена ли автопроверка (§5: по умолчанию выкл).
-  Future<bool> readEnabled() async =>
-      (await _readAll())[_keyEnabled] == true;
+  Future<bool> readEnabled() async => (await _readAll())[_keyEnabled] == true;
 
-  Future<void> writeEnabled(bool enabled) async => _writeAll(
-        <String, dynamic>{...(await _readAll()), _keyEnabled: enabled},
-      );
+  Future<void> writeEnabled(bool enabled) async =>
+      _writeAll(<String, dynamic>{...(await _readAll()), _keyEnabled: enabled});
 
   /// Время последней автопроверки; null — ещё не было.
   Future<DateTime?> readLastAutoCheck() async {
@@ -50,38 +48,34 @@ class UpdatePreferencesStore {
     return parsed?.toUtc();
   }
 
-  Future<void> writeLastAutoCheck(DateTime moment) async => _writeAll(
-        <String, dynamic>{
-          ...(await _readAll()),
-          _keyLastAutoCheck: moment.toUtc().toIso8601String(),
-        },
-      );
+  Future<void> writeLastAutoCheck(DateTime moment) async =>
+      _writeAll(<String, dynamic>{
+        ...(await _readAll()),
+        _keyLastAutoCheck: moment.toUtc().toIso8601String(),
+      });
 
   /// Предложение первого запуска уже показано.
   Future<bool> readOfferShown() async =>
       (await _readAll())[_keyOfferShown] == true;
 
-  Future<void> writeOfferShown() async => _writeAll(
-        <String, dynamic>{...(await _readAll()), _keyOfferShown: true},
-      );
+  Future<void> writeOfferShown() async =>
+      _writeAll(<String, dynamic>{...(await _readAll()), _keyOfferShown: true});
 }
 
 /// Провайдер хранилища; создаётся в `main` (платформенный путь) и
 /// передаётся override'ом — тот же приём, что у каталога автобэкапа.
-final updatePreferencesStoreProvider = Provider<UpdatePreferencesStore>(
-  (ref) {
-    throw UnimplementedError(
-      'создаётся в main: UpdatePreferencesStore(baseDirectory: getApplicationSupportDirectory())',
-    );
-  },
-);
+final updatePreferencesStoreProvider = Provider<UpdatePreferencesStore>((ref) {
+  throw UnimplementedError(
+    'создаётся в main: UpdatePreferencesStore(baseDirectory: getApplicationSupportDirectory())',
+  );
+});
 
 /// Настройка проверки обновлений: включена пользователем (§5: по умолчанию
 /// выкл). Автопроверка раз в 7 дней выполняется только при включённой.
 final autoUpdateCheckEnabledProvider =
     NotifierProvider<AutoUpdateCheckController, bool>(
-  AutoUpdateCheckController.new,
-);
+      AutoUpdateCheckController.new,
+    );
 
 class AutoUpdateCheckController extends Notifier<bool> {
   @override

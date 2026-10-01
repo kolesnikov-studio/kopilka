@@ -46,11 +46,7 @@ Future<void> seedDefaultsIfEmpty(AppDatabase db) async {
   final CategoriesDao categories = db.categoriesDao;
 
   if (await currencies.findAlive(baseCurrencyCode) == null) {
-    await currencies.create(
-      code: baseCurrencyCode,
-      symbol: '₽',
-      isBase: true,
-    );
+    await currencies.create(code: baseCurrencyCode, symbol: '₽', isBase: true);
   }
 
   if (!await categories.hasAny(kind: CategoryKind.expense)) {

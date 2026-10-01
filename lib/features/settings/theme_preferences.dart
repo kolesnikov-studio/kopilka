@@ -42,9 +42,8 @@ class ThemePreferencesStore {
     return value is String ? value : null;
   }
 
-  Future<void> writePresetId(String id) async => _writeAll(
-        <String, dynamic>{...(await _readAll()), _keyPreset: id},
-      );
+  Future<void> writePresetId(String id) async =>
+      _writeAll(<String, dynamic>{...(await _readAll()), _keyPreset: id});
 
   /// Основа из файла; null — файла нет / ключа нет / чужая строка
   /// (молча значения по умолчанию, §4 спеки).
@@ -61,17 +60,14 @@ class ThemePreferencesStore {
     return null;
   }
 
-  Future<void> writeMode(ThemeMode mode) async => _writeAll(
-        <String, dynamic>{...(await _readAll()), _keyMode: mode.name},
-      );
+  Future<void> writeMode(ThemeMode mode) async =>
+      _writeAll(<String, dynamic>{...(await _readAll()), _keyMode: mode.name});
 }
 
 /// Провайдер хранилища; создаётся в `main` (платформенный путь) и
 /// передаётся override'ом — тот же приём, что у остальных настроек.
-final themePreferencesStoreProvider = Provider<ThemePreferencesStore>(
-  (ref) {
-    throw UnimplementedError(
-      'создаётся в main: ThemePreferencesStore(baseDirectory: getApplicationSupportDirectory())',
-    );
-  },
-);
+final themePreferencesStoreProvider = Provider<ThemePreferencesStore>((ref) {
+  throw UnimplementedError(
+    'создаётся в main: ThemePreferencesStore(baseDirectory: getApplicationSupportDirectory())',
+  );
+});

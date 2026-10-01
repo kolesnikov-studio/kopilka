@@ -41,27 +41,28 @@ void main() {
       expect(active, isFalse);
     });
 
-    test('есть счёт без флага и подходит под критерий — дескриптор истинен',
-        () async {
-      await db.accountsDao.create(
-        name: 'Карта',
-        kind: AccountKind.card,
-        currencyCode: 'RUB',
-        initialBalanceMinor: 500_00,
-      );
+    test(
+      'есть счёт без флага и подходит под критерий — дескриптор истинен',
+      () async {
+        await db.accountsDao.create(
+          name: 'Карта',
+          kind: AccountKind.card,
+          currencyCode: 'RUB',
+          initialBalanceMinor: 500_00,
+        );
 
-      final bool active = await minBalanceAdviceDescriptor(
-        db.accountsDao,
-        db.debtsDao,
-        suitability: (Account account, int balanceMinor) =>
-            balanceMinor >= 100_00,
-      );
+        final bool active = await minBalanceAdviceDescriptor(
+          db.accountsDao,
+          db.debtsDao,
+          suitability: (Account account, int balanceMinor) =>
+              balanceMinor >= 100_00,
+        );
 
-      expect(active, isTrue);
-    });
+        expect(active, isTrue);
+      },
+    );
 
-    test('есть счёт, но не подходит под критерий — дескриптор ложен',
-        () async {
+    test('есть счёт, но не подходит под критерий — дескриптор ложен', () async {
       await db.accountsDao.create(
         name: 'Карта',
         kind: AccountKind.card,
@@ -79,48 +80,51 @@ void main() {
       expect(active, isFalse);
     });
 
-    test('накопительный счёт (с датой напоминания) не даёт совета (D-81)',
-        () async {
-      await db.accountsDao.create(
-        name: 'Уже накопительный',
-        kind: AccountKind.card,
-        currencyCode: 'RUB',
-        initialBalanceMinor: 500_00,
-        interestReminderDate: DateTime.utc(2026, 10, 15),
-      );
+    test(
+      'накопительный счёт (с датой напоминания) не даёт совета (D-81)',
+      () async {
+        await db.accountsDao.create(
+          name: 'Уже накопительный',
+          kind: AccountKind.card,
+          currencyCode: 'RUB',
+          initialBalanceMinor: 500_00,
+          interestReminderDate: DateTime.utc(2026, 10, 15),
+        );
 
-      final bool active = await minBalanceAdviceDescriptor(
-        db.accountsDao,
-        db.debtsDao,
-        suitability: (Account account, int balanceMinor) => true,
-      );
+        final bool active = await minBalanceAdviceDescriptor(
+          db.accountsDao,
+          db.debtsDao,
+          suitability: (Account account, int balanceMinor) => true,
+        );
 
-      expect(active, isFalse);
-    });
+        expect(active, isFalse);
+      },
+    );
 
-    test('дефолтный справочник: критерий дизайнера применён (шаг D, D-92)',
-        () async {
-      await db.accountsDao.create(
-        name: 'Карта',
-        kind: AccountKind.card,
-        currencyCode: 'RUB',
-        initialBalanceMinor: 999_00,
-      );
+    test(
+      'дефолтный справочник: критерий дизайнера применён (шаг D, D-92)',
+      () async {
+        await db.accountsDao.create(
+          name: 'Карта',
+          kind: AccountKind.card,
+          currencyCode: 'RUB',
+          initialBalanceMinor: 999_00,
+        );
 
-      final List<Advice> active = await activeAdvices(
-        db.accountsDao,
-        db.debtsDao,
-      );
+        final List<Advice> active = await activeAdvices(
+          db.accountsDao,
+          db.debtsDao,
+        );
 
-      // Спека дизайнера (D-92): suitability = balanceMinor > 0 — совет
-      // активен на обычном счёте с любой лежащей суммой; UI-фильтр
-      // «пока жив накопительный» — потребление карточки (insights_cards).
-      expect(active, hasLength(1));
-      expect(active.single.id, 'min-balance-interest');
-    });
+        // Спека дизайнера (D-92): suitability = balanceMinor > 0 — совет
+        // активен на обычном счёте с любой лежащей суммой; UI-фильтр
+        // «пока жив накопительный» — потребление карточки (insights_cards).
+        expect(active, hasLength(1));
+        expect(active.single.id, 'min-balance-interest');
+      },
+    );
 
-    test('нулевые балансы совета не дают (критерий дизайнера: > 0)',
-        () async {
+    test('нулевые балансы совета не дают (критерий дизайнера: > 0)', () async {
       await db.accountsDao.create(
         name: 'Пустая карта',
         kind: AccountKind.card,
@@ -174,14 +178,14 @@ void main() {
 
       final List<List<Advice>> emitted = <List<Advice>>[];
       final ProviderSubscription<AsyncValue<List<Advice>>> subscription =
-          container.listen(
-        activeAdvicesProvider,
-        (_, AsyncValue<List<Advice>> value) {
-          if (value.hasValue) {
-            emitted.add(value.value!);
-          }
-        },
-      );
+          container.listen(activeAdvicesProvider, (
+            _,
+            AsyncValue<List<Advice>> value,
+          ) {
+            if (value.hasValue) {
+              emitted.add(value.value!);
+            }
+          });
       addTearDown(subscription.close);
 
       // Начальный срез — пусто (дефолтный справочник без критерия).
@@ -203,5 +207,3 @@ void main() {
     });
   });
 }
-
-

@@ -20,19 +20,14 @@ void main() {
     addTearDown(container.dispose);
 
     expect(container.read(appDatabaseProvider), same(db));
-    expect(
-      container.read(currenciesDaoProvider),
-      same(db.currenciesDao),
-    );
+    expect(container.read(currenciesDaoProvider), same(db.currenciesDao));
     expect(container.read(accountsDaoProvider), same(db.accountsDao));
     expect(container.read(categoriesDaoProvider), same(db.categoriesDao));
-    expect(
-      container.read(transactionsDaoProvider),
-      same(db.transactionsDao),
-    );
+    expect(container.read(transactionsDaoProvider), same(db.transactionsDao));
 
-    final List<Currency> currencies =
-        await container.read(currenciesDaoProvider).getAlive();
+    final List<Currency> currencies = await container
+        .read(currenciesDaoProvider)
+        .getAlive();
     expect(currencies.single.code, baseCurrencyCode);
     expect(
       (await db.categoriesDao.getAlive(kind: CategoryKind.income)),

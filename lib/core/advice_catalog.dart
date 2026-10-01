@@ -40,10 +40,7 @@ class Advice {
 /// Порог и критерий — решение дизайнера шага D (спека), механике порог
 /// не зашит: дескриптор — параметр (бриф «Не делать»). [Advice.suitability]
 /// подставляет фактический критерий при сборке справочника.
-typedef AccountSuitability = bool Function(
-  Account account,
-  int balanceMinor,
-);
+typedef AccountSuitability = bool Function(Account account, int balanceMinor);
 
 /// Проверка показа совета: истина на живых потоках DAO (D-84).
 typedef AdviceDescriptor = Future<bool> Function(
@@ -107,10 +104,10 @@ Future<bool> _minBalanceAdviceDesigner(
   AccountsDao accountsDao,
   DebtsDao debtsDao,
 ) => minBalanceAdviceDescriptor(
-      accountsDao,
-      debtsDao,
-      suitability: positiveBalanceSuitability,
-    );
+  accountsDao,
+  debtsDao,
+  suitability: positiveBalanceSuitability,
+);
 
 /// Советы, показываемые сейчас: дескриптор истинен на живых потоках
 /// (D-84). Порядок — порядок справочника.

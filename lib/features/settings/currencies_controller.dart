@@ -12,7 +12,10 @@ import 'package:kopilka/data/providers.dart';
 final currenciesListProvider = StreamProvider.autoDispose<List<Currency>>((
   ref,
 ) {
-  return ref.watch(currenciesDaoProvider).watchAlive().map(
+  return ref
+      .watch(currenciesDaoProvider)
+      .watchAlive()
+      .map(
         (List<Currency> currencies) => <Currency>[
           // Базовая выносится вверх (B1: сортировка DAO по коду, базовая —
           // первая в UI); порядок остальных не трогаем.

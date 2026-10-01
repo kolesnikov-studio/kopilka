@@ -126,11 +126,11 @@ class _DebtsList extends ConsumerWidget {
   ) {
     final Map<String, int> byCurrency = <String, int>{};
     for (final Debt debt in debts) {
-      final DebtSummary? summary =
-          ref.watch(debtSummaryProvider(debt.id)).value;
-      final int total = debt.amountMinor +
-          debt.extraMinor -
-          (summary?.paidMinor ?? 0);
+      final DebtSummary? summary = ref
+          .watch(debtSummaryProvider(debt.id))
+          .value;
+      final int total =
+          debt.amountMinor + debt.extraMinor - (summary?.paidMinor ?? 0);
       byCurrency[debt.currencyCode] =
           (byCurrency[debt.currencyCode] ?? 0) + total;
     }
@@ -169,17 +169,10 @@ class _DebtSection extends StatelessWidget {
       children: <Widget>[
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Text(
-            header,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
+          child: Text(header, style: Theme.of(context).textTheme.titleSmall),
         ),
         for (final Debt debt in debts) ...<Widget>[
-          _DebtTile(
-            debt: debt,
-            currencies: currencies,
-            locale: locale,
-          ),
+          _DebtTile(debt: debt, currencies: currencies, locale: locale),
           const Divider(height: 1),
         ],
         Padding(
@@ -187,8 +180,8 @@ class _DebtSection extends StatelessWidget {
           child: Text(
             totalLine,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -221,7 +214,9 @@ class _DebtTile extends ConsumerWidget {
 
     final DateTime? due = _dueDateOf(debt);
     final bool overdue = due != null && due.isBefore(DateTime.now());
-    final Color? dueColor = overdue ? Theme.of(context).colorScheme.error : null;
+    final Color? dueColor = overdue
+        ? Theme.of(context).colorScheme.error
+        : null;
 
     return ListTile(
       title: Text(
@@ -242,8 +237,7 @@ class _DebtTile extends ConsumerWidget {
           Text(
             l10n.debtRemainingLine(
               formatMoneyMinor(
-                summary?.remainingMinor ??
-                    debt.amountMinor + debt.extraMinor,
+                summary?.remainingMinor ?? debt.amountMinor + debt.extraMinor,
                 symbol: symbol,
                 locale: locale,
                 exponent: exponent,
@@ -265,17 +259,14 @@ class _DebtTile extends ConsumerWidget {
               children: <Widget>[
                 Text(
                   DateFormat.yMd(locale).format(due),
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
+                  style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: dueColor),
                 ),
                 if (overdue)
                   Text(
                     l10n.debtOverdueBadge,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.error,
-                        ),
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
               ],
             ),

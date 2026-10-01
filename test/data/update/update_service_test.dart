@@ -10,13 +10,16 @@ import 'package:kopilka/data/update/update_service.dart';
 /// Фейковый клиент: перехватывает запрос, отвечает заготовкой.
 http.Client fakeClient(
   Future<http.Response> Function(http.Request request) handler,
-) =>
-    MockClient(handler);
+) => MockClient(handler);
 
 http.Response releasesResponse(List<Map<String, dynamic>> releases) =>
-    http.Response(jsonEncode(releases), 200, headers: <String, String>{
-      'content-type': 'application/json; charset=utf-8',
-    });
+    http.Response(
+      jsonEncode(releases),
+      200,
+      headers: <String, String>{
+        'content-type': 'application/json; charset=utf-8',
+      },
+    );
 
 Map<String, dynamic> release({
   required String tag,
@@ -25,16 +28,15 @@ Map<String, dynamic> release({
   bool draft = false,
   bool prerelease = false,
   String url = 'https://github.com/kolesnikov-studio/kopilka/releases/tag/x',
-}) =>
-    <String, dynamic>{
-      'tag_name': tag,
-      'name': name,
-      'body': body,
-      'html_url': url,
-      'published_at': '2026-09-24T12:00:00Z',
-      'draft': draft,
-      'prerelease': prerelease,
-    };
+}) => <String, dynamic>{
+  'tag_name': tag,
+  'name': name,
+  'body': body,
+  'html_url': url,
+  'published_at': '2026-09-24T12:00:00Z',
+  'draft': draft,
+  'prerelease': prerelease,
+};
 
 void main() {
   group('parseSemver', () {
@@ -162,8 +164,7 @@ void main() {
     test('не-2xx → UpdateCheckOffline', () async {
       final UpdateCheckResult result = await UpdateService(
         client: fakeClient(
-          (http.Request request) async =>
-              http.Response('rate limited', 403),
+          (http.Request request) async => http.Response('rate limited', 403),
         ),
       ).check(currentVersion: '0.1.0');
       expect(result, isA<UpdateCheckOffline>());
@@ -181,7 +182,8 @@ void main() {
     test('сетевая ошибка → UpdateCheckOffline', () async {
       final UpdateCheckResult result = await UpdateService(
         client: fakeClient(
-          (http.Request request) async => throw http.ClientException('нет сети'),
+          (http.Request request) async =>
+              throw http.ClientException('нет сети'),
         ),
       ).check(currentVersion: '0.1.0');
       expect(result, isA<UpdateCheckOffline>());

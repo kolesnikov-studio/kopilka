@@ -53,9 +53,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: ':id',
                     name: AppRoutes.debtName,
-                    builder: (context, state) => DebtCardScreen(
-                      debtId: state.pathParameters['id']!,
-                    ),
+                    builder: (context, state) =>
+                        DebtCardScreen(debtId: state.pathParameters['id']!),
                   ),
                 ],
               ),

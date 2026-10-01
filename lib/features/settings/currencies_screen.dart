@@ -57,8 +57,7 @@ class CurrenciesScreen extends ConsumerWidget {
             itemBuilder: (BuildContext context, int index) => _CurrencyTile(
               currency: rows[index],
               // Код базовой нужен подзаголовкам «1 = …» и заголовкам диалогов.
-              baseCode:
-                  rows.firstWhere((Currency c) => c.isBase).code,
+              baseCode: rows.firstWhere((Currency c) => c.isBase).code,
             ),
           );
         },
@@ -141,7 +140,9 @@ class _CurrencyTile extends ConsumerWidget {
     final String? action = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) => SimpleDialog(
-        title: Text('${currency.code} — ${currencyNamesRu[currency.code] ?? ''}'),
+        title: Text(
+          '${currency.code} — ${currencyNamesRu[currency.code] ?? ''}',
+        ),
         children: <Widget>[
           SimpleDialogOption(
             onPressed: () => Navigator.of(dialogContext).pop('base'),
@@ -248,8 +249,7 @@ class _AddCurrencyDialogState extends ConsumerState<_AddCurrencyDialog> {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final Set<String> alive = <String>{
       for (final Currency currency
-          in ref.watch(currenciesListProvider).value ??
-              const <Currency>[])
+          in ref.watch(currenciesListProvider).value ?? const <Currency>[])
         currency.code,
     };
     final String normalized = _query.trim().toLowerCase();
@@ -259,9 +259,9 @@ class _AddCurrencyDialogState extends ConsumerState<_AddCurrencyDialog> {
               normalized.isEmpty ||
               info.code.toLowerCase().contains(normalized) ||
               info.nameEn.toLowerCase().contains(normalized) ||
-              (currencyNamesRu[info.code] ?? '')
-                  .toLowerCase()
-                  .contains(normalized),
+              (currencyNamesRu[info.code] ?? '').toLowerCase().contains(
+                normalized,
+              ),
         )
         .toList();
 
@@ -306,10 +306,10 @@ class _AddCurrencyDialogState extends ConsumerState<_AddCurrencyDialog> {
                                 // B1.1: «Код — Символ — Название».
                                 : '${info.code} — ${info.symbol} — $nameRu',
                           ),
-                          subtitle: added ? Text(l10n.currencyAlreadyAdded) : null,
-                          onTap: added
-                              ? null
-                              : () => _chooseRateStep(info),
+                          subtitle: added
+                              ? Text(l10n.currencyAlreadyAdded)
+                              : null,
+                          onTap: added ? null : () => _chooseRateStep(info),
                         );
                       },
                     ),
@@ -336,58 +336,59 @@ class _AddCurrencyDialogState extends ConsumerState<_AddCurrencyDialog> {
     final bool? saved = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, void Function(void Function()) setState) {
-          final bool valid = parseRate(rate.text) != null;
-          return AlertDialog(
-            title: Text(
-              '${info.code} — ${currencyNamesRu[info.code] ?? info.nameEn}',
-            ),
-            content: Form(
-              key: formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  TextFormField(
-                    controller: rate,
-                    autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: l10n.currencyRateLabel,
-                    ),
-                    validator: (String? value) =>
-                        parseRate(value ?? '') == null
+        builder:
+            (BuildContext context, void Function(void Function()) setState) {
+              final bool valid = parseRate(rate.text) != null;
+              return AlertDialog(
+                title: Text(
+                  '${info.code} — ${currencyNamesRu[info.code] ?? info.nameEn}',
+                ),
+                content: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      TextFormField(
+                        controller: rate,
+                        autofocus: true,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: l10n.currencyRateLabel,
+                        ),
+                        validator: (String? value) =>
+                            parseRate(value ?? '') == null
                             ? l10n.currencyRateInvalid
                             : null,
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.currencyRateHint,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.currencyRateHint,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(false),
+                    child: Text(l10n.cancelAction),
+                  ),
+                  FilledButton(
+                    onPressed: valid
+                        ? () => Navigator.of(dialogContext).pop(true)
+                        : null,
+                    child: Text(l10n.saveAction),
                   ),
                 ],
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: Text(l10n.cancelAction),
-              ),
-              FilledButton(
-                onPressed: valid
-                    ? () => Navigator.of(dialogContext).pop(true)
-                    : null,
-                child: Text(l10n.saveAction),
-              ),
-            ],
-          );
-        },
+              );
+            },
       ),
     );
     if (saved != true || !mounted) {
@@ -454,17 +455,15 @@ class _RateDialogState extends ConsumerState<_RateDialog> {
             controller: _rate,
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: l10n.currencyRateLabel,
-            ),
+            decoration: InputDecoration(labelText: l10n.currencyRateLabel),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
           Text(
             l10n.currencyRateRecalcNote,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),

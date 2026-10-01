@@ -14,8 +14,9 @@ final RegExp _ratePattern = RegExp(r'^\d{1,12}(\.\d{1,6})?$');
 /// Возвращает `null`, если ввод не является положительным числом
 /// с 1–6 знаками после разделителя (B1.1) либо не помещается в double.
 double? parseRate(String input) {
-  final String normalized =
-      input.replaceAll(_whitespace, '').replaceAll(',', '.');
+  final String normalized = input
+      .replaceAll(_whitespace, '')
+      .replaceAll(',', '.');
   if (!_ratePattern.hasMatch(normalized)) {
     return null;
   }

@@ -21,7 +21,10 @@ Future<void> _openSettings(WidgetTester tester, AppLocalizations l10n) async {
 
 /// Открывает экран «Скрытые категории» переходом по маршруту (без пункта в
 /// настройках — для пустого состояния).
-Future<void> _openHiddenScreenDirect(WidgetTester tester, AppHarness app) async {
+Future<void> _openHiddenScreenDirect(
+  WidgetTester tester,
+  AppHarness app,
+) async {
   app.container.read(routerProvider).push('/settings/hidden-categories');
   await tester.pumpAndSettle();
 }
@@ -40,8 +43,9 @@ void main() {
       expect(find.text(app.l10n.hiddenCategoriesTitle), findsNothing);
 
       // Скрываем системную категорию через DAO (как делает экран категорий).
-      final List<Category> seeded = await app.db.categoriesDao
-          .getAlive(kind: CategoryKind.expense);
+      final List<Category> seeded = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.expense,
+      );
       await app.db.categoriesDao.hide(
         seeded.firstWhere((Category c) => c.name == 'Транспорт').id,
       );
@@ -69,10 +73,12 @@ void main() {
         tester,
         tempDirPrefix: 'kopilka_hidden_categories_test',
       );
-      final List<Category> expense =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
-      final List<Category> income =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.income);
+      final List<Category> expense = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.expense,
+      );
+      final List<Category> income = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.income,
+      );
       await app.db.categoriesDao.hide(
         expense.firstWhere((Category c) => c.name == 'Транспорт').id,
       );
@@ -95,13 +101,16 @@ void main() {
       await tester.pumpAndSettle();
 
       // Снек и строка ушла с экрана.
-      expect(find.text(app.l10n.categoryRestoredSnack('Транспорт')),
-          findsOneWidget);
+      expect(
+        find.text(app.l10n.categoryRestoredSnack('Транспорт')),
+        findsOneWidget,
+      );
       expect(find.text('Транспорт'), findsNothing);
 
       // В БД категория снова живая, скрытых расходов с ней нет.
-      final List<Category> alive =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
+      final List<Category> alive = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.expense,
+      );
       expect(alive.any((Category c) => c.name == 'Транспорт'), isTrue);
       final List<Category> hidden = (await tester.runAsync(
         () => app.db.categoriesDao.watchHiddenSystem().first,
@@ -110,19 +119,18 @@ void main() {
     },
   );
 
-  testWidgets(
-    'пустое состояние: заголовок и текст «Скрытых категорий нет»',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_hidden_categories_test',
-      );
-      await _openSettings(tester, app.l10n);
-      // Пункта нет — переход по маршруту напрямую.
-      await _openHiddenScreenDirect(tester, app);
+  testWidgets('пустое состояние: заголовок и текст «Скрытых категорий нет»', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_hidden_categories_test',
+    );
+    await _openSettings(tester, app.l10n);
+    // Пункта нет — переход по маршруту напрямую.
+    await _openHiddenScreenDirect(tester, app);
 
-      expect(find.text(app.l10n.hiddenCategoriesTitle), findsOneWidget);
-      expect(find.text(app.l10n.hiddenCategoriesEmpty), findsOneWidget);
-    },
-  );
+    expect(find.text(app.l10n.hiddenCategoriesTitle), findsOneWidget);
+    expect(find.text(app.l10n.hiddenCategoriesEmpty), findsOneWidget);
+  });
 }

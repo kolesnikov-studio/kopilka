@@ -94,9 +94,9 @@ class DebtsDao extends DatabaseAccessor<AppDatabase> with _$DebtsDaoMixin {
   }
 
   /// Живой долг по id (или NULL).
-  Future<Debt?> findById(String id) => (select(debts)
-        ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
-      .getSingleOrNull();
+  Future<Debt?> findById(String id) => (select(
+    debts,
+  )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
 
   /// Живой долг по id или отказ [DataFailure.notFound] — образец
   /// [AttachmentsDao.requireAliveById] (D-82).
@@ -197,11 +197,11 @@ class DebtsDao extends DatabaseAccessor<AppDatabase> with _$DebtsDaoMixin {
       );
     }
     if (transactionId != null) {
-      final Transaction? linked = await (select(transactions)
-            ..where(
-              (t) => t.id.equals(transactionId) & t.deletedAt.isNull(),
-            ))
-          .getSingleOrNull();
+      final Transaction? linked =
+          await (select(transactions)..where(
+                (t) => t.id.equals(transactionId) & t.deletedAt.isNull(),
+              ))
+              .getSingleOrNull();
       if (linked == null) {
         throw DataValidationException(
           'операция $transactionId не найдена',
@@ -235,9 +235,7 @@ class DebtsDao extends DatabaseAccessor<AppDatabase> with _$DebtsDaoMixin {
   /// Поток живых платежей долга, свежие сверху (для карточки долга).
   Stream<List<DebtPayment>> watchPayments(String debtId) =>
       (select(debtPayments)
-            ..where(
-              (t) => t.debtId.equals(debtId) & t.deletedAt.isNull(),
-            )
+            ..where((t) => t.debtId.equals(debtId) & t.deletedAt.isNull())
             ..orderBy([
               (t) => OrderingTerm.desc(t.paidAt),
               (t) => OrderingTerm.desc(t.createdAt),
@@ -252,7 +250,8 @@ class DebtsDao extends DatabaseAccessor<AppDatabase> with _$DebtsDaoMixin {
   /// долг и сумма платежей читаются одним запросом с подзапросом-агрегатом.
   /// Мягкое удаление не ломает поток (D-25): удалённый долг исчезает
   /// из потока (NULL), удалённый платёж выпадает из SUM.
-  Stream<DebtSummary?> watchSummary(String debtId) => customSelect(
+  Stream<DebtSummary?> watchSummary(String debtId) =>
+      customSelect(
         'SELECT d.*, COALESCE(p.paid, 0) AS paid_minor '
         'FROM debts AS d '
         'LEFT JOIN ('
@@ -282,9 +281,9 @@ class DebtsDao extends DatabaseAccessor<AppDatabase> with _$DebtsDaoMixin {
 
   /// Живой платёж по id или отказ [DataFailure.notFound].
   Future<DebtPayment> _requireAlivePayment(String id) async {
-    final DebtPayment? payment = await (select(debtPayments)
-          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
-        .getSingleOrNull();
+    final DebtPayment? payment = await (select(
+      debtPayments,
+    )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
     if (payment == null) {
       throw DataValidationException(
         'платёж $id не найден',

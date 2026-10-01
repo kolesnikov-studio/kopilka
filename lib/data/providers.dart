@@ -55,13 +55,11 @@ final debtsDaoProvider = Provider<DebtsDao>(
 /// Хранилище файлов вложений (v6, D-63): каталог `attachments/` рядом с
 /// `kopilka.sqlite`. База создаётся в main и подменяется переопределением
 /// провайдера — образец магазинов настроек (D-43).
-final attachmentsStorageProvider = Provider<AttachmentsStorage>(
-  (ref) {
-    throw UnimplementedError(
-      'создаётся в main: AttachmentsStorage(rootDirectory: каталог attachments/ рядом с БД)',
-    );
-  },
-);
+final attachmentsStorageProvider = Provider<AttachmentsStorage>((ref) {
+  throw UnimplementedError(
+    'создаётся в main: AttachmentsStorage(rootDirectory: каталог attachments/ рядом с БД)',
+  );
+});
 
 /// Сервис вложений (v6, D-63): единый метод «запись файла + запись БД».
 final attachmentsServiceProvider = Provider<AttachmentsService>(
@@ -86,13 +84,18 @@ final baseCurrencySymbolProvider = StreamProvider.autoDispose<String>((ref) {
   return ref
       .watch(currenciesDaoProvider)
       .watchAlive()
-      .map((List<Currency> currencies) => baseCurrencyOf(currencies)?.symbol ?? '');
+      .map(
+        (List<Currency> currencies) => baseCurrencyOf(currencies)?.symbol ?? '',
+      );
 });
 
 /// Базовая валюта целиком: код, символ, курс, экспонент из справочника
 /// core (D-15). Заменяет точечные поиски символа по списку.
 final baseCurrencyStreamProvider = StreamProvider.autoDispose<Currency>(
-  (ref) => ref.watch(currenciesDaoProvider).watchAlive().map(
+  (ref) => ref
+      .watch(currenciesDaoProvider)
+      .watchAlive()
+      .map(
         (List<Currency> currencies) =>
             baseCurrencyOf(currencies) ?? currencies.first,
       ),
@@ -110,11 +113,15 @@ Currency? baseCurrencyOf(List<Currency> currencies) {
 
 /// Карта «код → валюта» (R5): O(1) поиск символа/кода вместо линейного
 /// прохода по списку в каждой плитке (accounts_screen._currencySymbol).
-final currenciesMapProvider =
-    StreamProvider.autoDispose<Map<String, Currency>>((ref) {
-  return ref.watch(currenciesDaoProvider).watchAlive().map(
-        (List<Currency> currencies) => <String, Currency>{
-          for (final Currency currency in currencies) currency.code: currency,
-        },
-      );
-});
+final currenciesMapProvider = StreamProvider.autoDispose<Map<String, Currency>>(
+  (ref) {
+    return ref
+        .watch(currenciesDaoProvider)
+        .watchAlive()
+        .map(
+          (List<Currency> currencies) => <String, Currency>{
+            for (final Currency currency in currencies) currency.code: currency,
+          },
+        );
+  },
+);

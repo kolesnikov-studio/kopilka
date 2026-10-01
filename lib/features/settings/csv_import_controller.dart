@@ -124,11 +124,7 @@ class CsvImportController extends Notifier {
       return const CsvPickFailed(CsvImportFailure.invalidFormat, line: 0);
     }
     return CsvPickLoaded(
-      CsvImportDraft(
-        csv: csv,
-        header: rows.first,
-        rowCount: rows.length - 1,
-      ),
+      CsvImportDraft(csv: csv, header: rows.first, rowCount: rows.length - 1),
     );
   }
 
@@ -151,5 +147,6 @@ class CsvImportController extends Notifier {
   }
 }
 
-final csvImportControllerProvider =
-    NotifierProvider<CsvImportController, void>(CsvImportController.new);
+final csvImportControllerProvider = NotifierProvider<CsvImportController, void>(
+  CsvImportController.new,
+);

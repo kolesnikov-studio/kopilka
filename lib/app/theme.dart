@@ -14,20 +14,20 @@ import 'package:kopilka/features/settings/theme_preferences.dart';
 /// «default» подмен не делает: схема равна прежней
 /// `ColorScheme.fromSeed(seedColor)` — ноль отличий от v0.4.
 ThemeData lightThemeOf(ThemePreset preset) => _themeFor(
-      scheme: ColorScheme.fromSeed(seedColor: preset.seed),
-      surface: preset.lightSurface,
-      onSurface: preset.lightOnSurface,
-    );
+  scheme: ColorScheme.fromSeed(seedColor: preset.seed),
+  surface: preset.lightSurface,
+  onSurface: preset.lightOnSurface,
+);
 
 /// Тёмная тема для пары (пресет, тёмная основа).
 ThemeData darkThemeOf(ThemePreset preset) => _themeFor(
-      scheme: ColorScheme.fromSeed(
-        seedColor: preset.seed,
-        brightness: Brightness.dark,
-      ),
-      surface: preset.darkSurface,
-      onSurface: preset.darkOnSurface,
-    );
+  scheme: ColorScheme.fromSeed(
+    seedColor: preset.seed,
+    brightness: Brightness.dark,
+  ),
+  surface: preset.darkSurface,
+  onSurface: preset.darkOnSurface,
+);
 
 ThemeData _themeFor({
   required ColorScheme scheme,
@@ -65,19 +65,14 @@ class ThemePair {
 /// По умолчанию — системная основа и пресет «default» (первый запуск /
 /// файла нет — ноль отличий от v0.4).
 class ThemeState {
-  const ThemeState({
-    this.preset = defaultPreset,
-    this.mode = ThemeMode.system,
-  });
+  const ThemeState({this.preset = defaultPreset, this.mode = ThemeMode.system});
 
   final ThemePreset preset;
 
   final ThemeMode mode;
 
-  ThemeState copyWith({ThemePreset? preset, ThemeMode? mode}) => ThemeState(
-        preset: preset ?? this.preset,
-        mode: mode ?? this.mode,
-      );
+  ThemeState copyWith({ThemePreset? preset, ThemeMode? mode}) =>
+      ThemeState(preset: preset ?? this.preset, mode: mode ?? this.mode);
 }
 
 /// Контроллер темы: любое изменение применяется ко всему приложению
@@ -90,8 +85,7 @@ class ThemeController extends Notifier<ThemeState> {
   /// (стейт нужен до первого кадра). Битый JSON / чужой id / IOException
   /// молча дают значения по умолчанию (§4 спеки, паттерн T-2/D-43.г).
   Future<void> load() async {
-    final ThemePreferencesStore store =
-        ref.read(themePreferencesStoreProvider);
+    final ThemePreferencesStore store = ref.read(themePreferencesStoreProvider);
     final String? presetId = await store.readPresetId();
     final ThemeMode? mode = await store.readMode();
     state = ThemeState(

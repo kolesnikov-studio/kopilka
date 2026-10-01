@@ -39,9 +39,10 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
         kind: DataFailure.invalidInput,
       );
     }
-    final Category? category = await (select(categories)
-          ..where((t) => t.id.equals(categoryId) & t.deletedAt.isNull()))
-        .getSingleOrNull();
+    final Category? category =
+        await (select(categories)
+              ..where((t) => t.id.equals(categoryId) & t.deletedAt.isNull()))
+            .getSingleOrNull();
     if (category == null) {
       throw DataValidationException(
         'категория $categoryId не найдена',
@@ -93,7 +94,10 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     }
     await _requireAlive(id);
     await (update(budgets)..where((t) => t.id.equals(id))).write(
-      BudgetsCompanion(limitMinor: Value(limitMinor), updatedAt: Value(clock())),
+      BudgetsCompanion(
+        limitMinor: Value(limitMinor),
+        updatedAt: Value(clock()),
+      ),
     );
     return _requireAlive(id);
   }
@@ -125,10 +129,11 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     ).get();
     return BudgetProgress(
       budget: budget,
-      categoryName: (await (select(categories)
-                ..where((t) => t.id.equals(budget.categoryId)))
-              .getSingleOrNull())
-          ?.name ??
+      categoryName:
+          (await (select(categories)
+                    ..where((t) => t.id.equals(budget.categoryId)))
+                  .getSingleOrNull())
+              ?.name ??
           '',
       spentMinor: _spentInBase(rows),
     );
@@ -179,21 +184,21 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
     DateTime from,
     DateTime to,
   ) => customSelect(
-        'SELECT t.id AS tx_id, t.amount_minor AS amount_minor, '
-        't.currency_code AS currency_code, '
-        'COALESCE(cur.rate_to_base, 1.0) AS rate '
-        'FROM transactions AS t '
-        'LEFT JOIN currencies AS cur ON cur.code = t.currency_code '
-        'WHERE t.category_id = ? AND t.type = ? AND t.deleted_at IS NULL '
-        'AND t.date >= ? AND t.date < ?',
-        variables: [
-          Variable<String>(categoryId),
-          Variable<String>(TransactionType.expense.dbValue),
-          Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
-          Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
-        ],
-        readsFrom: {transactions, currencies},
-      );
+    'SELECT t.id AS tx_id, t.amount_minor AS amount_minor, '
+    't.currency_code AS currency_code, '
+    'COALESCE(cur.rate_to_base, 1.0) AS rate '
+    'FROM transactions AS t '
+    'LEFT JOIN currencies AS cur ON cur.code = t.currency_code '
+    'WHERE t.category_id = ? AND t.type = ? AND t.deleted_at IS NULL '
+    'AND t.date >= ? AND t.date < ?',
+    variables: [
+      Variable<String>(categoryId),
+      Variable<String>(TransactionType.expense.dbValue),
+      Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
+      Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
+    ],
+    readsFrom: {transactions, currencies},
+  );
 
   /// Группирует строки watch-запроса по бюджетам, конвертируя каждую
   /// операцию в базовую до суммирования (D-18). Бюджет без операций
@@ -221,13 +226,12 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       if (row.read<String?>('tx_id') == null) {
         continue;
       }
-      spentByBudget[budgetId] = (spentByBudget[budgetId] ?? 0) +
+      spentByBudget[budgetId] =
+          (spentByBudget[budgetId] ?? 0) +
           convertMinor(
             row.read<int>('amount_minor'),
             row.read<double>('rate'),
-            exponent: currencyExponentByCode(
-              row.read<String>('currency_code'),
-            ),
+            exponent: currencyExponentByCode(row.read<String>('currency_code')),
           );
     }
     return <BudgetProgress>[
@@ -259,15 +263,17 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
   DateTime _rawDate(int epochSeconds) =>
       DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000, isUtc: true);
 
-  SimpleSelectStatement<$BudgetsTable, Budget> _aliveQuery() =>
-      select(budgets)
-        ..where((t) => t.deletedAt.isNull())
-        ..orderBy([(t) => OrderingTerm.asc(t.createdAt), (t) => OrderingTerm.asc(t.id)]);
+  SimpleSelectStatement<$BudgetsTable, Budget> _aliveQuery() => select(budgets)
+    ..where((t) => t.deletedAt.isNull())
+    ..orderBy([
+      (t) => OrderingTerm.asc(t.createdAt),
+      (t) => OrderingTerm.asc(t.id),
+    ]);
 
   Future<Budget> _requireAlive(String id) async {
-    final Budget? budget = await (select(budgets)
-          ..where((t) => t.id.equals(id) & t.deletedAt.isNull()))
-        .getSingleOrNull();
+    final Budget? budget = await (select(
+      budgets,
+    )..where((t) => t.id.equals(id) & t.deletedAt.isNull())).getSingleOrNull();
     if (budget == null) {
       throw DataValidationException(
         'бюджет $id не найден',

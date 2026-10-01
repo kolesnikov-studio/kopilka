@@ -95,9 +95,8 @@ class _TransactionFormDialogState
     return _accountId;
   }
 
-  Account? _accountOf(List<Account> accounts, String? id) => accounts
-      .where((Account account) => account.id == id)
-      .firstOrNull;
+  Account? _accountOf(List<Account> accounts, String? id) =>
+      accounts.where((Account account) => account.id == id).firstOrNull;
 
   /// Символ валюты счёта из справочника (R5); код вне справочника —
   /// fallback на сам код. Watch: держит подписку на карту валют живой —
@@ -184,8 +183,8 @@ class _TransactionFormDialogState
         // (валидация полей выше), у одно-валютного второй суммы нет —
         // DAO отвергнет значение при совпадающих валютах (D-17).
         final Account? target = _accountOf(accounts, _targetAccountId);
-        final bool multiCurrency = target != null &&
-            target.currencyCode != account?.currencyCode;
+        final bool multiCurrency =
+            target != null && target.currencyCode != account?.currencyCode;
         final int? targetAmountMinor = multiCurrency
             ? parseAmountToMinor(
                 _targetAmount.text,
@@ -222,58 +221,55 @@ class _TransactionFormDialogState
     final List<Category> categories = widget.type == TransactionType.transfer
         ? const <Category>[]
         : ref
-              .watch(
-                categoriesByKindProvider(
-                  widget.type == TransactionType.income
-                      ? CategoryKind.income
-                      : CategoryKind.expense,
-                ),
-              )
-              .value ??
-            const <Category>[];
+                  .watch(
+                    categoriesByKindProvider(
+                      widget.type == TransactionType.income
+                          ? CategoryKind.income
+                          : CategoryKind.expense,
+                    ),
+                  )
+                  .value ??
+              const <Category>[];
 
     // Умолчания при первом построении: первый живой счёт, без категории.
     _ensureDefaults(accounts);
     // B3: валюта выбранного счёта задаёт дробность и суффикс поля суммы;
     // код вне справочника — fallback на сам код.
     final Account? selected = _accountOf(accounts, _accountId);
-    final int exponent =
-        currencyExponentByCode(selected?.currencyCode ?? '');
+    final int exponent = currencyExponentByCode(selected?.currencyCode ?? '');
     final String amountSuffix = _symbolOf(selected?.currencyCode);
 
     // B4.1: у перевода между валютами — два поля суммы с разными валютами.
     final Account? target = _accountOf(accounts, _targetAccountId);
-    final bool multiCurrency = widget.type == TransactionType.transfer &&
+    final bool multiCurrency =
+        widget.type == TransactionType.transfer &&
         target != null &&
         target.currencyCode != selected?.currencyCode;
-    final int targetExponent =
-        currencyExponentByCode(target?.currencyCode ?? '');
+    final int targetExponent = currencyExponentByCode(
+      target?.currencyCode ?? '',
+    );
     final String targetAmountSuffix = _symbolOf(target?.currencyCode);
 
     // Расчётная строка курса (B4.1): производное отношение введённых сумм,
     // пересчитывается при вводе любой из них. Курс — до 6 значащих знаков
     // (D-26, formatRate шага 2); формат — «1 USD = 97,5 ₽» (спека B4.1).
     final int? fromMinor = multiCurrency
-        ? parseAmountToMinor(
-            _amount.text,
-            exponent: exponent,
-          )
+        ? parseAmountToMinor(_amount.text, exponent: exponent)
         : null;
     final int? toMinor = multiCurrency
-        ? parseAmountToMinor(
-            _targetAmount.text,
-            exponent: targetExponent,
-          )
+        ? parseAmountToMinor(_targetAmount.text, exponent: targetExponent)
         : null;
     final String? rateLine = fromMinor != null && toMinor != null
         ? l10n.transferRateLine(
             selected?.currencyCode ?? '',
-            formatRate(derivedRate(
-              fromMinor,
-              toMinor,
-              fromExponent: exponent,
-              toExponent: targetExponent,
-            )),
+            formatRate(
+              derivedRate(
+                fromMinor,
+                toMinor,
+                fromExponent: exponent,
+                toExponent: targetExponent,
+              ),
+            ),
             target?.currencyCode ?? '',
           )
         : null;
@@ -386,9 +382,7 @@ class _TransactionFormDialogState
                   isExpanded: true,
                   decoration: InputDecoration(labelText: l10n.categoryLabel),
                   items: <DropdownMenuItem<String?>>[
-                    DropdownMenuItem<String?>(
-                      child: Text(l10n.filterAll),
-                    ),
+                    DropdownMenuItem<String?>(child: Text(l10n.filterAll)),
                     for (final Category category in categories)
                       DropdownMenuItem<String?>(
                         value: category.id,
@@ -450,9 +444,8 @@ class _TransactionFormDialogState
                     child: Text(
                       l10n.transferPrefillNote,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 if (rateLine != null)
@@ -461,9 +454,8 @@ class _TransactionFormDialogState
                     child: Text(
                       rateLine,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
               ] else ...<Widget>[
@@ -480,7 +472,9 @@ class _TransactionFormDialogState
               const SizedBox(height: 12),
               Row(
                 children: <Widget>[
-                  Expanded(child: Text('${l10n.dateLabel}: ${_formatDate(l10n)}')),
+                  Expanded(
+                    child: Text('${l10n.dateLabel}: ${_formatDate(l10n)}'),
+                  ),
                   IconButton(
                     tooltip: l10n.dateLabel,
                     onPressed: _pickDate,

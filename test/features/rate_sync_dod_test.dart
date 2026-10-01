@@ -47,12 +47,12 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 /// Ответ фейкового источника в его единицах (D-42): «USD 0.01 за единицу
 /// базовой» — сервис запишет rate_to_base = 1 / 0.01 = 100.
 http.Response _ratesResponse() => http.Response(
-      jsonEncode(<String, dynamic>{
-        'result': 'success',
-        'rates': <String, dynamic>{'USD': 0.01},
-      }),
-      200,
-    );
+  jsonEncode(<String, dynamic>{
+    'result': 'success',
+    'rates': <String, dynamic>{'USD': 0.01},
+  }),
+  200,
+);
 
 /// Полный KopilkaApp в RU-локали (харнесс S2) с подменёнными хранилищами
 /// настроек и фейковой сетью — как pumpDialogApp, но с швами rate-sync
@@ -107,10 +107,7 @@ Future<(ProviderContainer, AppDatabase, Directory)> _pumpApp(
   addTearDown(container.dispose);
 
   await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: const KopilkaApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const KopilkaApp()),
   );
   await tester.pumpAndSettle();
   return (container, db, appDir);
@@ -120,9 +117,7 @@ Future<(ProviderContainer, AppDatabase, Directory)> _pumpApp(
 /// (D-44.б: syncOnLaunch читает файл, не стейт галочки).
 Future<void> _enableByFile(WidgetTester tester, ProviderContainer container) =>
     tester.runAsync(
-      () => container
-          .read(rateSyncPreferencesStoreProvider)
-          .writeEnabled(true),
+      () => container.read(rateSyncPreferencesStoreProvider).writeEnabled(true),
     );
 
 /// Тихий автозапуск при старте (шаг 3, D-36): вызов syncOnLaunch как в
@@ -151,8 +146,9 @@ void main() {
     'DoD: галочка включена — тихий автозапуск при старте обновил курсы; '
     'курс виден в UI и в пересчёте отчёта',
     (WidgetTester tester) async {
-      final AppLocalizations l10n =
-          await AppLocalizations.delegate.load(const Locale('ru'));
+      final AppLocalizations l10n = await AppLocalizations.delegate.load(
+        const Locale('ru'),
+      );
       int calls = 0;
       final (ProviderContainer container, AppDatabase db, _) = await _pumpApp(
         tester,
@@ -284,21 +280,19 @@ void main() {
       // «Молча выкл» персиста (D-43.г, T-2): битый JSON настроек читается
       // как «выкл» без исключений; запись поверх чинит файл в валидный JSON.
       await tester.runAsync(
-        () => File('${appDir.path}/rate-sync-preferences.json')
-            .writeAsString('{oops'),
+        () =>
+            File('${appDir.path}/rate-sync-preferences.json')
+                .writeAsString('{oops'),
       );
       await tester.runAsync(
         () async => expect(
-          await container
-              .read(rateSyncPreferencesStoreProvider)
-              .readEnabled(),
+          await container.read(rateSyncPreferencesStoreProvider).readEnabled(),
           isFalse,
         ),
       );
       await tester.runAsync(
-        () => container
-            .read(rateSyncEnabledProvider.notifier)
-            .setEnabled(false),
+        () =>
+            container.read(rateSyncEnabledProvider.notifier).setEnabled(false),
       );
       await tester.runAsync(
         () async => expect(

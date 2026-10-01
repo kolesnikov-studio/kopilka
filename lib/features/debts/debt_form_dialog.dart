@@ -22,10 +22,7 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 ///
 /// Отказы DAO объясняются снекбаром с локализованным текстом отказа; при
 /// отказе диалог не закрывается (§3).
-Future<void> showDebtFormDialog(
-  BuildContext context, {
-  Debt? debt,
-}) {
+Future<void> showDebtFormDialog(BuildContext context, {Debt? debt}) {
   return showDialog<void>(
     context: context,
     builder: (BuildContext dialogContext) => _DebtFormDialog(initial: debt),
@@ -181,10 +178,8 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
       }
     }
     final int exponent = currencyExponentByCode(_currencyCode ?? '');
-    final String amountSuffix = ref
-        .watch(currenciesMapProvider)
-        .value?[_currencyCode]
-        ?.symbol ??
+    final String amountSuffix =
+        ref.watch(currenciesMapProvider).value?[_currencyCode]?.symbol ??
         (_currencyCode ?? '');
 
     return AlertDialog(
@@ -199,8 +194,8 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
                 decoration: InputDecoration(labelText: l10n.debtPersonLabel),
                 validator: (String? value) =>
                     (value == null || value.trim().isEmpty)
-                        ? l10n.debtPersonRequired
-                        : null,
+                    ? l10n.debtPersonRequired
+                    : null,
               ),
               const SizedBox(height: 12),
               // Направление — SegmentedButton (§3): направление — суть
@@ -227,8 +222,7 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
               DropdownButtonFormField<String>(
                 initialValue: _currencyCode,
                 isExpanded: true,
-                decoration:
-                    InputDecoration(labelText: l10n.debtCurrencyLabel),
+                decoration: InputDecoration(labelText: l10n.debtCurrencyLabel),
                 // Без валюты DAO отклонит создание — валидируем до отправки.
                 validator: (String? code) =>
                     code == null ? l10n.errorInvalidInput : null,
@@ -278,8 +272,8 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
                 child: Text(
                   l10n.debtExtraHelper,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -291,7 +285,7 @@ class _DebtFormDialogState extends ConsumerState<_DebtFormDialog> {
                       _dueDate == null
                           ? l10n.debtDueDateOptional
                           : '${l10n.debtDueDateLabel}: '
-                              '${MaterialLocalizations.of(context).formatMediumDate(_dueDate!)}',
+                                '${MaterialLocalizations.of(context).formatMediumDate(_dueDate!)}',
                     ),
                   ),
                   IconButton(

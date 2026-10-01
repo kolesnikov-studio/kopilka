@@ -115,7 +115,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Баланс: 1000 − 300 − 200 = 5,00 ₽ в мажорных единицах.
-    String money(int minor) => formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
+    String money(int minor) =>
+        formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
     expect(find.text(money(50000)), findsOneWidget);
     // Легенда: имя категории в донате и в списке, суммы — в списке.
     expect(find.text('Молочка'), findsNWidgets(2));
@@ -142,8 +143,8 @@ void main() {
       kind: CategoryKind.expense,
     );
     // Операция в прошлом месяце относительно текущего (UTC, §3).
-    final DateTime prevMonth =
-        monthStart(DateTime.now().toUtc()).subtract(const Duration(days: 1));
+    final DateTime prevMonth = monthStart(DateTime.now().toUtc())
+        .subtract(const Duration(days: 1));
     await f.db.transactionsDao.create(
       type: TransactionType.expense,
       accountId: account.id,
@@ -211,7 +212,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Текущий месяц: расход виден независимо от числа.
-    String money(int minor) => formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
+    String money(int minor) =>
+        formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
     expect(find.text(money(30000)), findsOneWidget);
     expect(find.text('Молочка'), findsNWidgets(2));
 
@@ -272,8 +274,9 @@ void main() {
       return f.db.currenciesDao.findAlive('USD').then((Currency? c) => c!);
     }
 
-    testWidgets('моновалютный пользователь: пометки нет (не шумим)',
-        (WidgetTester tester) async {
+    testWidgets('моновалютный пользователь: пометки нет (не шумим)', (
+      WidgetTester tester,
+    ) async {
       final Fixture f = Fixture();
       addTearDown(f.dispose);
       final AppLocalizations l10n = await f.pump(tester);
@@ -289,8 +292,9 @@ void main() {
       expect(find.text(l10n.reportsAtCurrentRate), findsNothing);
     });
 
-    testWidgets('мультивалютность: три пометки — баланс, «Всего», футер',
-        (WidgetTester tester) async {
+    testWidgets('мультивалютность: три пометки — баланс, «Всего», футер', (
+      WidgetTester tester,
+    ) async {
       final Fixture f = Fixture();
       addTearDown(f.dispose);
       final AppLocalizations l10n = await f.pump(tester);
@@ -334,13 +338,16 @@ void main() {
       );
       // «Всего» доната: расход 300,00 ₽ в базовой — без изменений.
       expect(
-        find.text('${l10n.reportsTotalLabel}: ${formatMoneyMinor(30000, symbol: '₽', locale: 'ru')}'),
+        find.text(
+          '${l10n.reportsTotalLabel}: ${formatMoneyMinor(30000, symbol: '₽', locale: 'ru')}',
+        ),
         findsOneWidget,
       );
     });
 
-    testWidgets('появление второй валюты добавляет пометку живым потоком',
-        (WidgetTester tester) async {
+    testWidgets('появление второй валюты добавляет пометку живым потоком', (
+      WidgetTester tester,
+    ) async {
       final Fixture f = Fixture();
       addTearDown(f.dispose);
       final AppLocalizations l10n = await f.pump(tester);

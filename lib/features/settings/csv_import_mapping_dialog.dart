@@ -5,16 +5,16 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Подпись поля импорта для выпадающих списков диалога маппинга.
 String csvFieldLabel(AppLocalizations l10n, CsvField field) => switch (field) {
-      CsvField.date => l10n.csvFieldDate,
-      CsvField.type => l10n.csvFieldType,
-      CsvField.account => l10n.csvFieldAccount,
-      CsvField.amount => l10n.csvFieldAmount,
-      CsvField.currency => l10n.csvFieldCurrency,
-      CsvField.targetAccount => l10n.csvFieldTargetAccount,
-      CsvField.targetAmount => l10n.csvFieldTargetAmount,
-      CsvField.category => l10n.csvFieldCategory,
-      CsvField.note => l10n.csvFieldNote,
-    };
+  CsvField.date => l10n.csvFieldDate,
+  CsvField.type => l10n.csvFieldType,
+  CsvField.account => l10n.csvFieldAccount,
+  CsvField.amount => l10n.csvFieldAmount,
+  CsvField.currency => l10n.csvFieldCurrency,
+  CsvField.targetAccount => l10n.csvFieldTargetAccount,
+  CsvField.targetAmount => l10n.csvFieldTargetAmount,
+  CsvField.category => l10n.csvFieldCategory,
+  CsvField.note => l10n.csvFieldNote,
+};
 
 /// Диалог сопоставления колонок CSV-файла полям импорта.
 ///
@@ -68,8 +68,9 @@ class _CsvMappingDialogState extends State<_CsvMappingDialog> {
     };
     final Set<CsvField> missing = required.difference(fields);
     if (missing.isNotEmpty) {
-      final String names =
-          missing.map((CsvField field) => csvFieldLabel(l10n, field)).join(', ');
+      final String names = missing
+          .map((CsvField field) => csvFieldLabel(l10n, field))
+          .join(', ');
       return l10n.csvMappingMissingRequired(names);
     }
     return null;

@@ -21,10 +21,12 @@ void main() {
   });
 
   group('RemindersPreferencesStore (D-43, D-83)', () {
-    test('файла нет — настройка «выкл» (по умолчанию выключена, D-83)',
-        () async {
-      expect(await store.readEnabled(), isFalse);
-    });
+    test(
+      'файла нет — настройка «выкл» (по умолчанию выключена, D-83)',
+      () async {
+        expect(await store.readEnabled(), isFalse);
+      },
+    );
 
     test('writeEnabled(true) пишет файл и readEnabled читает', () async {
       await store.writeEnabled(true);

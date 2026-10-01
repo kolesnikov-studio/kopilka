@@ -16,16 +16,12 @@ class ReportsMonthController extends Notifier<DateTime> {
 
   /// Сдвигает выбранный месяц на [months] (отрицательное — назад).
   void shiftMonths(int months) {
-    final DateTime shifted = DateTime.utc(
-      state.year,
-      state.month + months,
-    );
+    final DateTime shifted = DateTime.utc(state.year, state.month + months);
     state = monthStart(shifted);
   }
 }
 
-final reportsMonthProvider =
-    NotifierProvider<ReportsMonthController, DateTime>(
+final reportsMonthProvider = NotifierProvider<ReportsMonthController, DateTime>(
   ReportsMonthController.new,
 );
 
@@ -37,24 +33,24 @@ const int reportsMonthWindow = 6;
 /// смена курса пересчитывает отчёт без перезапуска.
 final expensesByCategoryProvider =
     StreamProvider.autoDispose<List<CategoryExpenseBase>>((ref) {
-  final DateTime moment = ref.watch(reportsMonthProvider);
-  return ref
-      .watch(transactionsDaoProvider)
-      .watchExpensesByCategoryForMonthInBase(moment: moment);
-});
+      final DateTime moment = ref.watch(reportsMonthProvider);
+      return ref
+          .watch(transactionsDaoProvider)
+          .watchExpensesByCategoryForMonthInBase(moment: moment);
+    });
 
 /// Динамика доходов и расходов за [reportsMonthWindow] месяцев до конца
 /// выбранного включительно в базовой валюте (D-18); месяцы без операций
 /// заполняются нулями.
-final monthTotalsProvider =
-    StreamProvider.autoDispose<List<MonthTotalsBase>>((ref) {
+final monthTotalsProvider = StreamProvider.autoDispose<List<MonthTotalsBase>>((
+  ref,
+) {
   final DateTime moment = ref.watch(reportsMonthProvider);
   final DateTime to = nextMonthStart(moment);
   final DateTime from = DateTime.utc(to.year, to.month - reportsMonthWindow);
-  return ref.watch(transactionsDaoProvider).watchTotalsByMonthInBase(
-        from: from,
-        to: to,
-      );
+  return ref
+      .watch(transactionsDaoProvider)
+      .watchTotalsByMonthInBase(from: from, to: to);
 });
 
 /// Снимок курсов «код → курс к базовой» из живого справочника валют:
@@ -62,9 +58,13 @@ final monthTotalsProvider =
 /// определению 1 (D-16); поток пересчитывает карту при любом изменении
 /// справочника, кэша нет (D-18).
 final ratesSnapshotProvider = StreamProvider.autoDispose<Map<String, double>>(
-  (ref) => ref.watch(currenciesDaoProvider).watchAlive().map(
+  (ref) => ref
+      .watch(currenciesDaoProvider)
+      .watchAlive()
+      .map(
         (List<Currency> currencies) => <String, double>{
-          for (final Currency c in currencies) c.code: c.isBase ? 1.0 : c.rateToBase,
+          for (final Currency c in currencies)
+            c.code: c.isBase ? 1.0 : c.rateToBase,
         },
       ),
 );
@@ -88,9 +88,14 @@ final ratesSnapshotProvider = StreamProvider.autoDispose<Map<String, double>>(
 final totalBalanceProvider = StreamProvider.autoDispose<int>((ref) {
   final Map<String, double> rates =
       ref.watch(ratesSnapshotProvider).value ?? const <String, double>{};
-  return ref.watch(accountsDaoProvider).watchBalances().map(
+  return ref
+      .watch(accountsDaoProvider)
+      .watchBalances()
+      .map(
         (List<AccountBalance> balances) => balances
-            .where((AccountBalance row) => row.account.excludeFromBalance != true)
+            .where(
+              (AccountBalance row) => row.account.excludeFromBalance != true,
+            )
             .fold<int>(
               0,
               (int sum, AccountBalance row) =>
@@ -103,10 +108,13 @@ final totalBalanceProvider = StreamProvider.autoDispose<int>((ref) {
 /// чем в одной валюте. Моновалютному пользователю пометка не показывается
 /// (не шумим): у него «текущий курс» тождественно равен 1.
 final reportsMultiCurrencyProvider = StreamProvider.autoDispose<bool>((ref) {
-  return ref.watch(accountsDaoProvider).watchAlive().map(
-        (List<Account> accounts) => <String>{
-          for (final Account a in accounts) a.currencyCode,
-        }.length > 1,
+  return ref
+      .watch(accountsDaoProvider)
+      .watchAlive()
+      .map(
+        (List<Account> accounts) =>
+            <String>{for (final Account a in accounts) a.currencyCode}.length >
+            1,
       );
 });
 

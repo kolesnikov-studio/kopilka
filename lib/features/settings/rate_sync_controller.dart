@@ -23,9 +23,10 @@ final rateSyncServiceProvider = Provider<RateSyncService>(
 /// `rate_sync_preferences.dart` (по образцу `UpdatePreferencesStore`):
 /// [load] читает файл (вызывается экраном при старте), [setEnabled] пишет.
 /// До загрузки и до переключения состояние — выкл (D-36).
-final rateSyncEnabledProvider = NotifierProvider<RateSyncEnabledController, bool>(
-  RateSyncEnabledController.new,
-);
+final rateSyncEnabledProvider =
+    NotifierProvider<RateSyncEnabledController, bool>(
+      RateSyncEnabledController.new,
+    );
 
 class RateSyncEnabledController extends Notifier<bool> {
   @override
@@ -119,8 +120,7 @@ class RateSyncController extends Notifier<RateSyncState> {
   /// DAO — да. Базовая берётся из справочника; пустой справочник (до
   /// посева) — тихий отказ сети, как в [RateSyncService.syncNow].
   Future<RateSyncResult> applyRates(Map<String, double> rates) async {
-    final Currency? base =
-        await ref.read(currenciesDaoProvider).baseCurrency();
+    final Currency? base = await ref.read(currenciesDaoProvider).baseCurrency();
     if (base == null) {
       return const RateSyncOffline();
     }

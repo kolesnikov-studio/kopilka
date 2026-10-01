@@ -153,8 +153,9 @@ void main() {
       expect(await f.accounts.balanceMinor(rub.id), 500000);
       expect(await f.accounts.balanceMinor(usd.id), 5000);
       expect(
-        (await f.accounts.getBalances())
-            .map((AccountBalance b) => b.balanceMinor),
+        (await f.accounts.getBalances()).map(
+          (AccountBalance b) => b.balanceMinor,
+        ),
         <int>[500000, 5000],
       );
     },
@@ -175,34 +176,40 @@ void main() {
     expect(await rawRowCount(f.db, 'transactions'), 1);
   });
 
-  test('getBalances: порядок как у списка счетов, баланс свой у каждого', () async {
-    final Account second = await f.seedAccount(
-      name: 'Карта',
-      kind: AccountKind.card,
-      initialBalanceMinor: 5000,
-    );
-    final Account first = await f.accounts.create(
-      name: 'Наличные',
-      kind: AccountKind.cash,
-      currencyCode: 'RUB',
-      initialBalanceMinor: 100000,
-      sortOrder: -1,
-    );
-    await f.transactions.create(
-      type: TransactionType.expense,
-      accountId: second.id,
-      amountMinor: 3000,
-    );
+  test(
+    'getBalances: порядок как у списка счетов, баланс свой у каждого',
+    () async {
+      final Account second = await f.seedAccount(
+        name: 'Карта',
+        kind: AccountKind.card,
+        initialBalanceMinor: 5000,
+      );
+      final Account first = await f.accounts.create(
+        name: 'Наличные',
+        kind: AccountKind.cash,
+        currencyCode: 'RUB',
+        initialBalanceMinor: 100000,
+        sortOrder: -1,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: second.id,
+        amountMinor: 3000,
+      );
 
-    final List<AccountBalance> balances = await f.accounts.getBalances();
+      final List<AccountBalance> balances = await f.accounts.getBalances();
 
-    expect(
-      balances.map((AccountBalance b) => b.account.name),
-      <String>['Наличные', 'Карта'],
-    );
-    expect(balances.map((AccountBalance b) => b.balanceMinor), <int>[100000, 2000]);
-    expect(balances.first.account.id, first.id);
-  });
+      expect(balances.map((AccountBalance b) => b.account.name), <String>[
+        'Наличные',
+        'Карта',
+      ]);
+      expect(balances.map((AccountBalance b) => b.balanceMinor), <int>[
+        100000,
+        2000,
+      ]);
+      expect(balances.first.account.id, first.id);
+    },
+  );
 
   test('watchBalances пересчитывается при новой операции', () async {
     final Account account = await f.seedAccount(initialBalanceMinor: 100000);
@@ -232,36 +239,39 @@ void main() {
     );
   });
 
-  test('balanceMinor (однострочный SQL, R6) совпадает с watchBalances', () async {
-    final Account first = await f.seedAccount(initialBalanceMinor: 100000);
-    final Account second = await f.seedAccount(
-      name: 'Вторая',
-      initialBalanceMinor: 50000,
-    );
-    await f.transactions.create(
-      type: TransactionType.income,
-      accountId: first.id,
-      amountMinor: 30000,
-    );
-    await f.transactions.create(
-      type: TransactionType.expense,
-      accountId: first.id,
-      amountMinor: 12345,
-    );
-    await f.transactions.create(
-      type: TransactionType.transfer,
-      accountId: second.id,
-      targetAccountId: first.id,
-      amountMinor: 7000,
-    );
+  test(
+    'balanceMinor (однострочный SQL, R6) совпадает с watchBalances',
+    () async {
+      final Account first = await f.seedAccount(initialBalanceMinor: 100000);
+      final Account second = await f.seedAccount(
+        name: 'Вторая',
+        initialBalanceMinor: 50000,
+      );
+      await f.transactions.create(
+        type: TransactionType.income,
+        accountId: first.id,
+        amountMinor: 30000,
+      );
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: first.id,
+        amountMinor: 12345,
+      );
+      await f.transactions.create(
+        type: TransactionType.transfer,
+        accountId: second.id,
+        targetAccountId: first.id,
+        amountMinor: 7000,
+      );
 
-    final int single = await f.accounts.balanceMinor(first.id);
-    final int fromStream = (await f.accounts.watchBalances().first)
-        .firstWhere((AccountBalance b) => b.account.id == first.id)
-        .balanceMinor;
-    expect(single, 100000 + 30000 - 12345 + 7000);
-    expect(single, fromStream);
-  });
+      final int single = await f.accounts.balanceMinor(first.id);
+      final int fromStream = (await f.accounts.watchBalances().first)
+          .firstWhere((AccountBalance b) => b.account.id == first.id)
+          .balanceMinor;
+      expect(single, 100000 + 30000 - 12345 + 7000);
+      expect(single, fromStream);
+    },
+  );
 
   test('updateAccount меняет поля и обновляет только updatedAt', () async {
     final Account created = await f.seedAccount();
@@ -382,44 +392,43 @@ void main() {
     expect(normal.excludeFromBalance, isFalse);
   });
 
-  test(
-    'балансные агрегаты: счёт с флагом остаётся в выдаче, баланс свой (v5/D-54)',
-    () async {
-      // Решение по брифу: исключение из СУММАРНОГО баланса — на уровне
-      // агрегата контроллера отчётов; _balanceExpression (§8) не тронут,
-      // поэтому DAO обязан отдавать строку исключённого счёта с его
-      // персональным балансом как раньше.
-      final Account normal = await f.seedAccount(initialBalanceMinor: 100000);
-      final Account excluded = await f.accounts.create(
-        name: 'Накопления',
-        kind: AccountKind.bank,
-        currencyCode: 'RUB',
-        initialBalanceMinor: 900000,
-        excludeFromBalance: true,
-      );
-      await f.transactions.create(
-        type: TransactionType.expense,
-        accountId: excluded.id,
-        amountMinor: 50000,
-      );
+  test('балансные агрегаты: счёт с флагом остаётся в выдаче, баланс свой (v5/D-54)', () async {
+    // Решение по брифу: исключение из СУММАРНОГО баланса — на уровне
+    // агрегата контроллера отчётов; _balanceExpression (§8) не тронут,
+    // поэтому DAO обязан отдавать строку исключённого счёта с его
+    // персональным балансом как раньше.
+    final Account normal = await f.seedAccount(initialBalanceMinor: 100000);
+    final Account excluded = await f.accounts.create(
+      name: 'Накопления',
+      kind: AccountKind.bank,
+      currencyCode: 'RUB',
+      initialBalanceMinor: 900000,
+      excludeFromBalance: true,
+    );
+    await f.transactions.create(
+      type: TransactionType.expense,
+      accountId: excluded.id,
+      amountMinor: 50000,
+    );
 
-      final List<AccountBalance> balances = await f.accounts.getBalances();
-      // Строка исключённого счёта не выпадает из потока балансов.
-      expect(balances, hasLength(2));
-      expect(
-        balances.firstWhere((AccountBalance b) => b.account.id == excluded.id)
-            .balanceMinor,
-        850000,
-        reason: 'персональный баланс исключённого счёта не меняется',
-      );
-      expect(
-        balances.firstWhere((AccountBalance b) => b.account.id == normal.id)
-            .balanceMinor,
-        100000,
-      );
-      expect(await f.accounts.balanceMinor(excluded.id), 850000);
-    },
-  );
+    final List<AccountBalance> balances = await f.accounts.getBalances();
+    // Строка исключённого счёта не выпадает из потока балансов.
+    expect(balances, hasLength(2));
+    expect(
+      balances
+          .firstWhere((AccountBalance b) => b.account.id == excluded.id)
+          .balanceMinor,
+      850000,
+      reason: 'персональный баланс исключённого счёта не меняется',
+    );
+    expect(
+      balances
+          .firstWhere((AccountBalance b) => b.account.id == normal.id)
+          .balanceMinor,
+      100000,
+    );
+    expect(await f.accounts.balanceMinor(excluded.id), 850000);
+  });
 
   test('updateAccount переключает флаг у живого счёта (v5/D-54)', () async {
     final Account account = await f.seedAccount(initialBalanceMinor: 100000);
@@ -465,33 +474,35 @@ void main() {
     expect(normal.interestReminderDate, isNull);
   });
 
-  test('updateAccount правит дату напоминания Companion-параметром (v7/D-81)',
-      () async {
-    await f.ensureRub();
-    final Account account = await f.seedAccount(name: 'Накопительный');
-    expect(account.interestReminderDate, isNull);
+  test(
+    'updateAccount правит дату напоминания Companion-параметром (v7/D-81)',
+    () async {
+      await f.ensureRub();
+      final Account account = await f.seedAccount(name: 'Накопительный');
+      expect(account.interestReminderDate, isNull);
 
-    f.clock.advance(const Duration(days: 1));
-    final Account withDate = await f.accounts.updateAccount(
-      account.id,
-      interestReminderDate: Value<DateTime?>(DateTime.utc(2026, 11, 30)),
-    );
-    expect(withDate.interestReminderDate, '2026-11-30T00:00:00.000Z');
-    expect(withDate.updatedAt.toUtc(), f.clock.read());
+      f.clock.advance(const Duration(days: 1));
+      final Account withDate = await f.accounts.updateAccount(
+        account.id,
+        interestReminderDate: Value<DateTime?>(DateTime.utc(2026, 11, 30)),
+      );
+      expect(withDate.interestReminderDate, '2026-11-30T00:00:00.000Z');
+      expect(withDate.updatedAt.toUtc(), f.clock.read());
 
-    // Сброс даты возвращает статус обычного счёта (D-81).
-    final Account reset = await f.accounts.updateAccount(
-      account.id,
-      interestReminderDate: const Value<DateTime?>(null),
-    );
-    expect(reset.interestReminderDate, isNull);
+      // Сброс даты возвращает статус обычного счёта (D-81).
+      final Account reset = await f.accounts.updateAccount(
+        account.id,
+        interestReminderDate: const Value<DateTime?>(null),
+      );
+      expect(reset.interestReminderDate, isNull);
 
-    // Value.absent() — поле не менять (семантика частичных обновлений A1).
-    final Account untouched = await f.accounts.updateAccount(
-      account.id,
-      name: const Value<String>('Переименованный'),
-    );
-    expect(untouched.interestReminderDate, isNull);
-    expect(untouched.name, 'Переименованный');
-  });
+      // Value.absent() — поле не менять (семантика частичных обновлений A1).
+      final Account untouched = await f.accounts.updateAccount(
+        account.id,
+        name: const Value<String>('Переименованный'),
+      );
+      expect(untouched.interestReminderDate, isNull);
+      expect(untouched.name, 'Переименованный');
+    },
+  );
 }

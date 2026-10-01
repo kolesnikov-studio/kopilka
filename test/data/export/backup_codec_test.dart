@@ -23,8 +23,9 @@ Future<void> seedWithSoftDeleted(AppDatabase database) async {
     currencyCode: 'RUB',
     initialBalanceMinor: 1000,
   );
-  final List<Category> expense =
-      await database.categoriesDao.getAlive(kind: CategoryKind.expense);
+  final List<Category> expense = await database.categoriesDao.getAlive(
+    kind: CategoryKind.expense,
+  );
   await database.transactionsDao.create(
     type: TransactionType.expense,
     accountId: (await database.accountsDao.getAlive()).single.id,
@@ -41,49 +42,55 @@ Future<void> seedWithSoftDeleted(AppDatabase database) async {
 }
 
 void main() {
-  test('экспорт даёт формат v1 с полным дампом, включая мягко удалённые',
-      () async {
+  test(
+    'экспорт даёт формат v1 с полным дампом, включая мягко удалённые',
+    () async {
+      final AppDatabase database = db();
+      addTearDown(database.close);
+      await seedWithSoftDeleted(database);
+
+      final Map<String, dynamic> document = jsonDecode(
+        await BackupService(database).exportJson(),
+      ) as Map<String, dynamic>;
+
+      expect(document['schema_version'], backupSchemaVersion);
+      expect(
+        DateTime.parse(document['exported_at'] as String).toUtc(),
+        isA<DateTime>(),
+      );
+      final Map<String, dynamic> data =
+          document['data'] as Map<String, dynamic>;
+      expect(
+        data.keys,
+        containsAll(<String>[
+          'currencies',
+          'accounts',
+          'categories',
+          'transactions',
+        ]),
+      );
+      // Мягко удалённая категория присутствует в дампе.
+      final List<dynamic> categories = data['categories'] as List<dynamic>;
+      expect(
+        categories.where((dynamic row) => row['deleted_at'] != null),
+        hasLength(1),
+      );
+      // Проверка полноты: строка операции с деньгами в минорных единицах.
+      final List<dynamic> transactions = data['transactions'] as List<dynamic>;
+      expect(transactions.single['amount_minor'], 250);
+      expect(transactions.single['currency_code'], 'RUB');
+    },
+  );
+
+  test('декод возвращает типизированные строки и версию исходника', () async {
     final AppDatabase database = db();
     addTearDown(database.close);
     await seedWithSoftDeleted(database);
 
-    final Map<String, dynamic> document =
-        jsonDecode(await BackupService(database).exportJson())
-            as Map<String, dynamic>;
-
-    expect(document['schema_version'], backupSchemaVersion);
-    expect(DateTime.parse(document['exported_at'] as String).toUtc(),
-        isA<DateTime>());
-    final Map<String, dynamic> data =
-        document['data'] as Map<String, dynamic>;
-    expect(data.keys, containsAll(<String>[
-      'currencies',
-      'accounts',
-      'categories',
-      'transactions',
-    ]));
-    // Мягко удалённая категория присутствует в дампе.
-    final List<dynamic> categories = data['categories'] as List<dynamic>;
-    expect(
-      categories.where((dynamic row) => row['deleted_at'] != null),
-      hasLength(1),
+    final String json = await BackupService(database).exportJson();
+    final DecodedBackup backup = decodeJson(
+      jsonDecode(json) as Map<String, dynamic>,
     );
-    // Проверка полноты: строка операции с деньгами в минорных единицах.
-    final List<dynamic> transactions = data['transactions'] as List<dynamic>;
-    expect(transactions.single['amount_minor'], 250);
-    expect(transactions.single['currency_code'], 'RUB');
-  });
-
-  test('декод возвращает типизированные строки и версию исходника',
-      () async {
-    final AppDatabase database = db();
-    addTearDown(database.close);
-    await seedWithSoftDeleted(database);
-
-    final String json =
-        await BackupService(database).exportJson();
-    final DecodedBackup backup =
-        decodeJson(jsonDecode(json) as Map<String, dynamic>);
 
     expect(backup.schemaVersion, backupSchemaVersion);
     expect(backup.currencies.single.code, 'RUB');
@@ -214,8 +221,10 @@ void main() {
     expect(backup.schemaVersion, 1);
     expect(backup.budgets, isEmpty);
     expect(backup.currencies, isEmpty);
-    expect(backup.exportedAt?.toUtc().toIso8601String(),
-        '2026-09-25T10:00:00.000Z');
+    expect(
+      backup.exportedAt?.toUtc().toIso8601String(),
+      '2026-09-25T10:00:00.000Z',
+    );
   });
 
   test('декод читает таблицу budgets формата v2', () {
@@ -497,77 +506,83 @@ void main() {
     );
   });
 
-  test('v5: строка счёта с exclude_from_balance читается типизированно (D-54)', () {
-    final Map<String, dynamic> document = <String, dynamic>{
-      'schema_version': 5,
-      'data': <String, dynamic>{
-        'currencies': <dynamic>[],
-        'accounts': <dynamic>[
-          <String, dynamic>{
-            'id': 'acc-1',
-            'name': 'Накопительный',
-            'kind': 'bank',
-            'currency_code': 'RUB',
-            'initial_balance_minor': 9900000,
-            'sort_order': 0,
-            'exclude_from_balance': true,
-            'created_at': '2026-09-29T00:00:00.000Z',
-            'updated_at': '2026-09-29T00:00:00.000Z',
-          },
-          <String, dynamic>{
-            'id': 'acc-2',
-            'name': 'Карта',
-            'kind': 'card',
-            'currency_code': 'RUB',
-            'initial_balance_minor': 100000,
-            'sort_order': 1,
-            'exclude_from_balance': false,
-            'created_at': '2026-09-29T00:00:00.000Z',
-            'updated_at': '2026-09-29T00:00:00.000Z',
-          },
-        ],
-        'categories': <dynamic>[],
-        'transactions': <dynamic>[],
-        'budgets': <dynamic>[],
-      },
-    };
-    final DecodedBackup backup = decodeJson(document);
-    expect(backup.accounts, hasLength(2));
-    expect(backup.accounts.first.excludeFromBalance, isTrue);
-    // false — валидное явное «учитывать».
-    expect(backup.accounts.last.excludeFromBalance, isFalse);
-  });
+  test(
+    'v5: строка счёта с exclude_from_balance читается типизированно (D-54)',
+    () {
+      final Map<String, dynamic> document = <String, dynamic>{
+        'schema_version': 5,
+        'data': <String, dynamic>{
+          'currencies': <dynamic>[],
+          'accounts': <dynamic>[
+            <String, dynamic>{
+              'id': 'acc-1',
+              'name': 'Накопительный',
+              'kind': 'bank',
+              'currency_code': 'RUB',
+              'initial_balance_minor': 9900000,
+              'sort_order': 0,
+              'exclude_from_balance': true,
+              'created_at': '2026-09-29T00:00:00.000Z',
+              'updated_at': '2026-09-29T00:00:00.000Z',
+            },
+            <String, dynamic>{
+              'id': 'acc-2',
+              'name': 'Карта',
+              'kind': 'card',
+              'currency_code': 'RUB',
+              'initial_balance_minor': 100000,
+              'sort_order': 1,
+              'exclude_from_balance': false,
+              'created_at': '2026-09-29T00:00:00.000Z',
+              'updated_at': '2026-09-29T00:00:00.000Z',
+            },
+          ],
+          'categories': <dynamic>[],
+          'transactions': <dynamic>[],
+          'budgets': <dynamic>[],
+        },
+      };
+      final DecodedBackup backup = decodeJson(document);
+      expect(backup.accounts, hasLength(2));
+      expect(backup.accounts.first.excludeFromBalance, isTrue);
+      // false — валидное явное «учитывать».
+      expect(backup.accounts.last.excludeFromBalance, isFalse);
+    },
+  );
 
-  test('v4-файл без поля exclude_from_balance: счёт читается как NULL (D-54)', () {
-    final Map<String, dynamic> document = <String, dynamic>{
-      'schema_version': 4,
-      'data': <String, dynamic>{
-        'currencies': <dynamic>[],
-        'accounts': <dynamic>[
-          <String, dynamic>{
-            'id': 'acc-1',
-            'name': 'Карта',
-            'kind': 'card',
-            'currency_code': 'RUB',
-            'initial_balance_minor': 100000,
-            'sort_order': 0,
-            'created_at': '2026-09-29T00:00:00.000Z',
-            'updated_at': '2026-09-29T00:00:00.000Z',
-          },
-        ],
-        'categories': <dynamic>[],
-        'transactions': <dynamic>[],
-        'budgets': <dynamic>[],
-      },
-    };
-    final DecodedBackup backup = decodeJson(document);
-    expect(backup.schemaVersion, 4);
-    expect(
-      backup.accounts.single.excludeFromBalance,
-      isNull,
-      reason: 'нет поля = NULL = «учитывать» (v1–v4)',
-    );
-  });
+  test(
+    'v4-файл без поля exclude_from_balance: счёт читается как NULL (D-54)',
+    () {
+      final Map<String, dynamic> document = <String, dynamic>{
+        'schema_version': 4,
+        'data': <String, dynamic>{
+          'currencies': <dynamic>[],
+          'accounts': <dynamic>[
+            <String, dynamic>{
+              'id': 'acc-1',
+              'name': 'Карта',
+              'kind': 'card',
+              'currency_code': 'RUB',
+              'initial_balance_minor': 100000,
+              'sort_order': 0,
+              'created_at': '2026-09-29T00:00:00.000Z',
+              'updated_at': '2026-09-29T00:00:00.000Z',
+            },
+          ],
+          'categories': <dynamic>[],
+          'transactions': <dynamic>[],
+          'budgets': <dynamic>[],
+        },
+      };
+      final DecodedBackup backup = decodeJson(document);
+      expect(backup.schemaVersion, 4);
+      expect(
+        backup.accounts.single.excludeFromBalance,
+        isNull,
+        reason: 'нет поля = NULL = «учитывать» (v1–v4)',
+      );
+    },
+  );
 
   test('битый exclude_from_balance (не булево) — отказ invalidData (D-25)', () {
     final Map<String, dynamic> document = <String, dynamic>{
@@ -637,7 +652,8 @@ void main() {
     expect(backup.attachments, hasLength(1));
     expect(backup.attachments.single.id, 'att-1');
     expect(backup.attachments.single.transactionId, 'tx-1');
-    expect(backup.attachments.single.filePath, 'e0abf12c-9.jpg');    expect(backup.attachments.single.mimeType, 'image/jpeg');
+    expect(backup.attachments.single.filePath, 'e0abf12c-9.jpg');
+    expect(backup.attachments.single.mimeType, 'image/jpeg');
     expect(backup.attachments.single.fileSize, 123456);
     expect(backup.attachments.single.deletedAt, isNull);
   });
@@ -662,20 +678,23 @@ void main() {
     );
   });
 
-  test('attachments не массив — отказ invalidFormat (общее правило таблиц)', () {
-    final Map<String, dynamic> document = v6Document(baseAttachment);
-    (document['data'] as Map<String, dynamic>)['attachments'] = 'мусор';
-    expect(
-      () => decodeJson(document),
-      throwsA(
-        isA<BackupValidationException>().having(
-          (BackupValidationException error) => error.kind,
-          'kind',
-          BackupFailure.invalidFormat,
+  test(
+    'attachments не массив — отказ invalidFormat (общее правило таблиц)',
+    () {
+      final Map<String, dynamic> document = v6Document(baseAttachment);
+      (document['data'] as Map<String, dynamic>)['attachments'] = 'мусор';
+      expect(
+        () => decodeJson(document),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException error) => error.kind,
+            'kind',
+            BackupFailure.invalidFormat,
+          ),
         ),
-      ),
-    );
-  });
+      );
+    },
+  );
 
   test('пустой file_path — отказ invalidData (D-64)', () {
     final Map<String, dynamic> document = v6Document(<String, dynamic>{
@@ -752,20 +771,19 @@ void main() {
     Map<String, dynamic>? debt,
     Map<String, dynamic>? payment,
     List<dynamic>? accounts,
-  }) =>
-      <String, dynamic>{
-        'schema_version': 7,
-        'data': <String, dynamic>{
-          'currencies': <dynamic>[],
-          'accounts': accounts ?? <dynamic>[],
-          'categories': <dynamic>[],
-          'transactions': <dynamic>[],
-          'budgets': <dynamic>[],
-          'attachments': <dynamic>[],
-          if (debt != null) 'debts': <dynamic>[debt],
-          if (payment != null) 'debt_payments': <dynamic>[payment],
-        },
-      };
+  }) => <String, dynamic>{
+    'schema_version': 7,
+    'data': <String, dynamic>{
+      'currencies': <dynamic>[],
+      'accounts': accounts ?? <dynamic>[],
+      'categories': <dynamic>[],
+      'transactions': <dynamic>[],
+      'budgets': <dynamic>[],
+      'attachments': <dynamic>[],
+      if (debt != null) 'debts': <dynamic>[debt],
+      if (payment != null) 'debt_payments': <dynamic>[payment],
+    },
+  };
 
   final Map<String, dynamic> baseDebt = <String, dynamic>{
     'id': 'debt-1',
@@ -793,8 +811,9 @@ void main() {
   };
 
   test('v7: долг и платёж читаются типизированно (D-85)', () {
-    final DecodedBackup backup =
-        decodeJson(v7Document(debt: baseDebt, payment: basePayment));
+    final DecodedBackup backup = decodeJson(
+      v7Document(debt: baseDebt, payment: basePayment),
+    );
     expect(backup.schemaVersion, 7);
     expect(backup.debts, hasLength(1));
     expect(backup.debts.single.id, 'debt-1');
@@ -816,17 +835,12 @@ void main() {
   });
 
   test('v7: долг без срока и заметки, платёж без перевода — NULL (D-85)', () {
-    final DecodedBackup backup = decodeJson(v7Document(
-      debt: <String, dynamic>{
-        ...baseDebt,
-        'due_date': null,
-        'note': null,
-      },
-      payment: <String, dynamic>{
-        ...basePayment,
-        'transaction_id': null,
-      },
-    ));
+    final DecodedBackup backup = decodeJson(
+      v7Document(
+        debt: <String, dynamic>{...baseDebt, 'due_date': null, 'note': null},
+        payment: <String, dynamic>{...basePayment, 'transaction_id': null},
+      ),
+    );
     expect(backup.debts.single.dueDate, isNull);
     expect(backup.debts.single.note, isNull);
     expect(backup.debtPayments.single.transactionId, isNull);
@@ -900,61 +914,72 @@ void main() {
     }
   });
 
-  test('v7: interest_reminder_date счёта читается, v6-строка — NULL (D-85)', () {
-    final Map<String, dynamic> accountRow = <String, dynamic>{
-      'id': 'acc-1',
-      'name': 'Накопительный',
-      'kind': 'bank',
-      'currency_code': 'RUB',
-      'initial_balance_minor': 9900000,
-      'sort_order': 0,
-      'interest_reminder_date': '2026-10-30T00:00:00.000Z',
-      'created_at': '2026-09-30T00:00:00.000Z',
-      'updated_at': '2026-09-30T00:00:00.000Z',
-    };
-    final DecodedBackup backup =
-        decodeJson(v7Document(accounts: <dynamic>[accountRow]));
-    expect(
-      backup.accounts.single.interestReminderDate?.toUtc(),
-      DateTime.utc(2026, 10, 30),
-    );
+  test(
+    'v7: interest_reminder_date счёта читается, v6-строка — NULL (D-85)',
+    () {
+      final Map<String, dynamic> accountRow = <String, dynamic>{
+        'id': 'acc-1',
+        'name': 'Накопительный',
+        'kind': 'bank',
+        'currency_code': 'RUB',
+        'initial_balance_minor': 9900000,
+        'sort_order': 0,
+        'interest_reminder_date': '2026-10-30T00:00:00.000Z',
+        'created_at': '2026-09-30T00:00:00.000Z',
+        'updated_at': '2026-09-30T00:00:00.000Z',
+      };
+      final DecodedBackup backup = decodeJson(
+        v7Document(accounts: <dynamic>[accountRow]),
+      );
+      expect(
+        backup.accounts.single.interestReminderDate?.toUtc(),
+        DateTime.utc(2026, 10, 30),
+      );
 
-    // Нет поля (v1–v6) = NULL.
-    final Map<String, dynamic> withoutField =
-        Map<String, dynamic>.from(accountRow)
-          ..remove('interest_reminder_date');
-    final DecodedBackup oldFile =
-        decodeJson(v7Document(accounts: <dynamic>[withoutField]));
-    expect(oldFile.accounts.single.interestReminderDate, isNull);
-  });
+      // Нет поля (v1–v6) = NULL.
+      final Map<String, dynamic> withoutField = Map<String, dynamic>.from(
+        accountRow,
+      )..remove('interest_reminder_date');
+      final DecodedBackup oldFile = decodeJson(
+        v7Document(accounts: <dynamic>[withoutField]),
+      );
+      expect(oldFile.accounts.single.interestReminderDate, isNull);
+    },
+  );
 
-  test('импорт v5-файла восстанавливает флаг счёта (round-trip кодека)', () async {
-    final AppDatabase database = db();
-    addTearDown(database.close);
-    await seedDefaultsIfEmpty(database);
-    await database.accountsDao.create(
-      name: 'Накопительный',
-      kind: AccountKind.bank,
-      currencyCode: 'RUB',
-      initialBalanceMinor: 9900000,
-      excludeFromBalance: true,
-    );
+  test(
+    'импорт v5-файла восстанавливает флаг счёта (round-trip кодека)',
+    () async {
+      final AppDatabase database = db();
+      addTearDown(database.close);
+      await seedDefaultsIfEmpty(database);
+      await database.accountsDao.create(
+        name: 'Накопительный',
+        kind: AccountKind.bank,
+        currencyCode: 'RUB',
+        initialBalanceMinor: 9900000,
+        excludeFromBalance: true,
+      );
 
-    final String json = await BackupService(database).exportJson();
-    final Map<String, dynamic> document =
-        jsonDecode(json) as Map<String, dynamic>;
-    expect(document['schema_version'], backupSchemaVersion);
-    // Замок версии формата (прецедент замков миграций D-55): экспорт
-    // обязан быть v7 — долги и платежи в дампе (M6, D-85).
-    expect(backupSchemaVersion, 7);
+      final String json = await BackupService(database).exportJson();
+      final Map<String, dynamic> document =
+          jsonDecode(json) as Map<String, dynamic>;
+      expect(document['schema_version'], backupSchemaVersion);
+      // Замок версии формата (прецедент замков миграций D-55): экспорт
+      // обязан быть v7 — долги и платежи в дампе (M6, D-85).
+      expect(backupSchemaVersion, 7);
 
-    final AppDatabase restored = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(restored.close);
-    await BackupService(restored).importJson(json);
+      final AppDatabase restored = AppDatabase.forTesting(
+        NativeDatabase.memory(),
+      );
+      addTearDown(restored.close);
+      await BackupService(restored).importJson(json);
 
-    final List<Account> accounts = await restored.accountsDao.getAlive();
-    final Account savings =
-        accounts.singleWhere((Account a) => a.name == 'Накопительный');
-    expect(savings.excludeFromBalance, isTrue);
-  });
+      final List<Account> accounts = await restored.accountsDao.getAlive();
+      final Account savings = accounts.singleWhere(
+        (Account a) => a.name == 'Накопительный',
+      );
+      expect(savings.excludeFromBalance, isTrue);
+    },
+  );
 }

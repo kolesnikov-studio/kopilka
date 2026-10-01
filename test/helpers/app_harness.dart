@@ -14,8 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/app/app.dart';
-import 'package:kopilka/data/attachments_service.dart'
-    show AttachmentsService;
+import 'package:kopilka/data/attachments_service.dart' show AttachmentsService;
 import 'package:kopilka/data/attachments_storage.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/seed.dart';
@@ -67,8 +66,9 @@ Future<AppHarness> pumpDialogApp(
   addTearDown(tester.platformDispatcher.clearLocaleTestValue);
   addTearDown(tester.platformDispatcher.clearLocalesTestValue);
 
-  final AppLocalizations l10n =
-      await AppLocalizations.delegate.load(const Locale('ru'));
+  final AppLocalizations l10n = await AppLocalizations.delegate.load(
+    const Locale('ru'),
+  );
 
   final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
   addTearDown(db.close);
@@ -86,10 +86,12 @@ Future<AppHarness> pumpDialogApp(
   final ProviderContainer container = ProviderContainer(
     overrides: [
       appDatabaseProvider.overrideWithValue(db),
-      autoBackupDirectoryStoreProvider
-          .overrideWithValue(AutoBackupDirectoryStore(baseDirectory: baseDir)),
-      updatePreferencesStoreProvider
-          .overrideWithValue(UpdatePreferencesStore(baseDirectory: baseDir)),
+      autoBackupDirectoryStoreProvider.overrideWithValue(
+        AutoBackupDirectoryStore(baseDirectory: baseDir),
+      ),
+      updatePreferencesStoreProvider.overrideWithValue(
+        UpdatePreferencesStore(baseDirectory: baseDir),
+      ),
       // Настройка напоминаний (M6/D-83/D-89): тот же приём каталога
       // настроек, что у остальных store (D-43); дефолт — выкл.
       remindersPreferencesStoreProvider.overrideWithValue(
@@ -97,7 +99,9 @@ Future<AppHarness> pumpDialogApp(
       ),
       attachmentsStorageProvider.overrideWithValue(
         AttachmentsStorage(
-          rootDirectory: Directory('${baseDir.path}${Platform.pathSeparator}attachments'),
+          rootDirectory: Directory(
+            '${baseDir.path}${Platform.pathSeparator}attachments',
+          ),
         ),
       ),
       if (attachmentsService != null)
@@ -108,10 +112,7 @@ Future<AppHarness> pumpDialogApp(
   addTearDown(container.dispose);
 
   await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: const KopilkaApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const KopilkaApp()),
   );
   await tester.pumpAndSettle();
   return AppHarness(container, db, l10n);

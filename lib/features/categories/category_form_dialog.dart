@@ -110,8 +110,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final bool editing = widget.initial != null;
     final List<Category> sameKind =
-        ref.watch(categoriesByKindProvider(_kind)).value ??
-            const <Category>[];
+        ref.watch(categoriesByKindProvider(_kind)).value ?? const <Category>[];
     final List<Category> parentOptions = sameKind
         .where((Category category) => category.id != widget.initial?.id)
         .toList();
@@ -128,8 +127,8 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
                 decoration: InputDecoration(labelText: l10n.nameLabel),
                 validator: (String? value) =>
                     (value == null || value.trim().isEmpty)
-                        ? l10n.errorInvalidInput
-                        : null,
+                    ? l10n.errorInvalidInput
+                    : null,
               ),
               const SizedBox(height: 12),
               SegmentedButton<CategoryKind>(
@@ -149,7 +148,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
                 onSelectionChanged: editing
                     ? null
                     : (Set<CategoryKind> selection) =>
-                        setState(() => _kind = selection.first),
+                          setState(() => _kind = selection.first),
               ),
               const SizedBox(height: 12),
               _CategoryIconPicker(
@@ -162,9 +161,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
                 // isExpanded — конвенция dropdown'ов форм (счета, категории
                 // в форме операции): длинное имя в строке не раздвигает диалог.
                 isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: l10n.categoryParent,
-                ),
+                decoration: InputDecoration(labelText: l10n.categoryParent),
                 items: <DropdownMenuItem<String?>>[
                   DropdownMenuItem<String?>(
                     child: Text(
@@ -192,10 +189,7 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.cancelAction),
         ),
-        FilledButton(
-          onPressed: _submit,
-          child: Text(l10n.saveAction),
-        ),
+        FilledButton(onPressed: _submit, child: Text(l10n.saveAction)),
       ],
     );
   }
@@ -209,7 +203,10 @@ class _CategoryFormDialogState extends ConsumerState<_CategoryFormDialog> {
 /// Wrap интринсики умеет; вся сетка видна целиком, при нехватке высоты окна
 /// диалог скроллится целиком (SingleChildScrollView вокруг формы).
 class _CategoryIconPicker extends StatelessWidget {
-  const _CategoryIconPicker({required this.selectedCode, required this.onSelected});
+  const _CategoryIconPicker({
+    required this.selectedCode,
+    required this.onSelected,
+  });
 
   final String selectedCode;
   final ValueChanged<String> onSelected;

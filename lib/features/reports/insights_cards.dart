@@ -30,32 +30,37 @@ DateTime? _parseUtcDate(String? iso) {
 /// напоминание живо весь сегодняшний день UTC, уходит при переносе
 /// даты. Независимо от opt-in напоминаний — экранный канал и честный
 /// fallback Linux (D-88.3: расписание не ставится, карточка работает всюду).
-bool _isDueTodayOrEarlier(DateTime date, DateTime nowUtc) =>
-    !date.isAfter(DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day, 23, 59,
-        59, 999));
+bool _isDueTodayOrEarlier(DateTime date, DateTime nowUtc) => !date.isAfter(
+  DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day, 23, 59, 59, 999),
+);
 
 /// Живые счёта накопительные с датой напоминания ≤ сегодня (UTC),
 /// для карточки-напоминания (спека §3): линза над потоком
 /// [AccountsDao.watchBalances] без хранения (D-16/D-18).
 final interestReminderAccountsProvider =
     StreamProvider.autoDispose<List<AccountBalance>>((ref) {
-  return ref.watch(accountsDaoProvider).watchBalances().map(
-        (List<AccountBalance> rows) => rows
-            .where((AccountBalance row) {
-              final DateTime? date =
-                  _parseUtcDate(row.account.interestReminderDate);
+      return ref
+          .watch(accountsDaoProvider)
+          .watchBalances()
+          .map(
+            (List<AccountBalance> rows) => rows.where((AccountBalance row) {
+              final DateTime? date = _parseUtcDate(
+                row.account.interestReminderDate,
+              );
               return date != null && _isDueTodayOrEarlier(date, utcNow());
-            })
-            .toList(),
-      );
-});
+            }).toList(),
+          );
+    });
 
 /// Есть ли живой накопительный счёт — UI-фильтр совета (спека §4,
 /// D-92.2): совет скрыт, пока жив хотя бы один накопительный счёт,
 /// иначе текст и CTA «создать накопительный счёт» лгут владельцу.
 /// Дескриптор справочника не трогается (данные, не код, §8.е).
 final hasSavingsAccountProvider = StreamProvider.autoDispose<bool>((ref) {
-  return ref.watch(accountsDaoProvider).watchBalances().map(
+  return ref
+      .watch(accountsDaoProvider)
+      .watchBalances()
+      .map(
         (List<AccountBalance> rows) => rows.any(
           (AccountBalance row) =>
               _parseUtcDate(row.account.interestReminderDate) != null,
@@ -84,8 +89,9 @@ class _InterestReminderCardState extends ConsumerState<InterestReminderCard> {
   @override
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
-    final List<AccountBalance>? rows =
-        ref.watch(interestReminderAccountsProvider).value;
+    final List<AccountBalance>? rows = ref
+        .watch(interestReminderAccountsProvider)
+        .value;
     // Loading/error/нет условий — карточка не рисуется (спека §8).
     if (_dismissed || rows == null || rows.isEmpty) {
       return const SizedBox.shrink();
@@ -93,17 +99,19 @@ class _InterestReminderCardState extends ConsumerState<InterestReminderCard> {
     // Самый ранний срок (спека §3): сравнение UTC-моментов.
     AccountBalance earliest = rows.first;
     for (final AccountBalance row in rows) {
-      final DateTime? candidate =
-          _parseUtcDate(row.account.interestReminderDate);
-      final DateTime? current =
-          _parseUtcDate(earliest.account.interestReminderDate);
+      final DateTime? candidate = _parseUtcDate(
+        row.account.interestReminderDate,
+      );
+      final DateTime? current = _parseUtcDate(
+        earliest.account.interestReminderDate,
+      );
       if (candidate != null &&
           (current == null || candidate.isBefore(current))) {
         earliest = row;
       }
     }
-    final DateTime? date =
-        _parseUtcDate(earliest.account.interestReminderDate)?.toLocal();
+    final DateTime? date = _parseUtcDate(earliest.account.interestReminderDate)
+        ?.toLocal();
 
     return Card(
       margin: EdgeInsets.zero,
@@ -141,8 +149,8 @@ class _InterestReminderCardState extends ConsumerState<InterestReminderCard> {
                 Text(
                   l10n.dashboardInterestMore(rows.length - 1),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
             ],
           ),

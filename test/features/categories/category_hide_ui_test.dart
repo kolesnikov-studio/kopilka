@@ -46,14 +46,17 @@ void main() {
       await tester.pumpAndSettle();
 
       // Снек об успехе; категория ушла с экрана.
-      expect(find.text(app.l10n.categoryHiddenSnack('Продукты')),
-          findsOneWidget);
+      expect(
+        find.text(app.l10n.categoryHiddenSnack('Продукты')),
+        findsOneWidget,
+      );
       expect(find.text('Продукты'), findsNothing);
 
       // Скрытие прошло через контроллер и DAO: в БД строка скрыта,
       // из живого списка исчезла.
-      final List<Category> alive =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
+      final List<Category> alive = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.expense,
+      );
       expect(alive.any((Category c) => c.name == 'Продукты'), isFalse);
       final List<Category> hidden = (await tester.runAsync(
         () => app.db.categoriesDao.watchHiddenSystem().first,
@@ -71,7 +74,11 @@ void main() {
       );
       await app.container
           .read(categoriesControllerProvider.notifier)
-          .createCategory(name: 'Хобби', kind: CategoryKind.expense, iconCode: 'hobby');
+          .createCategory(
+            name: 'Хобби',
+            kind: CategoryKind.expense,
+            iconCode: 'hobby',
+          );
       await tester.pumpAndSettle();
       await _openCategories(tester, app);
 
@@ -85,8 +92,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Хобби'), findsNothing);
-      final List<Category> alive =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.expense);
+      final List<Category> alive = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.expense,
+      );
       expect(alive.any((Category c) => c.name == 'Хобби'), isFalse);
     },
   );
@@ -100,7 +108,11 @@ void main() {
       );
       final Result<Category> created = await app.container
           .read(categoriesControllerProvider.notifier)
-          .createCategory(name: 'Мойки', kind: CategoryKind.expense, iconCode: 'cleaning');
+          .createCategory(
+            name: 'Мойки',
+            kind: CategoryKind.expense,
+            iconCode: 'cleaning',
+          );
       final String categoryId = created.value.id;
       await app.db.accountsDao.create(
         name: 'Карта',

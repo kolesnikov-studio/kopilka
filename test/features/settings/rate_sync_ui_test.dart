@@ -34,17 +34,14 @@ const ValueKey<String> _buttonKey = ValueKey<String>('rateSyncNowButton');
 
 /// Источник отвечает «USD: 0.0125 за единицу базы» (D-42: сервис развернёт
 /// в 80); [answer] — общая заготовка ответа.
-http.Client _client(Future<http.Response> Function() answer) => MockClient(
-      (http.Request request) async => answer(),
-    );
+http.Client _client(Future<http.Response> Function() answer) =>
+    MockClient((http.Request request) async => answer());
 
 Future<Directory> _tempDir(WidgetTester tester) async {
   final Directory directory = (await tester.runAsync(
     () => Directory.systemTemp.createTemp('kopilka_ratesync_widget'),
   ))!;
-  addTearDown(
-    () => tester.runAsync(() => directory.delete(recursive: true)),
-  );
+  addTearDown(() => tester.runAsync(() => directory.delete(recursive: true)));
   return directory;
 }
 
@@ -114,23 +111,19 @@ Future<void> _enableByTap(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('галочка выключена — кнопка неактивна (D-36, opt-in)',
-      (WidgetTester tester) async {
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
-    await _pump(
-      tester,
-      client: _client(() async => fail('сеть не ожидается')),
+  testWidgets('галочка выключена — кнопка неактивна (D-36, opt-in)', (
+    WidgetTester tester,
+  ) async {
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
     );
+    await _pump(tester, client: _client(() async => fail('сеть не ожидается')));
 
     expect(find.text(l10n.rateSyncSectionTitle), findsOneWidget);
     expect(find.text(l10n.rateSyncEnabled), findsOneWidget);
     expect(find.text(l10n.rateSyncEnabledHint), findsOneWidget);
     expect(find.text(l10n.rateSyncNow), findsOneWidget);
-    expect(
-      tester.widget<Switch>(find.byType(Switch).first).value,
-      isFalse,
-    );
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, isFalse);
     expect(
       tester.widget<FilledButton>(find.byKey(_buttonKey)).onPressed,
       isNull,
@@ -138,19 +131,19 @@ void main() {
     );
   });
 
-  testWidgets('включение галочки активирует кнопку',
-      (WidgetTester tester) async {
-    final (ProviderContainer container, _) =
-        await _pump(tester, client: _client(() async => fail('сеть не ожидается')));
+  testWidgets('включение галочки активирует кнопку', (
+    WidgetTester tester,
+  ) async {
+    final (ProviderContainer container, _) = await _pump(
+      tester,
+      client: _client(() async => fail('сеть не ожидается')),
+    );
 
     // Тап по плитке меняет состояние (UI), запись файла не влияет на UI.
     await tester.tap(find.byKey(_tileKey));
     await tester.pumpAndSettle();
 
-    expect(
-      tester.widget<Switch>(find.byType(Switch).first).value,
-      isTrue,
-    );
+    expect(tester.widget<Switch>(find.byType(Switch).first).value, isTrue);
     expect(
       tester.widget<FilledButton>(find.byKey(_buttonKey)).onPressed,
       isNotNull,
@@ -158,19 +151,23 @@ void main() {
     expect(container.read(rateSyncEnabledProvider), isTrue);
   });
 
-  testWidgets('успех: снек «Обновлено 1 валюта», курс перезаписан',
-      (WidgetTester tester) async {
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
+  testWidgets('успех: снек «Обновлено 1 валюта», курс перезаписан', (
+    WidgetTester tester,
+  ) async {
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
+    );
     final (ProviderContainer container, AppDatabase db) = await _pump(
       tester,
-      client: _client(() async => http.Response(
-            jsonEncode(<String, dynamic>{
-              'result': 'success',
-              'rates': <String, dynamic>{'USD': 0.0125},
-            }),
-            200,
-          )),
+      client: _client(
+        () async => http.Response(
+          jsonEncode(<String, dynamic>{
+            'result': 'success',
+            'rates': <String, dynamic>{'USD': 0.0125},
+          }),
+          200,
+        ),
+      ),
     );
 
     await _enableByTap(tester);
@@ -184,10 +181,12 @@ void main() {
     expect(container.read(rateSyncControllerProvider).syncing, isFalse);
   });
 
-  testWidgets('сеть недоступна: снек «сеть недоступна», курс цел',
-      (WidgetTester tester) async {
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
+  testWidgets('сеть недоступна: снек «сеть недоступна», курс цел', (
+    WidgetTester tester,
+  ) async {
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
+    );
     final (ProviderContainer container, AppDatabase db) = await _pump(
       tester,
       client: _client(() async => throw http.ClientException('нет')),
@@ -204,16 +203,20 @@ void main() {
     expect(container.read(rateSyncControllerProvider).syncing, isFalse);
   });
 
-  testWidgets('сбой источника: снек «источник не отвечает», курс цел',
-      (WidgetTester tester) async {
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
+  testWidgets('сбой источника: снек «источник не отвечает», курс цел', (
+    WidgetTester tester,
+  ) async {
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
+    );
     final (ProviderContainer container, AppDatabase db) = await _pump(
       tester,
-      client: _client(() async => http.Response(
-            jsonEncode(<String, dynamic>{'result': 'error'}),
-            200,
-          )),
+      client: _client(
+        () async => http.Response(
+          jsonEncode(<String, dynamic>{'result': 'error'}),
+          200,
+        ),
+      ),
     );
 
     await _enableByTap(tester);
@@ -226,89 +229,93 @@ void main() {
     expect(usd!.rateToBase, 90);
   });
 
-  testWidgets('второй вызов во время запроса — снек «уже выполняется» (D-42.в)',
-      (WidgetTester tester) async {
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
-    // Первый запрос «висит» (ответ не приходит): снек второго вызова
-    // остаётся видимым и не вытесняется успехом первого.
-    final (ProviderContainer container, _) = await _pump(
-      tester,
-      client: _client(() => Completer<http.Response>().future),
-    );
+  testWidgets(
+    'второй вызов во время запроса — снек «уже выполняется» (D-42.в)',
+    (WidgetTester tester) async {
+      final AppLocalizations l10n = await AppLocalizations.delegate.load(
+        const Locale('ru'),
+      );
+      // Первый запрос «висит» (ответ не приходит): снек второго вызова
+      // остаётся видимым и не вытесняется успехом первого.
+      final (ProviderContainer container, _) = await _pump(
+        tester,
+        client: _client(() => Completer<http.Response>().future),
+      );
 
-    await _enableByTap(tester);
-    // Кнопка неактивна во время запроса — двойной тап невозможен, но гонка
-    // (повторный вызов до простановки неактивности) не должна показывать
-    // снек «фича выключена». Часы в testWidgets фейковые: pumpAndSettle
-    // прокрутил бы время мимо таймаута сервиса (10 с, Offline), поэтому
-    // снек второго вызова проверяем до settle.
-    await tester.tap(find.byKey(_buttonKey));
-    await tester.tap(find.byKey(_buttonKey));
-    await tester.pump();
-    await tester.pump();
+      await _enableByTap(tester);
+      // Кнопка неактивна во время запроса — двойной тап невозможен, но гонка
+      // (повторный вызов до простановки неактивности) не должна показывать
+      // снек «фича выключена». Часы в testWidgets фейковые: pumpAndSettle
+      // прокрутил бы время мимо таймаута сервиса (10 с, Offline), поэтому
+      // снек второго вызова проверяем до settle.
+      await tester.tap(find.byKey(_buttonKey));
+      await tester.tap(find.byKey(_buttonKey));
+      await tester.pump();
+      await tester.pump();
 
-    expect(find.text(l10n.rateSyncAlreadyRunning), findsOneWidget);
-    expect(find.text(l10n.rateSyncDisabled), findsNothing);
-    expect(container.read(rateSyncControllerProvider).syncing, isTrue);
+      expect(find.text(l10n.rateSyncAlreadyRunning), findsOneWidget);
+      expect(find.text(l10n.rateSyncDisabled), findsNothing);
+      expect(container.read(rateSyncControllerProvider).syncing, isTrue);
 
-    // Зачистка: фейковое время доводит первый запрос до таймаута, снеки гасят
-    // анимации — незавершённых таймеров в конце теста не остаётся.
-    await tester.pumpAndSettle();
-  });
+      // Зачистка: фейковое время доводит первый запрос до таймаута, снеки гасят
+      // анимации — незавершённых таймеров в конце теста не остаётся.
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
-      'настройки открыты в момент тихого автозапуска: кнопка disabled, снеков нет (Dz-3)',
-      (WidgetTester tester) async {
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
-    // Запрос «висит» — как сеть в момент автозапуска: пользователь
-    // открывает настройки, пока syncOnLaunch ещё не вернулся.
-    final (ProviderContainer container, AppDatabase db) = await _pump(
-      tester,
-      client: _client(() => Completer<http.Response>().future),
-    );
+    'настройки открыты в момент тихого автозапуска: кнопка disabled, снеков нет (Dz-3)',
+    (WidgetTester tester) async {
+      final AppLocalizations l10n = await AppLocalizations.delegate.load(
+        const Locale('ru'),
+      );
+      // Запрос «висит» — как сеть в момент автозапуска: пользователь
+      // открывает настройки, пока syncOnLaunch ещё не вернулся.
+      final (ProviderContainer container, AppDatabase db) = await _pump(
+        tester,
+        client: _client(() => Completer<http.Response>().future),
+      );
 
-    // Тихий автозапуск из main (fire-and-forget): включённость — по файлу
-    // настроек, результат никому не показывается. Пишем файл заранее —
-    // реальный I/O вне fake_async (см. грабли в шапке файла).
-    await tester.runAsync(
-      () => container
-          .read(rateSyncPreferencesStoreProvider)
-          .writeEnabled(true),
-    );
+      // Тихий автозапуск из main (fire-and-forget): включённость — по файлу
+      // настроек, результат никому не показывается. Пишем файл заранее —
+      // реальный I/O вне fake_async (см. грабли в шапке файла).
+      await tester.runAsync(
+        () =>
+            container.read(rateSyncPreferencesStoreProvider).writeEnabled(true),
+      );
 
-    // Автозапуск: реальный I/O (файл настроек, база) доводим до сетевого
-    // запроса внутри runAsync — дальше запрос «висит» на фейковом клиенте,
-    // как сеть в момент автозапуска. Общий флаг syncing ставится
-    // синхронно до первого await.
-    await tester.runAsync(() async {
-      container.read(rateSyncControllerProvider.notifier).syncOnLaunch();
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-    });
-    expect(
-      container.read(rateSyncControllerProvider).syncing,
-      isTrue,
-      reason: 'автозапуск занял общий флаг идущего запроса',
-    );
-    await tester.pump();
+      // Автозапуск: реальный I/O (файл настроек, база) доводим до сетевого
+      // запроса внутри runAsync — дальше запрос «висит» на фейковом клиенте,
+      // как сеть в момент автозапуска. Общий флаг syncing ставится
+      // синхронно до первого await.
+      await tester.runAsync(() async {
+        container.read(rateSyncControllerProvider.notifier).syncOnLaunch();
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      });
+      expect(
+        container.read(rateSyncControllerProvider).syncing,
+        isTrue,
+        reason: 'автозапуск занял общий флаг идущего запроса',
+      );
+      await tester.pump();
 
-    // Кнопка погашена индикатором «Обновляем…», хотя пользователь кнопку
-    // не нажимал; снеков нет — автозапуск работает тихо (D-36, Dz-3).
-    expect(
-      tester.widget<FilledButton>(find.byKey(_buttonKey)).onPressed,
-      isNull,
-      reason: 'кнопка disabled, пока идёт тихий автозапуск',
-    );
-    expect(find.text(l10n.rateSyncing), findsOneWidget);
-    expect(find.byType(SnackBar), findsNothing);
-    expect(find.text(l10n.rateSyncUpdated(1)), findsNothing);
-    expect(find.text(l10n.rateSyncFailed), findsNothing);
-    expect(find.text(l10n.rateSyncOffline), findsNothing);
+      // Кнопка погашена индикатором «Обновляем…», хотя пользователь кнопку
+      // не нажимал; снеков нет — автозапуск работает тихо (D-36, Dz-3).
+      expect(
+        tester.widget<FilledButton>(find.byKey(_buttonKey)).onPressed,
+        isNull,
+        reason: 'кнопка disabled, пока идёт тихий автозапуск',
+      );
+      expect(find.text(l10n.rateSyncing), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text(l10n.rateSyncUpdated(1)), findsNothing);
+      expect(find.text(l10n.rateSyncFailed), findsNothing);
+      expect(find.text(l10n.rateSyncOffline), findsNothing);
 
-    // Данные не тронуты (проверка — реальный I/O, внутри runAsync).
-    await tester.runAsync(() async {
-      expect((await db.currenciesDao.findAlive('USD'))!.rateToBase, 90);
-    });
-  });
+      // Данные не тронуты (проверка — реальный I/O, внутри runAsync).
+      await tester.runAsync(() async {
+        expect((await db.currenciesDao.findAlive('USD'))!.rateToBase, 90);
+      });
+    },
+  );
 }

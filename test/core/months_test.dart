@@ -10,10 +10,7 @@ void main() {
       monthStart(DateTime.utc(2026, 9, 25, 18, 30)),
       DateTime.utc(2026, 9),
     );
-    expect(
-      monthStart(DateTime(2026, 9, 26, 2).toUtc()),
-      DateTime.utc(2026, 9),
-    );
+    expect(monthStart(DateTime(2026, 9, 26, 2).toUtc()), DateTime.utc(2026, 9));
   });
 
   test('локальное время внутри месяца даёт тот же месяц в UTC', () {
@@ -22,24 +19,22 @@ void main() {
     // ещё сентябрь». Ожидания выводятся из самого мгновения, поэтому тест
     // истинный в любой зоне (в UTC±0 разницы зон нет — проверка вырождается
     // честно, без ложной ветки, как было раньше).
-    final DateTime instantUtc =
-        DateTime.utc(2026, 10, 1, 2).subtract(DateTime.now().timeZoneOffset);
+    final DateTime instantUtc = DateTime.utc(
+      2026,
+      10,
+      1,
+      2,
+    ).subtract(DateTime.now().timeZoneOffset);
     final DateTime local = instantUtc.toLocal();
 
     // Мгновение одно, зоны разные; monthStart обязан дать один месяц.
     expect(local.toUtc(), instantUtc);
-    expect(
-      monthStart(local),
-      DateTime.utc(instantUtc.year, instantUtc.month),
-    );
+    expect(monthStart(local), DateTime.utc(instantUtc.year, instantUtc.month));
     expect(monthStart(local), monthStart(instantUtc));
   });
 
   test('переход через год: декабрь → январь следующего года', () {
-    expect(
-      nextMonthStart(DateTime.utc(2026, 12, 15)),
-      DateTime.utc(2027, 1),
-    );
+    expect(nextMonthStart(DateTime.utc(2026, 12, 15)), DateTime.utc(2027, 1));
     expect(monthStart(DateTime.utc(2027, 1, 1)), DateTime.utc(2027, 1));
   });
 

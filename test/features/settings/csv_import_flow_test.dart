@@ -85,7 +85,14 @@ class _StubFailedPickController extends CsvImportController {
 /// Не-UTF8 байты: Windows-1251 «тест.csv» (0xF2 — одиночный ведущий байт,
 /// файл заведомо не валидный UTF-8 и не декодируется readAsString).
 const List<int> _nonUtf8Bytes = <int>[
-  0xF2, 0xE5, 0xF1, 0xF2, 0x2E, 0x63, 0x73, 0x76,
+  0xF2,
+  0xE5,
+  0xF1,
+  0xF2,
+  0x2E,
+  0x63,
+  0x73,
+  0x76,
 ];
 
 /// Кнопка запуска флоу — та же точка входа, что у пункта настроек.
@@ -94,9 +101,9 @@ class _StartButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) => FilledButton(
-        onPressed: () => runCsvImportFlow(context, ref),
-        child: const Text('start'),
-      );
+    onPressed: () => runCsvImportFlow(context, ref),
+    child: const Text('start'),
+  );
 }
 
 Future<ProviderContainer> _pumpHarness(
@@ -116,11 +123,7 @@ Future<ProviderContainer> _pumpHarness(
       child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(
-          body: Center(
-            child: _StartButton(),
-          ),
-        ),
+        home: Scaffold(body: Center(child: _StartButton())),
       ),
     ),
   );
@@ -152,29 +155,27 @@ FilledButton _nextButton(WidgetTester tester, AppLocalizations l10n) =>
     );
 
 void main() {
-  testWidgets(
-      'happy path: дефолтный маппинг v0.3, предупреждение merge, запись',
-      (WidgetTester tester) async {
+  testWidgets('happy path: дефолтный маппинг v0.3, предупреждение merge, запись', (
+    WidgetTester tester,
+  ) async {
     tester.platformDispatcher.localeTestValue = const Locale('ru');
     tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
     addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
+    );
     final AppDatabase db = await seeded();
     addTearDown(db.close);
-    final String csv = '$header\n'
+    final String csv =
+        '$header\n'
         '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Продукты', '123.45', 'RUB', 'кофе')}\n'
         '${csvLine('2026-09-27T11:00:00.000Z', 'income', 'Карта', '', 'Зарплата', '1000.00', 'RUB', '')}\n';
     final ProviderContainer container = await _pumpHarness(
       tester,
       db: db,
       controller: _StubCsvImportController(
-        CsvImportDraft(
-          csv: csv,
-          header: header.split(';'),
-          rowCount: 2,
-        ),
+        CsvImportDraft(csv: csv, header: header.split(';'), rowCount: 2),
       ),
     );
     addTearDown(container.dispose);
@@ -207,83 +208,84 @@ void main() {
   });
 
   testWidgets(
-      'правка маппинга: переставленные колонки, дубль поля блокирует кнопку',
-      (WidgetTester tester) async {
-    tester.platformDispatcher.localeTestValue = const Locale('ru');
-    tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
-    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
-    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
-    final AppDatabase db = await seeded();
-    addTearDown(db.close);
-    // category и target_account переставлены относительно экспорта v0.3.
-    const String swappedHeader =
-        'id;date;type;account;category;target_account;amount;currency;note';
-    const String csv = '$swappedHeader\n'
-        'uuid;2026-09-27T10:00:00.000Z;expense;Наличные;Продукты;;123.45;RUB;кофе\n';
-    final ProviderContainer container = await _pumpHarness(
-      tester,
-      db: db,
-      controller: _StubCsvImportController(
-        CsvImportDraft(
-          csv: csv,
-          header: swappedHeader.split(';'),
-          rowCount: 1,
+    'правка маппинга: переставленные колонки, дубль поля блокирует кнопку',
+    (WidgetTester tester) async {
+      tester.platformDispatcher.localeTestValue = const Locale('ru');
+      tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      final AppLocalizations l10n = await AppLocalizations.delegate.load(
+        const Locale('ru'),
+      );
+      final AppDatabase db = await seeded();
+      addTearDown(db.close);
+      // category и target_account переставлены относительно экспорта v0.3.
+      const String swappedHeader =
+          'id;date;type;account;category;target_account;amount;currency;note';
+      const String csv =
+          '$swappedHeader\n'
+          'uuid;2026-09-27T10:00:00.000Z;expense;Наличные;Продукты;;123.45;RUB;кофе\n';
+      final ProviderContainer container = await _pumpHarness(
+        tester,
+        db: db,
+        controller: _StubCsvImportController(
+          CsvImportDraft(
+            csv: csv,
+            header: swappedHeader.split(';'),
+            rowCount: 1,
+          ),
         ),
-      ),
-    );
-    addTearDown(container.dispose);
+      );
+      addTearDown(container.dispose);
 
-    await tester.tap(find.text('start'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('start'));
+      await tester.pumpAndSettle();
 
-    // Дефолтный маппинг считает колонку 4 счётом зачисления; переводим
-    // её в категорию — колонка 5 остаётся «категорией», дубль блокирует.
-    await _setMapping(tester, column: 4, option: l10n.csvFieldCategory);
-    expect(find.text(l10n.csvMappingDuplicateField), findsOneWidget);
-    expect(_nextButton(tester, l10n).onPressed, isNull);
+      // Дефолтный маппинг считает колонку 4 счётом зачисления; переводим
+      // её в категорию — колонка 5 остаётся «категорией», дубль блокирует.
+      await _setMapping(tester, column: 4, option: l10n.csvFieldCategory);
+      expect(find.text(l10n.csvMappingDuplicateField), findsOneWidget);
+      expect(_nextButton(tester, l10n).onPressed, isNull);
 
-    // Вторую колонку отдаём счёту зачисления — маппинг валиден.
-    await _setMapping(tester, column: 5, option: l10n.csvFieldTargetAccount);
-    expect(find.text(l10n.csvMappingDuplicateField), findsNothing);
-    expect(_nextButton(tester, l10n).onPressed, isNotNull);
+      // Вторую колонку отдаём счёту зачисления — маппинг валиден.
+      await _setMapping(tester, column: 5, option: l10n.csvFieldTargetAccount);
+      expect(find.text(l10n.csvMappingDuplicateField), findsNothing);
+      expect(_nextButton(tester, l10n).onPressed, isNotNull);
 
-    await tester.tap(find.text(l10n.csvMappingNextAction));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(l10n.csvImportConfirmAction));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.csvMappingNextAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.csvImportConfirmAction));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text(l10n.csvImportDone(1)), findsOneWidget);
-    final List<Transaction> rows = await db.select(db.transactions).get();
-    expect(rows, hasLength(1));
-  });
+      expect(find.text(l10n.csvImportDone(1)), findsOneWidget);
+      final List<Transaction> rows = await db.select(db.transactions).get();
+      expect(rows, hasLength(1));
+    },
+  );
 
-  testWidgets(
-      'валидация маппинга: без обязательного поля кнопка неактивна',
-      (WidgetTester tester) async {
+  testWidgets('валидация маппинга: без обязательного поля кнопка неактивна', (
+    WidgetTester tester,
+  ) async {
     tester.platformDispatcher.localeTestValue = const Locale('ru');
     tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
     addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
+    final AppLocalizations l10n = await AppLocalizations.delegate.load(
+      const Locale('ru'),
+    );
     final AppDatabase db = await seeded();
     addTearDown(db.close);
-    final String csv = '$header\n'
+    final String csv =
+        '$header\n'
         '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Продукты', '123.45', 'RUB', 'кофе')}\n';
     final ProviderContainer container = await _pumpHarness(
       tester,
       db: db,
       controller: _StubCsvImportController(
-        CsvImportDraft(
-          csv: csv,
-          header: header.split(';'),
-          rowCount: 1,
-        ),
+        CsvImportDraft(csv: csv, header: header.split(';'), rowCount: 1),
       ),
     );
     addTearDown(container.dispose);
@@ -301,113 +303,117 @@ void main() {
   });
 
   testWidgets(
-      'отказ валидации слоя: snack с номером строки, база не изменилась',
-      (WidgetTester tester) async {
-    tester.platformDispatcher.localeTestValue = const Locale('ru');
-    tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
-    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
-    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
-    final AppDatabase db = await seeded();
-    addTearDown(db.close);
-    // Категории «Такой нет» среди живых категорий расходов нет (D-25).
-    final String csv = '$header\n'
-        '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Такой нет', '123.45', 'RUB', 'кофе')}\n';
-    final ProviderContainer container = await _pumpHarness(
-      tester,
-      db: db,
-      controller: _StubCsvImportController(
-        CsvImportDraft(
-          csv: csv,
-          header: header.split(';'),
-          rowCount: 1,
+    'отказ валидации слоя: snack с номером строки, база не изменилась',
+    (WidgetTester tester) async {
+      tester.platformDispatcher.localeTestValue = const Locale('ru');
+      tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      final AppLocalizations l10n = await AppLocalizations.delegate.load(
+        const Locale('ru'),
+      );
+      final AppDatabase db = await seeded();
+      addTearDown(db.close);
+      // Категории «Такой нет» среди живых категорий расходов нет (D-25).
+      final String csv =
+          '$header\n'
+          '${csvLine('2026-09-27T10:00:00.000Z', 'expense', 'Наличные', '', 'Такой нет', '123.45', 'RUB', 'кофе')}\n';
+      final ProviderContainer container = await _pumpHarness(
+        tester,
+        db: db,
+        controller: _StubCsvImportController(
+          CsvImportDraft(csv: csv, header: header.split(';'), rowCount: 1),
         ),
-      ),
-    );
-    addTearDown(container.dispose);
+      );
+      addTearDown(container.dispose);
 
-    await tester.tap(find.text('start'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(l10n.csvMappingNextAction));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(l10n.csvImportConfirmAction));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 50)),
-    );
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('start'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.csvMappingNextAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.csvImportConfirmAction));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
 
-    // Отказ всей загрузки с номером строки; частичной загрузки нет.
-    expect(find.text(l10n.errorCsvInvalidDataLine(2)), findsOneWidget);
-    final List<Transaction> rows = await db.select(db.transactions).get();
-    expect(rows, hasLength(0));
-  });
+      // Отказ всей загрузки с номером строки; частичной загрузки нет.
+      expect(find.text(l10n.errorCsvInvalidDataLine(2)), findsOneWidget);
+      final List<Transaction> rows = await db.select(db.transactions).get();
+      expect(rows, hasLength(0));
+    },
+  );
 
   testWidgets(
-      'отказ выбора (T-1/Dz-2, invalidFormat line 0): snack «нет строк данных», диалога нет',
-      (WidgetTester tester) async {
-    tester.platformDispatcher.localeTestValue = const Locale('ru');
-    tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
-    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
-    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-    final AppLocalizations l10n =
-        await AppLocalizations.delegate.load(const Locale('ru'));
-    final AppDatabase db = await seeded();
-    addTearDown(db.close);
-    // Исход не-UTF8 файла (T-1) и файла-шапки (Dz-2) — один и тот же:
-    // CsvPickFailed(invalidFormat, line: 0) из настоящего pickDraft
-    // (см. обычные тесты ниже). Здесь — его UI-поверхность.
-    final ProviderContainer container = await _pumpHarness(
-      tester,
-      db: db,
-      controller: _StubFailedPickController(
-        const CsvPickFailed(CsvImportFailure.invalidFormat, line: 0),
-      ),
-    );
-    addTearDown(container.dispose);
+    'отказ выбора (T-1/Dz-2, invalidFormat line 0): snack «нет строк данных», диалога нет',
+    (WidgetTester tester) async {
+      tester.platformDispatcher.localeTestValue = const Locale('ru');
+      tester.platformDispatcher.localesTestValue = const <Locale>[Locale('ru')];
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      final AppLocalizations l10n = await AppLocalizations.delegate.load(
+        const Locale('ru'),
+      );
+      final AppDatabase db = await seeded();
+      addTearDown(db.close);
+      // Исход не-UTF8 файла (T-1) и файла-шапки (Dz-2) — один и тот же:
+      // CsvPickFailed(invalidFormat, line: 0) из настоящего pickDraft
+      // (см. обычные тесты ниже). Здесь — его UI-поверхность.
+      final ProviderContainer container = await _pumpHarness(
+        tester,
+        db: db,
+        controller: _StubFailedPickController(
+          const CsvPickFailed(CsvImportFailure.invalidFormat, line: 0),
+        ),
+      );
+      addTearDown(container.dispose);
 
-    await tester.tap(find.text('start'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('start'));
+      await tester.pumpAndSettle();
 
-    // Новый текст Dz-2 вместо диалога маппинга «операций: 0».
-    expect(find.text(l10n.errorCsvNoDataRows), findsOneWidget);
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(await db.select(db.transactions).get(), isEmpty);
-  });
+      // Новый текст Dz-2 вместо диалога маппинга «операций: 0».
+      expect(find.text(l10n.errorCsvNoDataRows), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(await db.select(db.transactions).get(), isEmpty);
+    },
+  );
 
   group('настоящий pickDraft: реальный файл без fake_async (T-1/Dz-2)', () {
     /// Каталог и файл с заданными байтами; удаляется в конце теста.
     Future<File> tempFile(String name, List<int> bytes) async {
-      final Directory directory =
-          await Directory.systemTemp.createTemp('kopilka_csv_pick');
+      final Directory directory = await Directory.systemTemp.createTemp(
+        'kopilka_csv_pick',
+      );
       addTearDown(() => directory.delete(recursive: true));
       final File file = File('${directory.path}/$name');
       return file.writeAsBytes(bytes);
     }
 
-    test('не-UTF8 байты — CsvPickFailed(invalidFormat, line: 0) (T-1)',
-        () async {
-      final File file = await tempFile('binary.csv', _nonUtf8Bytes);
-      final ProviderContainer container = ProviderContainer();
-      addTearDown(container.dispose);
-      installFilePickerShim(path: file.path, bytes: _nonUtf8Bytes);
-      addTearDown(restoreFilePickerPlatform);
+    test(
+      'не-UTF8 байты — CsvPickFailed(invalidFormat, line: 0) (T-1)',
+      () async {
+        final File file = await tempFile('binary.csv', _nonUtf8Bytes);
+        final ProviderContainer container = ProviderContainer();
+        addTearDown(container.dispose);
+        installFilePickerShim(path: file.path, bytes: _nonUtf8Bytes);
+        addTearDown(restoreFilePickerPlatform);
 
-      final CsvPickOutcome outcome = await container
-          .read(csvImportControllerProvider.notifier)
-          .pickDraft();
+        final CsvPickOutcome outcome = await container
+            .read(csvImportControllerProvider.notifier)
+            .pickDraft();
 
-      expect(
-        outcome,
-        isA<CsvPickFailed>()
-            .having(
-              (CsvPickFailed e) => e.failure,
-              'failure',
-              CsvImportFailure.invalidFormat,
-            )
-            .having((CsvPickFailed e) => e.line, 'line', 0),
-      );
-    });
+        expect(
+          outcome,
+          isA<CsvPickFailed>()
+              .having(
+                (CsvPickFailed e) => e.failure,
+                'failure',
+                CsvImportFailure.invalidFormat,
+              )
+              .having((CsvPickFailed e) => e.line, 'line', 0),
+        );
+      },
+    );
 
     test('файл с одной шапкой — ранний отказ с исходом Dz-2', () async {
       final List<int> bytes = '$header\n'.codeUnits; // ASCII — байты совпадают

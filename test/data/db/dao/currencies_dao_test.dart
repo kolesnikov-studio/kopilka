@@ -37,20 +37,23 @@ void main() {
     expect(currency.deletedAt, isNull);
   });
 
-  test('create отклоняет пустой код, пустой символ и неположительный курс', () async {
-    await expectLater(
-      f.currencies.create(code: '   ', symbol: '₽'),
-      throwsA(isA<DataValidationException>()),
-    );
-    await expectLater(
-      f.currencies.create(code: 'RUB', symbol: '  '),
-      throwsA(isA<DataValidationException>()),
-    );
-    await expectLater(
-      f.currencies.create(code: 'RUB', symbol: '₽', rateToBase: 0),
-      throwsA(isA<DataValidationException>()),
-    );
-  });
+  test(
+    'create отклоняет пустой код, пустой символ и неположительный курс',
+    () async {
+      await expectLater(
+        f.currencies.create(code: '   ', symbol: '₽'),
+        throwsA(isA<DataValidationException>()),
+      );
+      await expectLater(
+        f.currencies.create(code: 'RUB', symbol: '  '),
+        throwsA(isA<DataValidationException>()),
+      );
+      await expectLater(
+        f.currencies.create(code: 'RUB', symbol: '₽', rateToBase: 0),
+        throwsA(isA<DataValidationException>()),
+      );
+    },
+  );
 
   test('повторное создание живой валюты отклоняется', () async {
     await f.currencies.create(code: 'RUB', symbol: '₽');
@@ -61,25 +64,31 @@ void main() {
     );
   });
 
-  test('удалённая валюта возвращается в справочник с новыми реквизитами', () async {
-    final Currency created = await f.currencies.create(code: 'USD', symbol: r'$');
-    f.clock.advance(const Duration(hours: 1));
-    await f.currencies.softDelete('USD');
-    expect(await f.currencies.findAlive('USD'), isNull);
+  test(
+    'удалённая валюта возвращается в справочник с новыми реквизитами',
+    () async {
+      final Currency created = await f.currencies.create(
+        code: 'USD',
+        symbol: r'$',
+      );
+      f.clock.advance(const Duration(hours: 1));
+      await f.currencies.softDelete('USD');
+      expect(await f.currencies.findAlive('USD'), isNull);
 
-    final Currency revived = await f.currencies.create(
-      code: 'USD',
-      symbol: r'US$',
-      rateToBase: 2,
-    );
+      final Currency revived = await f.currencies.create(
+        code: 'USD',
+        symbol: r'US$',
+        rateToBase: 2,
+      );
 
-    expect(revived.code, 'USD');
-    expect(revived.symbol, r'US$');
-    expect(revived.rateToBase, 2);
-    expect(revived.deletedAt, isNull);
-    expect(revived.createdAt.toUtc(), created.createdAt.toUtc());
-    expect(revived.updatedAt.toUtc(), f.clock.read());
-  });
+      expect(revived.code, 'USD');
+      expect(revived.symbol, r'US$');
+      expect(revived.rateToBase, 2);
+      expect(revived.deletedAt, isNull);
+      expect(revived.createdAt.toUtc(), created.createdAt.toUtc());
+      expect(revived.updatedAt.toUtc(), f.clock.read());
+    },
+  );
 
   test('getAlive сортирует по коду, watchAlive отдаёт изменения', () async {
     await f.currencies.create(code: 'USD', symbol: r'$');
@@ -131,22 +140,25 @@ void main() {
     expect((await f.currencies.baseCurrency())?.code, 'USD');
   });
 
-  test('воскрешение удалённой валюты с isBase: true тоже демотирует (P2)', () async {
-    await f.currencies.create(code: 'RUB', symbol: '₽', isBase: true);
-    await f.currencies.create(code: 'USD', symbol: r'$');
-    await f.currencies.softDelete('USD');
+  test(
+    'воскрешение удалённой валюты с isBase: true тоже демотирует (P2)',
+    () async {
+      await f.currencies.create(code: 'RUB', symbol: '₽', isBase: true);
+      await f.currencies.create(code: 'USD', symbol: r'$');
+      await f.currencies.softDelete('USD');
 
-    final Currency revived = await f.currencies.create(
-      code: 'USD',
-      symbol: r'$',
-      isBase: true,
-    );
+      final Currency revived = await f.currencies.create(
+        code: 'USD',
+        symbol: r'$',
+        isBase: true,
+      );
 
-    expect(revived.deletedAt, isNull);
-    expect(revived.isBase, isTrue);
-    expect((await f.currencies.findAlive('RUB'))?.isBase, isFalse);
-    expect((await f.currencies.baseCurrency())?.code, 'USD');
-  });
+      expect(revived.deletedAt, isNull);
+      expect(revived.isBase, isTrue);
+      expect((await f.currencies.findAlive('RUB'))?.isBase, isFalse);
+      expect((await f.currencies.baseCurrency())?.code, 'USD');
+    },
+  );
 
   test('updateCurrency меняет реквизиты и трогает только updated_at', () async {
     final Currency created = await f.currencies.create(
@@ -168,18 +180,21 @@ void main() {
     expect(updated.updatedAt.toUtc(), isNot(created.updatedAt.toUtc()));
   });
 
-  test('updateCurrency отклоняет пустой символ и неположительный курс', () async {
-    await f.currencies.create(code: 'RUB', symbol: '₽');
+  test(
+    'updateCurrency отклоняет пустой символ и неположительный курс',
+    () async {
+      await f.currencies.create(code: 'RUB', symbol: '₽');
 
-    await expectLater(
-      f.currencies.updateCurrency('RUB', symbol: const Value<String>('   ')),
-      throwsA(isA<DataValidationException>()),
-    );
-    await expectLater(
-      f.currencies.updateCurrency('RUB', rateToBase: const Value<double>(-1)),
-      throwsA(isA<DataValidationException>()),
-    );
-  });
+      await expectLater(
+        f.currencies.updateCurrency('RUB', symbol: const Value<String>('   ')),
+        throwsA(isA<DataValidationException>()),
+      );
+      await expectLater(
+        f.currencies.updateCurrency('RUB', rateToBase: const Value<double>(-1)),
+        throwsA(isA<DataValidationException>()),
+      );
+    },
+  );
 
   test('операции с несуществующим кодом отклоняются', () async {
     expect(await f.currencies.findAlive('XXX'), isNull);
@@ -197,35 +212,41 @@ void main() {
     );
   });
 
-  test('валюту живого счёта удалить нельзя, а после удаления счёта — можно', () async {
-    final Account account = await f.seedAccount();
+  test(
+    'валюту живого счёта удалить нельзя, а после удаления счёта — можно',
+    () async {
+      final Account account = await f.seedAccount();
 
-    await expectLater(
-      f.currencies.softDelete('RUB'),
-      throwsA(isA<DataValidationException>()),
-    );
+      await expectLater(
+        f.currencies.softDelete('RUB'),
+        throwsA(isA<DataValidationException>()),
+      );
 
-    await f.accounts.softDelete(account.id);
-    await f.currencies.softDelete('RUB');
+      await f.accounts.softDelete(account.id);
+      await f.currencies.softDelete('RUB');
 
-    expect(await f.currencies.findAlive('RUB'), isNull);
-    expect(await rawRowCount(f.db, 'currencies'), 1);
-    expect(
-      (await (f.db.select(f.db.currencies)).getSingle()).deletedAt?.toUtc(),
-      f.clock.read(),
-    );
-  });
+      expect(await f.currencies.findAlive('RUB'), isNull);
+      expect(await rawRowCount(f.db, 'currencies'), 1);
+      expect(
+        (await (f.db.select(f.db.currencies)).getSingle()).deletedAt?.toUtc(),
+        f.clock.read(),
+      );
+    },
+  );
 
-  test('валюту можно удалить, даже если счёт не удалён, но валюта другая', () async {
-    final Account account = await f.seedAccount();
-    await f.currencies.create(code: 'USD', symbol: r'$');
-    expect(account.currencyCode, 'RUB');
+  test(
+    'валюту можно удалить, даже если счёт не удалён, но валюта другая',
+    () async {
+      final Account account = await f.seedAccount();
+      await f.currencies.create(code: 'USD', symbol: r'$');
+      expect(account.currencyCode, 'RUB');
 
-    await f.currencies.softDelete('USD');
+      await f.currencies.softDelete('USD');
 
-    expect(await f.currencies.findAlive('USD'), isNull);
-    expect(await f.accounts.findById(account.id), isNotNull);
-  });
+      expect(await f.currencies.findAlive('USD'), isNull);
+      expect(await f.accounts.findById(account.id), isNotNull);
+    },
+  );
 
   group('changeBase — смена базовой с пересчётом курсов (D-20/R9)', () {
     // Набор: RUB базовая (1), USD = 90, EUR = 100, JPY = 0.6.
@@ -269,48 +290,55 @@ void main() {
       expect(eur, closeTo(eurUsdBefore, 1e-12));
     });
 
-    test('идемпотентен: запрос уже базовой — успешный выход без записи', () async {
-      await seedRates();
-      final DateTime stampBefore = (await f.currencies.findAlive('USD'))!.updatedAt;
-      f.clock.advance(const Duration(hours: 1));
+    test(
+      'идемпотентен: запрос уже базовой — успешный выход без записи',
+      () async {
+        await seedRates();
+        final DateTime stampBefore = (await f.currencies.findAlive('USD'))!
+            .updatedAt;
+        f.clock.advance(const Duration(hours: 1));
 
-      await f.currencies.changeBase('RUB');
+        await f.currencies.changeBase('RUB');
 
-      // RUB уже была базовой: ничего не записано (updatedAt не тронут).
-      expect((await f.currencies.baseCurrency())?.code, 'RUB');
-      expect(
-        (await f.currencies.findAlive('USD'))!.updatedAt.toUtc(),
-        stampBefore.toUtc(),
-      );
-      expect(await rateOf('USD'), 90);
-    });
+        // RUB уже была базовой: ничего не записано (updatedAt не тронут).
+        expect((await f.currencies.baseCurrency())?.code, 'RUB');
+        expect(
+          (await f.currencies.findAlive('USD'))!.updatedAt.toUtc(),
+          stampBefore.toUtc(),
+        );
+        expect(await rateOf('USD'), 90);
+      },
+    );
 
-    test('не найдена живая — отказ notFound (несуществующий и мягко удалённый)', () async {
-      await seedRates();
+    test(
+      'не найдена живая — отказ notFound (несуществующий и мягко удалённый)',
+      () async {
+        await seedRates();
 
-      await expectLater(
-        f.currencies.changeBase('XXX'),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.notFound,
+        await expectLater(
+          f.currencies.changeBase('XXX'),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.notFound,
+            ),
           ),
-        ),
-      );
+        );
 
-      await f.currencies.softDelete('JPY');
-      await expectLater(
-        f.currencies.changeBase('JPY'),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.notFound,
+        await f.currencies.softDelete('JPY');
+        await expectLater(
+          f.currencies.changeBase('JPY'),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.notFound,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
     test('отказ не меняет состояние (транзакционность, R9)', () async {
       await seedRates();
@@ -335,23 +363,25 @@ void main() {
       expect((await f.currencies.baseCurrency())?.code, 'RUB');
     });
 
-    test('мягко удалённая валюта не участвует в пересчёте и не получает флаг', () async {
-      await seedRates();
-      await f.currencies.softDelete('JPY');
+    test(
+      'мягко удалённая валюта не участвует в пересчёте и не получает флаг',
+      () async {
+        await seedRates();
+        await f.currencies.softDelete('JPY');
 
-      await f.currencies.changeBase('USD');
+        await f.currencies.changeBase('USD');
 
-      final Currency? jpy = await f.currencies.findAlive('JPY');
-      expect(jpy, isNull);
-      // Строка осталась физически (soft delete, §3) со старым курсом.
-      final Currency any =
-          await (f.db.select(f.db.currencies)..where(
-                (t) => t.code.equals('JPY'),
-              )).getSingle();
-      expect(any.deletedAt, isNotNull);
-      expect(any.isBase, isFalse);
-      expect(any.rateToBase, 0.6);
-    });
+        final Currency? jpy = await f.currencies.findAlive('JPY');
+        expect(jpy, isNull);
+        // Строка осталась физически (soft delete, §3) со старым курсом.
+        final Currency any = await (f.db.select(
+          f.db.currencies,
+        )..where((t) => t.code.equals('JPY'))).getSingle();
+        expect(any.deletedAt, isNotNull);
+        expect(any.isBase, isFalse);
+        expect(any.rateToBase, 0.6);
+      },
+    );
 
     test('watchAlive отдаёт новое состояние после смены базовой', () async {
       await seedRates();
@@ -400,10 +430,12 @@ void main() {
     expect(second.id, matches(uuidV4));
     expect(category.id, matches(uuidV4));
     expect(transaction.id, matches(uuidV4));
-    expect(
-      <String>{first.id, second.id, category.id, transaction.id},
-      hasLength(4),
-    );
+    expect(<String>{
+      first.id,
+      second.id,
+      category.id,
+      transaction.id,
+    }, hasLength(4));
     expect(
       first.createdAt.toUtc().difference(DateTime.now().toUtc()).abs(),
       lessThan(const Duration(minutes: 5)),

@@ -49,13 +49,12 @@ class AttachmentsService {
     required String transactionId,
     required String mimeType,
     required List<int> bytes,
-  }) =>
-      attachToOwner(
-        owner: AttachmentOwnerKind.transaction,
-        ownerId: transactionId,
-        mimeType: mimeType,
-        bytes: bytes,
-      );
+  }) => attachToOwner(
+    owner: AttachmentOwnerKind.transaction,
+    ownerId: transactionId,
+    mimeType: mimeType,
+    bytes: bytes,
+  );
 
   /// Единый путь записи вложения для владельца [owner] (M6/D-82):
   /// валидация размера → запись файла (атомарно) → запись БД («один живой

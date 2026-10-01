@@ -119,13 +119,9 @@ class TransactionFilter {
 /// Инкапсулирует правила §3: суммы всегда положительные (знак задаёт тип),
 /// валюта наследуется от счёта, категории доходов и расходов не
 /// смешиваются, у перевода нет категории.
-@DriftAccessor(tables: [
-  Transactions,
-  Accounts,
-  Categories,
-  Currencies,
-  Attachments,
-])
+@DriftAccessor(
+  tables: [Transactions, Accounts, Categories, Currencies, Attachments],
+)
 class TransactionsDao extends DatabaseAccessor<AppDatabase>
     with _$TransactionsDaoMixin {
   TransactionsDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -206,9 +202,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Future<List<Transaction>> getFiltered([
     TransactionFilter filter = const TransactionFilter(),
   ]) async => [
-        for (final QueryRow row in await _filteredSelect(filter).get())
-          transactions.map(row.data),
-      ];
+    for (final QueryRow row in await _filteredSelect(filter).get())
+      transactions.map(row.data),
+  ];
 
   /// Поток операций с именами счетов и категории (R7/R8): один
   /// JOIN-запрос вместо двух watch-подписок на каждую плитку списка.
@@ -221,8 +217,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     // подставит локализованный текст «Счёт удалён»/«Без категории».
     // Живое вложение (6в) — тем же LEFT JOIN одним запросом: живых
     // вложений на операцию не больше одного (правило DAO, D-63).
-    final (String whereSql, List<Variable> variables) =
-        _filteredSqlParts(filter);
+    final (String whereSql, List<Variable> variables) = _filteredSqlParts(
+      filter,
+    );
     return customSelect(
       'SELECT t.*, '
       'a.name AS account_name, '
@@ -314,8 +311,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       // Одно-валютная операция правит amount без target — допустимо;
       // target без amount будет отвергнут проверкой NULL ниже.
     }
-    final int effectiveAmount =
-        amountMinor.present ? amountMinor.value : current.amountMinor;
+    final int effectiveAmount = amountMinor.present
+        ? amountMinor.value
+        : current.amountMinor;
     final int? effectiveTargetAmount = targetAmountMinor.present
         ? targetAmountMinor.value
         : current.targetAmountMinor;
@@ -355,8 +353,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   /// SELECT живых операций по фильтру (общий источник для get/watch —
   /// и view-варианта: одно место фильтрации, не дублируется).
   Selectable<QueryRow> _filteredSelect(TransactionFilter filter) {
-    final (String whereSql, List<Variable> variables) =
-        _filteredSqlParts(filter);
+    final (String whereSql, List<Variable> variables) = _filteredSqlParts(
+      filter,
+    );
     return customSelect(
       'SELECT t.* FROM transactions AS t '
       '$whereSql ORDER BY t.date DESC, t.created_at DESC',
@@ -478,9 +477,11 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     if (type != TransactionType.transfer || targetAccountId == null) {
       return false;
     }
-    final Account? target = await (select(accounts)..where(
-          (t) => t.id.equals(targetAccountId) & t.deletedAt.isNull(),
-        )).getSingleOrNull();
+    final Account? target =
+        await (select(accounts)..where(
+              (t) => t.id.equals(targetAccountId) & t.deletedAt.isNull(),
+            ))
+            .getSingleOrNull();
     if (target == null) {
       return false; // форма уже отвергнута _validateShape
     }
@@ -599,23 +600,23 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     DateTime to,
     List<String> types,
   ) => customSelect(
-        'SELECT t.id AS tx_id, t.type AS type, '
-        't.amount_minor AS amount_minor, t.currency_code AS currency_code, '
-        "strftime('%Y-%m', t.date, 'unixepoch') AS month_key, "
-        'c.id AS category_id, c.name AS category_name, '
-        'COALESCE(cur.rate_to_base, 1.0) AS rate '
-        'FROM transactions AS t '
-        'JOIN categories AS c ON c.id = t.category_id AND c.deleted_at IS NULL '
-        'LEFT JOIN currencies AS cur ON cur.code = t.currency_code '
-        'WHERE t.deleted_at IS NULL AND t.type IN (${types.map((_) => '?').join(', ')}) '
-        'AND t.date >= ? AND t.date < ?',
-        variables: <Variable>[
-          for (final String type in types) Variable<String>(type),
-          Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
-          Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
-        ],
-        readsFrom: {transactions, categories, currencies},
-      );
+    'SELECT t.id AS tx_id, t.type AS type, '
+    't.amount_minor AS amount_minor, t.currency_code AS currency_code, '
+    "strftime('%Y-%m', t.date, 'unixepoch') AS month_key, "
+    'c.id AS category_id, c.name AS category_name, '
+    'COALESCE(cur.rate_to_base, 1.0) AS rate '
+    'FROM transactions AS t '
+    'JOIN categories AS c ON c.id = t.category_id AND c.deleted_at IS NULL '
+    'LEFT JOIN currencies AS cur ON cur.code = t.currency_code '
+    'WHERE t.deleted_at IS NULL AND t.type IN (${types.map((_) => '?').join(', ')}) '
+    'AND t.date >= ? AND t.date < ?',
+    variables: <Variable>[
+      for (final String type in types) Variable<String>(type),
+      Variable<int>(from.millisecondsSinceEpoch ~/ 1000),
+      Variable<int>(to.millisecondsSinceEpoch ~/ 1000),
+    ],
+    readsFrom: {transactions, categories, currencies},
+  );
 
   /// Расходы по категориям за месяц [moment] в базовой валюте (D-18):
   /// построчная конвертация каждой операции до суммирования, half-up по
@@ -637,10 +638,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
   Stream<List<CategoryExpenseBase>> watchExpensesByCategoryForMonthInBase({
     required DateTime moment,
   }) => _baseAggregateOpsSelect(
-        monthStart(moment),
-        nextMonthStart(moment),
-        <String>[TransactionType.expense.dbValue],
-      ).watch().map(_categoryExpensesInBase);
+    monthStart(moment),
+    nextMonthStart(moment),
+    <String>[TransactionType.expense.dbValue],
+  ).watch().map(_categoryExpensesInBase);
 
   /// Группирует конвертированные построчно операции по категориям.
   List<CategoryExpenseBase> _categoryExpensesInBase(List<QueryRow> rows) {
@@ -658,28 +659,30 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         bucket[1] = (bucket[1] as int) + converted;
       }
     }
-    final List<CategoryExpenseBase> result = <CategoryExpenseBase>[
-      for (final MapEntry<String, List<Object>> entry in byCategory.entries)
-        CategoryExpenseBase(
-          categoryId: entry.key,
-          categoryName: entry.value[0] as String,
-          amountMinor: entry.value[1] as int,
-        ),
-    ]
-      ..sort((CategoryExpenseBase a, CategoryExpenseBase b) {
-        final int byAmount = b.amountMinor.compareTo(a.amountMinor);
-        return byAmount != 0 ? byAmount : a.categoryName.compareTo(b.categoryName);
-      });
+    final List<CategoryExpenseBase> result =
+        <CategoryExpenseBase>[
+          for (final MapEntry<String, List<Object>> entry in byCategory.entries)
+            CategoryExpenseBase(
+              categoryId: entry.key,
+              categoryName: entry.value[0] as String,
+              amountMinor: entry.value[1] as int,
+            ),
+        ]..sort((CategoryExpenseBase a, CategoryExpenseBase b) {
+          final int byAmount = b.amountMinor.compareTo(a.amountMinor);
+          return byAmount != 0
+              ? byAmount
+              : a.categoryName.compareTo(b.categoryName);
+        });
     return result;
   }
 
   /// Конвертирует одну операцию в базовую валюту: `convertMinor` с текущим
   /// курсом из строки запроса и экспонентом валюты-источника (D-22).
   int _convertToBase(QueryRow row) => convertMinor(
-        row.read<int>('amount_minor'),
-        row.read<double>('rate'),
-        exponent: currencyExponentByCode(row.read<String>('currency_code')),
-      );
+    row.read<int>('amount_minor'),
+    row.read<double>('rate'),
+    exponent: currencyExponentByCode(row.read<String>('currency_code')),
+  );
 
   /// Доходы и расходы по календарным месяцам в базовой валюте (D-18):
   /// построчная конвертация, полугодовое окно — как в исходной динамике.
@@ -696,11 +699,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       );
     }
     return _readMonthTotalsInBase(
-      await _baseAggregateOpsSelect(
-        from,
-        to,
-        <String>[TransactionType.income.dbValue, TransactionType.expense.dbValue],
-      ).get(),
+      await _baseAggregateOpsSelect(from, to, <String>[
+        TransactionType.income.dbValue,
+        TransactionType.expense.dbValue,
+      ]).get(),
     );
   }
 
@@ -716,11 +718,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.invalidInput,
       );
     }
-    return _baseAggregateOpsSelect(
-      from,
-      to,
-      <String>[TransactionType.income.dbValue, TransactionType.expense.dbValue],
-    ).watch().map(_readMonthTotalsInBase);
+    return _baseAggregateOpsSelect(from, to, <String>[
+      TransactionType.income.dbValue,
+      TransactionType.expense.dbValue,
+    ]).watch().map(_readMonthTotalsInBase);
   }
 
   /// Группирует конвертированные построчно операции по месяцам и типам;
@@ -743,10 +744,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
         totals.expenseMinor += converted;
       }
     }
-    return byMonth.values.toList()
-      ..sort(
-        (MonthTotalsBase a, MonthTotalsBase b) =>
-            a.monthKey.compareTo(b.monthKey),
-      );
+    return byMonth.values.toList()..sort(
+      (MonthTotalsBase a, MonthTotalsBase b) =>
+          a.monthKey.compareTo(b.monthKey),
+    );
   }
 }

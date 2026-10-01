@@ -66,8 +66,9 @@ Future<AppLocalizations> pumpApp(
   final ProviderContainer container = ProviderContainer(
     overrides: [
       appDatabaseProvider.overrideWithValue(db),
-      autoBackupDirectoryStoreProvider
-          .overrideWithValue(AutoBackupDirectoryStore(baseDirectory: backupBaseDir)),
+      autoBackupDirectoryStoreProvider.overrideWithValue(
+        AutoBackupDirectoryStore(baseDirectory: backupBaseDir),
+      ),
       updatePreferencesStoreProvider.overrideWithValue(
         UpdatePreferencesStore(baseDirectory: backupBaseDir),
       ),
@@ -81,10 +82,7 @@ Future<AppLocalizations> pumpApp(
   addTearDown(container.dispose);
 
   await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: const KopilkaApp(),
-    ),
+    UncontrolledProviderScope(container: container, child: const KopilkaApp()),
   );
   await tester.pumpAndSettle();
 

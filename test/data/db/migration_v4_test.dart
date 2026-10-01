@@ -171,21 +171,26 @@ void main() {
 
     // beforeOpen после миграции: версия поднята до 4.
     final int version =
-        (await db.customSelect('PRAGMA user_version').getSingle())
-            .read<int>('user_version');
-    expect(version, 7, reason: 'после открытия база на v7 — цепочка миграций дошла до конца');
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        );
+    expect(
+      version,
+      7,
+      reason: 'после открытия база на v7 — цепочка миграций дошла до конца',
+    );
 
     // Колонка существует, nullable и без default (D-54) — через S3-хелпер.
     final Map<String, String> catColumns = await columnTypes(db, 'categories');
     expect(catColumns['icon_code'], 'TEXT');
     // Nullable и без default проверяются raw-PRAGMA: helper отдаёт только
     // имя → тип, а семантика колонки — суть этого теста миграции.
-    final List<QueryRow> rawColumns = await db.customSelect(
-      'PRAGMA table_info(categories)',
-    ).get();
-    final Map<String, dynamic> iconCodeColumn = rawColumns.singleWhere(
-      (QueryRow row) => row.read<String>('name') == 'icon_code',
-    ).data;
+    final List<QueryRow> rawColumns = await db
+        .customSelect('PRAGMA table_info(categories)')
+        .get();
+    final Map<String, dynamic> iconCodeColumn = rawColumns
+        .singleWhere((QueryRow row) => row.read<String>('name') == 'icon_code')
+        .data;
     expect(iconCodeColumn['notnull'], 0, reason: 'колонка nullable');
     expect(
       iconCodeColumn['dflt_value'],
@@ -206,28 +211,38 @@ void main() {
     final List<Category> categories = await db.select(db.categories).get();
     expect(categories, hasLength(2));
     // Старые строки категорий читаются, поле иконки NULL — «не выбрана».
-    final Category food =
-        categories.singleWhere((Category c) => c.id == 'cat-food');
+    final Category food = categories.singleWhere(
+      (Category c) => c.id == 'cat-food',
+    );
     expect(food.name, 'Продукты');
     expect(food.isSystem, isTrue);
-    expect(food.iconCode, isNull,
-        reason: 'данные v0.3 созданы до v4 — иконка не выбрана');
+    expect(
+      food.iconCode,
+      isNull,
+      reason: 'данные v0.3 созданы до v4 — иконка не выбрана',
+    );
     // Старое свободное поле icon не тронуто и не «мигрировало» в icon_code.
-    final Category cafe =
-        categories.singleWhere((Category c) => c.id == 'cat-cafe');
+    final Category cafe = categories.singleWhere(
+      (Category c) => c.id == 'cat-cafe',
+    );
     expect(cafe.icon, '☕');
-    expect(cafe.iconCode, isNull,
-        reason: 'icon_code заполняет только пользователь/UI, не миграция');
+    expect(
+      cafe.iconCode,
+      isNull,
+      reason: 'icon_code заполняет только пользователь/UI, не миграция',
+    );
 
-    final List<Transaction> transactions =
-        await db.select(db.transactions).get();
+    final List<Transaction> transactions = await db
+        .select(db.transactions)
+        .get();
     expect(transactions, hasLength(2));
     expect(
       transactions.singleWhere((Transaction t) => t.id == 'tx-1').amountMinor,
       50050,
     );
     expect(
-      transactions.singleWhere((Transaction t) => t.id == 'tx-2')
+      transactions
+          .singleWhere((Transaction t) => t.id == 'tx-2')
           .targetAmountMinor,
       isNull,
       reason: 'перевод в одной валюте — D-17',
@@ -238,10 +253,12 @@ void main() {
     expect(budgets.single.limitMinor, 250000);
 
     // Индексы транзакций пережили миграцию.
-    final List<QueryRow> indexes = await db.customSelect(
-      "SELECT name FROM sqlite_master WHERE type = 'index' "
-      "AND tbl_name = 'transactions'",
-    ).get();
+    final List<QueryRow> indexes = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master WHERE type = 'index' "
+          "AND tbl_name = 'transactions'",
+        )
+        .get();
     expect(
       indexes.map((QueryRow row) => row.read<String>('name')),
       containsAll(<String>[
@@ -252,80 +269,88 @@ void main() {
     );
   });
 
-  test('цепочка v1 → v2 → v3 → v4: файл v0.1 открывается на текущей схеме',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
-    final Database raw = sqlite3.open(dbFile.path);
-    raw.execute('PRAGMA user_version = 1');
-    for (final String ddl in _v1Ddl) {
-      raw.execute(ddl);
-    }
-    // budgets в v1 не существует — бюджет в посев не входит.
-    _seedV03Data(raw, withBudgets: false);
-    raw.close();
+  test(
+    'цепочка v1 → v2 → v3 → v4: файл v0.1 открывается на текущей схеме',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
+      final Database raw = sqlite3.open(dbFile.path);
+      raw.execute('PRAGMA user_version = 1');
+      for (final String ddl in _v1Ddl) {
+        raw.execute(ddl);
+      }
+      // budgets в v1 не существует — бюджет в посев не входит.
+      _seedV03Data(raw, withBudgets: false);
+      raw.close();
 
-    final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(db.close);
+      final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(db.close);
 
-    expect(
-      (await db.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
+      expect(
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        ),
+        7,
+      );
 
-    // Все три шага цепочки исполнены: budgets создана, колонки добавлены.
-    final Map<String, String> catColumns = await columnTypes(db, 'categories');
-    expect(catColumns['icon_code'], 'TEXT');
-    final List<Transaction> transactions =
-        await db.select(db.transactions).get();
-    expect(transactions, hasLength(2));
-    expect(
-      transactions.every((Transaction t) => t.targetAmountMinor == null),
-      isTrue,
-      reason: 'все данные v0.1 — одно-валютные',
-    );
-    expect(
-      (await db.select(db.categories).get())
-          .every((Category c) => c.iconCode == null),
-      isTrue,
-      reason: 'все данные v0.1 — без иконок',
-    );
-    // Шаг v1→v2 цепочки: таблица budgets создана и пуста.
-    final List<Budget> budgets = await db.select(db.budgets).get();
-    expect(budgets, isEmpty);
-  });
+      // Все три шага цепочки исполнены: budgets создана, колонки добавлены.
+      final Map<String, String> catColumns = await columnTypes(
+        db,
+        'categories',
+      );
+      expect(catColumns['icon_code'], 'TEXT');
+      final List<Transaction> transactions = await db
+          .select(db.transactions)
+          .get();
+      expect(transactions, hasLength(2));
+      expect(
+        transactions.every((Transaction t) => t.targetAmountMinor == null),
+        isTrue,
+        reason: 'все данные v0.1 — одно-валютные',
+      );
+      expect(
+        (await db.select(db.categories).get()).every(
+          (Category c) => c.iconCode == null,
+        ),
+        isTrue,
+        reason: 'все данные v0.1 — без иконок',
+      );
+      // Шаг v1→v2 цепочки: таблица budgets создана и пуста.
+      final List<Budget> budgets = await db.select(db.budgets).get();
+      expect(budgets, isEmpty);
+    },
+  );
 
-  test('повторное открытие базы v4: без ре-миграции, данные на месте',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
+  test(
+    'повторное открытие базы v4: без ре-миграции, данные на месте',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
 
-    final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
-    // Свежая база пуста — создаём справочник и категорию с иконкой.
-    await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
-    final Category food = await first.categoriesDao.create(
-      name: 'Продукты',
-      kind: CategoryKind.expense,
-      iconCode: 'groceries',
-    );
-    await first.close();
+      final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
+      // Свежая база пуста — создаём справочник и категорию с иконкой.
+      await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
+      final Category food = await first.categoriesDao.create(
+        name: 'Продукты',
+        kind: CategoryKind.expense,
+        iconCode: 'groceries',
+      );
+      await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 4),
-    // данные живы.
-    final AppDatabase second =
-        AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(second.close);
-    expect(
-      (await second.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
-    final Category alive =
-        (await second.categoriesDao.getAlive()).single;
-    expect(alive.id, food.id);
-    expect(alive.iconCode, 'groceries');
-  });
+      // Повторное открытие: onUpgrade не выполняется (версия уже 4),
+      // данные живы.
+      final AppDatabase second = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(second.close);
+      expect(
+        (await second.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        7,
+      );
+      final Category alive = (await second.categoriesDao.getAlive()).single;
+      expect(alive.id, food.id);
+      expect(alive.iconCode, 'groceries');
+    },
+  );
 }

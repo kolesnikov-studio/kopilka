@@ -156,19 +156,22 @@ void main() {
 
     // beforeOpen после миграции: версия поднята до 5.
     final int version =
-        (await db.customSelect('PRAGMA user_version').getSingle())
-            .read<int>('user_version');
+        (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+          'user_version',
+        );
     expect(version, 7, reason: 'после открытия база должна быть на v7');
 
     // Колонка существует, nullable и без default (D-21-образец) —
     // семантика колонки суть этого теста, raw-PRAGMA. drift хранит
     // boolean() как INTEGER с CHECK (IN (0, 1)) — не declared 'BOOLEAN'.
-    final List<QueryRow> rawColumns = await db.customSelect(
-      'PRAGMA table_info(accounts)',
-    ).get();
-    final Map<String, dynamic> flagColumn = rawColumns.singleWhere(
-      (QueryRow row) => row.read<String>('name') == 'exclude_from_balance',
-    ).data;
+    final List<QueryRow> rawColumns = await db
+        .customSelect('PRAGMA table_info(accounts)')
+        .get();
+    final Map<String, dynamic> flagColumn = rawColumns
+        .singleWhere(
+          (QueryRow row) => row.read<String>('name') == 'exclude_from_balance',
+        )
+        .data;
     expect(flagColumn['type'], 'INTEGER');
     expect(flagColumn['notnull'], 0, reason: 'колонка nullable');
     expect(
@@ -178,9 +181,11 @@ void main() {
     );
     // CHECK-инвариант булевой колонки drift (0/1) на месте — DDL из
     // sqlite_master (у PRAGMA table_info колонки sql нет).
-    final List<QueryRow> ddlRows = await db.customSelect(
-      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'",
-    ).get();
+    final List<QueryRow> ddlRows = await db
+        .customSelect(
+          "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'",
+        )
+        .get();
     expect(
       ddlRows.single.read<String>('sql'),
       contains('exclude_from_balance" IN (0, 1)'),
@@ -204,13 +209,14 @@ void main() {
     expect(categories.single.iconCode, 'groceries');
 
     // Операции не тронуты.
-    final List<Transaction> transactions = await db.select(db.transactions).get();
+    final List<Transaction> transactions = await db
+        .select(db.transactions)
+        .get();
     expect(transactions, hasLength(1));
     expect(transactions.single.amountMinor, 50050);
   });
 
-  test('цепочка v1 → … → v5: файл v0.1 открывается на текущей схеме',
-      () async {
+  test('цепочка v1 → … → v5: файл v0.1 открывается на текущей схеме', () async {
     final File dbFile = File(
       '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
     );
@@ -228,18 +234,24 @@ void main() {
     addTearDown(db.close);
 
     expect(
-      (await db.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
+      (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
+        'user_version',
+      ),
       7,
     );
 
     // Все шаги цепочки исполнены: budgets создана, обе колонки добавлены
     // (drift хранит boolean() как INTEGER — не declared 'BOOLEAN').
-    final Map<String, String> accountColumns = await columnTypes(db, 'accounts');
+    final Map<String, String> accountColumns = await columnTypes(
+      db,
+      'accounts',
+    );
     expect(accountColumns['exclude_from_balance'], 'INTEGER');
     final Map<String, String> catColumns = await columnTypes(db, 'categories');
     expect(catColumns['icon_code'], 'TEXT');
-    final List<Transaction> transactions = await db.select(db.transactions).get();
+    final List<Transaction> transactions = await db
+        .select(db.transactions)
+        .get();
     expect(transactions, hasLength(1));
     expect(
       transactions.single.targetAmountMinor,
@@ -247,8 +259,9 @@ void main() {
       reason: 'все данные v0.1 — одно-валютные',
     );
     expect(
-      (await db.select(db.accounts).get())
-          .every((Account a) => a.excludeFromBalance == null),
+      (await db.select(db.accounts).get()).every(
+        (Account a) => a.excludeFromBalance == null,
+      ),
       isTrue,
       reason: 'все данные v0.1 — с учётом в балансе',
     );
@@ -257,35 +270,36 @@ void main() {
     expect(budgets, isEmpty);
   });
 
-  test('повторное открытие базы v5: без ре-миграции, данные на месте',
-      () async {
-    final File dbFile = File(
-      '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
-    );
+  test(
+    'повторное открытие базы v5: без ре-миграции, данные на месте',
+    () async {
+      final File dbFile = File(
+        '${tempDir.path}${Platform.pathSeparator}kopilka.sqlite',
+      );
 
-    final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
-    await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
-    final Account savings = await first.accountsDao.create(
-      name: 'Накопления',
-      kind: AccountKind.bank,
-      currencyCode: 'RUB',
-      initialBalanceMinor: 9900000,
-      excludeFromBalance: true,
-    );
-    await first.close();
+      final AppDatabase first = AppDatabase.forTesting(NativeDatabase(dbFile));
+      await first.currenciesDao.create(code: 'RUB', symbol: '₽', isBase: true);
+      final Account savings = await first.accountsDao.create(
+        name: 'Накопления',
+        kind: AccountKind.bank,
+        currencyCode: 'RUB',
+        initialBalanceMinor: 9900000,
+        excludeFromBalance: true,
+      );
+      await first.close();
 
-    // Повторное открытие: onUpgrade не выполняется (версия уже 5),
-    // данные живы, флаг сохранился.
-    final AppDatabase second =
-        AppDatabase.forTesting(NativeDatabase(dbFile));
-    addTearDown(second.close);
-    expect(
-      (await second.customSelect('PRAGMA user_version').getSingle())
-          .read<int>('user_version'),
-      7,
-    );
-    final Account alive = (await second.accountsDao.getAlive()).single;
-    expect(alive.id, savings.id);
-    expect(alive.excludeFromBalance, isTrue);
-  });
+      // Повторное открытие: onUpgrade не выполняется (версия уже 5),
+      // данные живы, флаг сохранился.
+      final AppDatabase second = AppDatabase.forTesting(NativeDatabase(dbFile));
+      addTearDown(second.close);
+      expect(
+        (await second.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        7,
+      );
+      final Account alive = (await second.accountsDao.getAlive()).single;
+      expect(alive.id, savings.id);
+      expect(alive.excludeFromBalance, isTrue);
+    },
+  );
 }

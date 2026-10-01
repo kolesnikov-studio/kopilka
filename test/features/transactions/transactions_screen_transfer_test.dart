@@ -70,10 +70,7 @@ void main() {
 
       // Строка перевода содержит обе суммы, каждая в формате своей
       // валюты (экспонент 2).
-      expect(
-        find.textContaining(_amount(app, 1000000)),
-        findsOneWidget,
-      );
+      expect(find.textContaining(_amount(app, 1000000)), findsOneWidget);
       expect(
         find.textContaining(_amount(app, 10256, symbol: r'$')),
         findsOneWidget,
@@ -83,37 +80,36 @@ void main() {
     },
   );
 
-  testWidgets(
-    'B4.3: одно-валютный перевод — одна сумма, как раньше',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        size: const Size(600, 1000),
-        tempDirPrefix: 'kopilka_tx_tile_test',
-      );
-      final Account rub = await app.db.accountsDao.create(
-        name: 'Рубль-наличные',
-        kind: AccountKind.cash,
-        currencyCode: baseCurrencyCode,
-      );
-      final Account card = await app.db.accountsDao.create(
-        name: 'Рубль-карта',
-        kind: AccountKind.card,
-        currencyCode: baseCurrencyCode,
-      );
-      await app.db.transactionsDao.create(
-        type: TransactionType.transfer,
-        accountId: rub.id,
-        targetAccountId: card.id,
-        amountMinor: 150000,
-      );
-      await _openTransactionsTab(tester, app);
+  testWidgets('B4.3: одно-валютный перевод — одна сумма, как раньше', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      size: const Size(600, 1000),
+      tempDirPrefix: 'kopilka_tx_tile_test',
+    );
+    final Account rub = await app.db.accountsDao.create(
+      name: 'Рубль-наличные',
+      kind: AccountKind.cash,
+      currencyCode: baseCurrencyCode,
+    );
+    final Account card = await app.db.accountsDao.create(
+      name: 'Рубль-карта',
+      kind: AccountKind.card,
+      currencyCode: baseCurrencyCode,
+    );
+    await app.db.transactionsDao.create(
+      type: TransactionType.transfer,
+      accountId: rub.id,
+      targetAccountId: card.id,
+      amountMinor: 150000,
+    );
+    await _openTransactionsTab(tester, app);
 
-      // Одна сумма со стрелкой направления; второй суммы нет.
-      expect(find.textContaining(_amount(app, 150000)), findsOneWidget);
-      expect(find.textContaining('102,56'), findsNothing);
-    },
-  );
+    // Одна сумма со стрелкой направления; второй суммы нет.
+    expect(find.textContaining(_amount(app, 150000)), findsOneWidget);
+    expect(find.textContaining('102,56'), findsNothing);
+  });
 
   testWidgets(
     'B4.3: длинные суммы переносятся на вторую строку без сокращений',
@@ -205,12 +201,10 @@ void main() {
       // findById отфильтровывает удалённые — строка живых исчезла;
       // мягкость удаления проверяем сырым чтением: строка осталась,
       // deleted_at заполнен (§3).
-      expect(
-        await app.db.transactionsDao.findById(original.id),
-        isNull,
-      );
-      final List<Transaction> rawRows =
-          await app.db.select(app.db.transactions).get();
+      expect(await app.db.transactionsDao.findById(original.id), isNull);
+      final List<Transaction> rawRows = await app.db
+          .select(app.db.transactions)
+          .get();
       final Transaction deletedRow = rawRows.singleWhere(
         (Transaction t) => t.id == original.id,
       );
@@ -228,16 +222,11 @@ void main() {
       expect(recreated.targetAmountMinor, 20513);
 
       // Оба счёта живы; в списке — только новая операция.
-      expect(
-        (await app.db.accountsDao.findById(rub.id))?.deletedAt,
-        isNull,
+      expect((await app.db.accountsDao.findById(rub.id))?.deletedAt, isNull);
+      expect((await app.db.accountsDao.findById(usd.id))?.deletedAt, isNull);
+      final List<Transaction> alive = await app.db.transactionsDao.getFiltered(
+        TransactionFilter(type: TransactionType.transfer),
       );
-      expect(
-        (await app.db.accountsDao.findById(usd.id))?.deletedAt,
-        isNull,
-      );
-      final List<Transaction> alive = await app.db.transactionsDao
-          .getFiltered(TransactionFilter(type: TransactionType.transfer));
       expect(alive, hasLength(1));
       expect(alive.single.id, recreated.id);
       // Поток списка перекачивается после прямой записи в БД.
@@ -300,22 +289,22 @@ void main() {
       // Скрепка и обе суммы — на месте (в trailing плитки).
       expect(find.byIcon(Icons.attach_file), findsOneWidget);
       final String rubAmount = _amount(app, 123456789012);
-      final String usdAmount =
-          _amount(app, 9876543210, symbol: r'$');
+      final String usdAmount = _amount(app, 9876543210, symbol: r'$');
       expect(find.textContaining(rubAmount), findsOneWidget);
       expect(find.textContaining(usdAmount), findsOneWidget);
 
       // Заголовок не сжат в ноль переносом trailing.
-      final Size titleSize =
-          tester.getSize(find.text('Руб → Дол'));
+      final Size titleSize = tester.getSize(find.text('Руб → Дол'));
       expect(titleSize.width, greaterThan(0));
 
       // Wrap переносит: суммы не влезли в одну строку trailing —
       // вторая сумма ниже первой.
       final double firstDy = tester
-          .getTopLeft(find.textContaining(rubAmount)).dy;
+          .getTopLeft(find.textContaining(rubAmount))
+          .dy;
       final double secondDy = tester
-          .getTopLeft(find.textContaining(usdAmount)).dy;
+          .getTopLeft(find.textContaining(usdAmount))
+          .dy;
       expect(secondDy, greaterThan(firstDy));
       // Нет исключений — assert'ы ListTile/Wrap держат layout
       // корректным.

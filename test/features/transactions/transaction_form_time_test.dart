@@ -48,8 +48,9 @@ void main() {
       );
       // Агрегаты динамики JOIN-ят категории (INNER): доходу нужна
       // живая категория, иначе строка выпадает из отчёта.
-      final List<Category> incomeCats =
-          await app.db.categoriesDao.getAlive(kind: CategoryKind.income);
+      final List<Category> incomeCats = await app.db.categoriesDao.getAlive(
+        kind: CategoryKind.income,
+      );
       final String categoryId = incomeCats.first.id;
 
       // Дата операции — из тех же фиктивных часов формы (D-78).
@@ -78,9 +79,9 @@ void main() {
       // не уехала в октябрь.
       final List<MonthTotalsBase> totals = await app.db.transactionsDao
           .totalsByMonthInBase(
-        from: DateTime.utc(2026, 3),
-        to: DateTime.utc(2026, 12),
-      );
+            from: DateTime.utc(2026, 3),
+            to: DateTime.utc(2026, 12),
+          );
       final MonthTotalsBase september = totals.singleWhere(
         (MonthTotalsBase t) => t.monthKey == '2026-09',
       );

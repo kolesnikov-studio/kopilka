@@ -73,8 +73,10 @@ void main() {
       addTearDown(f.dispose);
       final Category food = await f.seedCategory(name: 'Еда');
 
-      final Budget budget =
-          await f.budgets.create(categoryId: food.id, limitMinor: 1);
+      final Budget budget = await f.budgets.create(
+        categoryId: food.id,
+        limitMinor: 1,
+      );
       expect(budget.limitMinor, 1);
     });
   });
@@ -84,7 +86,7 @@ void main() {
     // дробная часть появляется в мажорной базе (0,01 ₽) — «нецифровой»
     // порог half-up достижим на копейке базы.
     Future<({DataLayerFixture f, Account jpy, Category food, Budget budget})>
-        seedJpyBudget() async {
+    seedJpyBudget() async {
       final DataLayerFixture f = DataLayerFixture();
       await f.ensureRub();
       await f.seedCurrency('JPY', symbol: '¥', rateToBase: 0.0625);
@@ -211,138 +213,143 @@ void main() {
     // валидация D-25 справедливо его отклонит (см. существующие тесты
     // backup_service_test), здесь — легальный v1-путь.
     Future<Map<String, dynamic>> v1Document() async => <String, dynamic>{
-          'schema_version': 1,
-          'exported_at': '2026-09-25T10:00:00.000Z',
-          'data': <String, dynamic>{
-            'currencies': <dynamic>[
-              <String, dynamic>{
-                'code': 'RUB',
-                'symbol': '₽',
-                'is_base': true,
-                'rate_to_base': 1,
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-              <String, dynamic>{
-                'code': 'USD',
-                'symbol': r'$',
-                'is_base': false,
-                'rate_to_base': 79.5,
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-            ],
-            'accounts': <dynamic>[
-              <String, dynamic>{
-                'id': 'acc-rub',
-                'name': 'Рублёвый',
-                'kind': 'cash',
-                'currency_code': 'RUB',
-                'initial_balance_minor': 10000,
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-              <String, dynamic>{
-                'id': 'acc-rub2',
-                'name': 'Рублёвый второй',
-                'kind': 'cash',
-                'currency_code': 'RUB',
-                'initial_balance_minor': 500,
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-            ],
-            'categories': <dynamic>[
-              <String, dynamic>{
-                'id': 'cat-food',
-                'name': 'Еда',
-                'kind': 'expense',
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-            ],
-            'transactions': <dynamic>[
-              <String, dynamic>{
-                'id': 'tx-old-transfer',
-                'type': 'transfer',
-                'account_id': 'acc-rub',
-                'target_account_id': 'acc-rub2',
-                'amount_minor': 7900,
-                'currency_code': 'RUB',
-                'date': '2026-09-25T00:00:00.000Z',
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-              <String, dynamic>{
-                'id': 'tx-old-expense',
-                'type': 'expense',
-                'account_id': 'acc-rub',
-                'category_id': 'cat-food',
-                'amount_minor': 50000,
-                'currency_code': 'RUB',
-                'date': '2026-09-25T00:00:00.000Z',
-                'created_at': '2026-09-25T00:00:00.000Z',
-                'updated_at': '2026-09-25T00:00:00.000Z',
-              },
-            ],
+      'schema_version': 1,
+      'exported_at': '2026-09-25T10:00:00.000Z',
+      'data': <String, dynamic>{
+        'currencies': <dynamic>[
+          <String, dynamic>{
+            'code': 'RUB',
+            'symbol': '₽',
+            'is_base': true,
+            'rate_to_base': 1,
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
           },
-        };
+          <String, dynamic>{
+            'code': 'USD',
+            'symbol': r'$',
+            'is_base': false,
+            'rate_to_base': 79.5,
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
+          },
+        ],
+        'accounts': <dynamic>[
+          <String, dynamic>{
+            'id': 'acc-rub',
+            'name': 'Рублёвый',
+            'kind': 'cash',
+            'currency_code': 'RUB',
+            'initial_balance_minor': 10000,
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
+          },
+          <String, dynamic>{
+            'id': 'acc-rub2',
+            'name': 'Рублёвый второй',
+            'kind': 'cash',
+            'currency_code': 'RUB',
+            'initial_balance_minor': 500,
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
+          },
+        ],
+        'categories': <dynamic>[
+          <String, dynamic>{
+            'id': 'cat-food',
+            'name': 'Еда',
+            'kind': 'expense',
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
+          },
+        ],
+        'transactions': <dynamic>[
+          <String, dynamic>{
+            'id': 'tx-old-transfer',
+            'type': 'transfer',
+            'account_id': 'acc-rub',
+            'target_account_id': 'acc-rub2',
+            'amount_minor': 7900,
+            'currency_code': 'RUB',
+            'date': '2026-09-25T00:00:00.000Z',
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
+          },
+          <String, dynamic>{
+            'id': 'tx-old-expense',
+            'type': 'expense',
+            'account_id': 'acc-rub',
+            'category_id': 'cat-food',
+            'amount_minor': 50000,
+            'currency_code': 'RUB',
+            'date': '2026-09-25T00:00:00.000Z',
+            'created_at': '2026-09-25T00:00:00.000Z',
+            'updated_at': '2026-09-25T00:00:00.000Z',
+          },
+        ],
+      },
+    };
 
-    test('v1 импортируется: старый перевод остаётся NULL (одно-валютный)',
-        () async {
-      final DataLayerFixture f = DataLayerFixture();
-      addTearDown(f.dispose);
-      await f.ensureRub();
+    test(
+      'v1 импортируется: старый перевод остаётся NULL (одно-валютный)',
+      () async {
+        final DataLayerFixture f = DataLayerFixture();
+        addTearDown(f.dispose);
+        await f.ensureRub();
 
-      final AppDatabase target = f.db;
-      // Акт импорта: бэкап полностью заменяет содержимое.
-      await BackupService(target).importJson(jsonEncode(await v1Document()));
+        final AppDatabase target = f.db;
+        // Акт импорта: бэкап полностью заменяет содержимое.
+        await BackupService(target).importJson(jsonEncode(await v1Document()));
 
-      final List<Transaction> rows = await target.transactionsDao.getFiltered();
-      expect(rows, hasLength(2));
+        final List<Transaction> rows = await target.transactionsDao
+            .getFiltered();
+        expect(rows, hasLength(2));
 
-      final Transaction transfer = rows.singleWhere(
-        (Transaction t) => t.id == 'tx-old-transfer',
-      );
-      // D-17/D-21: v1 не знал про target_amount_minor — старый перевод
-      // импортируется с NULL и считается одно-валютным. Историческая
-      // сумма заморожена (D-16); баланс зачисления по D-31 возьмёт
-      // COALESCE(NULL, amount_minor).
-      expect(transfer.targetAmountMinor, isNull);
-      expect(transfer.targetAccountId, 'acc-rub2');
-      // Балансы после импорта: расход 50 000 минусует. Списание:
-      // 10 000 − 7 900 − 50 000 = −47 900; зачисление:
-      // 500 + 7 900 = 8 400 (D-31: COALESCE(NULL, amount)).
-      expect(await target.accountsDao.balanceMinor('acc-rub'), -47900);
-      expect(await target.accountsDao.balanceMinor('acc-rub2'), 8400);
-    });
+        final Transaction transfer = rows.singleWhere(
+          (Transaction t) => t.id == 'tx-old-transfer',
+        );
+        // D-17/D-21: v1 не знал про target_amount_minor — старый перевод
+        // импортируется с NULL и считается одно-валютным. Историческая
+        // сумма заморожена (D-16); баланс зачисления по D-31 возьмёт
+        // COALESCE(NULL, amount_minor).
+        expect(transfer.targetAmountMinor, isNull);
+        expect(transfer.targetAccountId, 'acc-rub2');
+        // Балансы после импорта: расход 50 000 минусует. Списание:
+        // 10 000 − 7 900 − 50 000 = −47 900; зачисление:
+        // 500 + 7 900 = 8 400 (D-31: COALESCE(NULL, amount)).
+        expect(await target.accountsDao.balanceMinor('acc-rub'), -47900);
+        expect(await target.accountsDao.balanceMinor('acc-rub2'), 8400);
+      },
+    );
 
-    test('v1: перевод «самому себе» импортируется, баланс не задвоен',
-        () async {
-      final DataLayerFixture f = DataLayerFixture();
-      addTearDown(f.dispose);
-      await f.ensureRub();
+    test(
+      'v1: перевод «самому себе» импортируется, баланс не задвоен',
+      () async {
+        final DataLayerFixture f = DataLayerFixture();
+        addTearDown(f.dispose);
+        await f.ensureRub();
 
-      final Map<String, dynamic> document = await v1Document();
-      final List<dynamic> transactions =
-          (document['data'] as Map<String, dynamic>)['transactions']
-              as List<dynamic>;
-      transactions[0]['target_account_id'] = 'acc-rub'; // сам себе
+        final Map<String, dynamic> document = await v1Document();
+        final List<dynamic> transactions =
+            (document['data'] as Map<String, dynamic>)['transactions']
+                as List<dynamic>;
+        transactions[0]['target_account_id'] = 'acc-rub'; // сам себе
 
-      // DAO само-перевод не создаёт (проверка в _validateShape), но
-      // импорт проверяет только форму (D-25): transfer + target_account_id,
-      // одинаковые валюты → NULL — консистентно с D-17. Строка вставляется.
-      await BackupService(f.db).importJson(jsonEncode(document));
+        // DAO само-перевод не создаёт (проверка в _validateShape), но
+        // импорт проверяет только форму (D-25): transfer + target_account_id,
+        // одинаковые валюты → NULL — консистентно с D-17. Строка вставляется.
+        await BackupService(f.db).importJson(jsonEncode(document));
 
-      final Transaction self = (await f.db.transactionsDao.getFiltered())
-          .singleWhere((Transaction t) => t.id == 'tx-old-transfer');
-      expect(self.accountId, self.targetAccountId);
-      expect(self.amountMinor, 7900);
-      // Баланс счёта при этом НЕ задвоен (D-31): списание −7900 и
-      // зачисление +COALESCE(NULL, 7900) взаимно гасятся — само-перевод
-      // меняет баланс на ноль. 10 000 − 50 000 (расход) = −40 000.
-      expect(await f.db.accountsDao.balanceMinor('acc-rub'), -40000);
-    });
+        final Transaction self = (await f.db.transactionsDao.getFiltered())
+            .singleWhere((Transaction t) => t.id == 'tx-old-transfer');
+        expect(self.accountId, self.targetAccountId);
+        expect(self.amountMinor, 7900);
+        // Баланс счёта при этом НЕ задвоен (D-31): списание −7900 и
+        // зачисление +COALESCE(NULL, 7900) взаимно гасятся — само-перевод
+        // меняет баланс на ноль. 10 000 − 50 000 (расход) = −40 000.
+        expect(await f.db.accountsDao.balanceMinor('acc-rub'), -40000);
+      },
+    );
   });
 
   group('changeBase и живой агрегат (D-20 + D-18, R4 ревью)', () {
@@ -373,7 +380,8 @@ void main() {
           stream,
           emitsThrough(
             predicate<List<CategoryExpenseBase>>(
-              (List<CategoryExpenseBase> list) => list.single.amountMinor == 4000,
+              (List<CategoryExpenseBase> list) =>
+                  list.single.amountMinor == 4000,
               '20 USD × 2 = 40,00 ₽',
             ),
           ),
@@ -386,7 +394,8 @@ void main() {
           stream,
           emitsThrough(
             predicate<List<CategoryExpenseBase>>(
-              (List<CategoryExpenseBase> list) => list.single.amountMinor == 2000,
+              (List<CategoryExpenseBase> list) =>
+                  list.single.amountMinor == 2000,
               'после смены базовой: 20,00 USD-базы (курс USD = 1)',
             ),
           ),
@@ -396,64 +405,67 @@ void main() {
   });
 
   group('импорт: перевод «самому себе» (D-25, R3 ревью)', () {
-    test('само-перевод между счетами в одной валюте импортируется сырой строкой',
-        () async {
-      final DataLayerFixture f = DataLayerFixture();
-      addTearDown(f.dispose);
-      await f.ensureRub();
+    test(
+      'само-перевод между счетами в одной валюте импортируется сырой строкой',
+      () async {
+        final DataLayerFixture f = DataLayerFixture();
+        addTearDown(f.dispose);
+        await f.ensureRub();
 
-      final Map<String, dynamic> document = <String, dynamic>{
-        'schema_version': 3,
-        'data': <String, dynamic>{
-          'currencies': <dynamic>[
-            <String, dynamic>{
-              'code': 'RUB',
-              'symbol': '₽',
-              'is_base': true,
-              'rate_to_base': 1,
-              'created_at': '2026-09-26T00:00:00.000Z',
-              'updated_at': '2026-09-26T00:00:00.000Z',
-            },
-          ],
-          'accounts': <dynamic>[
-            <String, dynamic>{
-              'id': 'acc-rub',
-              'name': 'Рублёвый',
-              'kind': 'cash',
-              'currency_code': 'RUB',
-              'initial_balance_minor': 100000,
-              'created_at': '2026-09-26T00:00:00.000Z',
-              'updated_at': '2026-09-26T00:00:00.000Z',
-            },
-          ],
-          'categories': <dynamic>[],
-          'transactions': <dynamic>[
-            <String, dynamic>{
-              'id': 'tx-self',
-              'type': 'transfer',
-              'account_id': 'acc-rub',
-              'target_account_id': 'acc-rub',
-              'amount_minor': 7900,
-              'currency_code': 'RUB',
-              'date': '2026-09-26T00:00:00.000Z',
-              'created_at': '2026-09-26T00:00:00.000Z',
-              'updated_at': '2026-09-26T00:00:00.000Z',
-            },
-          ],
-          'budgets': <dynamic>[],
-        },
-      };
+        final Map<String, dynamic> document = <String, dynamic>{
+          'schema_version': 3,
+          'data': <String, dynamic>{
+            'currencies': <dynamic>[
+              <String, dynamic>{
+                'code': 'RUB',
+                'symbol': '₽',
+                'is_base': true,
+                'rate_to_base': 1,
+                'created_at': '2026-09-26T00:00:00.000Z',
+                'updated_at': '2026-09-26T00:00:00.000Z',
+              },
+            ],
+            'accounts': <dynamic>[
+              <String, dynamic>{
+                'id': 'acc-rub',
+                'name': 'Рублёвый',
+                'kind': 'cash',
+                'currency_code': 'RUB',
+                'initial_balance_minor': 100000,
+                'created_at': '2026-09-26T00:00:00.000Z',
+                'updated_at': '2026-09-26T00:00:00.000Z',
+              },
+            ],
+            'categories': <dynamic>[],
+            'transactions': <dynamic>[
+              <String, dynamic>{
+                'id': 'tx-self',
+                'type': 'transfer',
+                'account_id': 'acc-rub',
+                'target_account_id': 'acc-rub',
+                'amount_minor': 7900,
+                'currency_code': 'RUB',
+                'date': '2026-09-26T00:00:00.000Z',
+                'created_at': '2026-09-26T00:00:00.000Z',
+                'updated_at': '2026-09-26T00:00:00.000Z',
+              },
+            ],
+            'budgets': <dynamic>[],
+          },
+        };
 
-      // Документ проходит валидацию импорта: форма перевода корректна
-      // (transfer + target_account_id, одинаковые валюты → NULL —
-      // консистентно с D-17). DAO такое не создаёт, но импорт — сырая
-      // вставка (D-25 фиксирует форму, не живые ограничения DAO).
-      await BackupService(f.db).importJson(jsonEncode(document));
+        // Документ проходит валидацию импорта: форма перевода корректна
+        // (transfer + target_account_id, одинаковые валюты → NULL —
+        // консистентно с D-17). DAO такое не создаёт, но импорт — сырая
+        // вставка (D-25 фиксирует форму, не живые ограничения DAO).
+        await BackupService(f.db).importJson(jsonEncode(document));
 
-      final Transaction self = (await f.db.transactionsDao.getFiltered()).single;
-      expect(self.accountId, 'acc-rub');
-      expect(self.targetAccountId, 'acc-rub');
-      expect(self.targetAmountMinor, isNull);
-    });
+        final Transaction self =
+            (await f.db.transactionsDao.getFiltered()).single;
+        expect(self.accountId, 'acc-rub');
+        expect(self.targetAccountId, 'acc-rub');
+        expect(self.targetAmountMinor, isNull);
+      },
+    );
   });
 }

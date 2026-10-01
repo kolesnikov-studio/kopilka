@@ -35,9 +35,8 @@ class CategoriesScreen extends ConsumerWidget {
       ),
       body: categories.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (Object error, StackTrace stack) => ErrorState(
-          onRetry: () => ref.invalidate(allCategoriesProvider),
-        ),
+        error: (Object error, StackTrace stack) =>
+            ErrorState(onRetry: () => ref.invalidate(allCategoriesProvider)),
         data: (List<Category> rows) {
           if (rows.isEmpty) {
             return Center(child: Text(l10n.categoriesEmpty));
@@ -57,10 +56,8 @@ class CategoriesScreen extends ConsumerWidget {
 
 /// Глиф категории: из справочника по коду; NULL (живые базы v0.4) и
 /// неизвестная строка — нейтральная заглушка «other» (D-55).
-Widget categoryIcon(Category category) => Icon(
-      categoryIconFor(category.iconCode).icon,
-      size: 20,
-    );
+Widget categoryIcon(Category category) =>
+    Icon(categoryIconFor(category.iconCode).icon, size: 20);
 
 class _KindSection extends StatelessWidget {
   const _KindSection({required this.kind, required this.all});
@@ -72,7 +69,9 @@ class _KindSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final List<Category> own = all
-        .where((Category category) => CategoryKind.fromDb(category.kind) == kind)
+        .where(
+          (Category category) => CategoryKind.fromDb(category.kind) == kind,
+        )
         .toList();
 
     return Column(
@@ -85,8 +84,7 @@ class _KindSection extends StatelessWidget {
             style: Theme.of(context).textTheme.titleSmall,
           ),
         ),
-        for (final Category category in own)
-          _CategoryTile(category: category),
+        for (final Category category in own) _CategoryTile(category: category),
       ],
     );
   }
@@ -117,9 +115,8 @@ class _CategoryTile extends ConsumerWidget {
             const SizedBox(width: 8),
             Text(
               l10n.systemBadge,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(color: Theme.of(context).colorScheme.outline),
             ),
           ],
         ],

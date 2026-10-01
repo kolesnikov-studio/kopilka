@@ -47,10 +47,12 @@ Future<void> main() async {
   final UpdatePreferencesStore updatePreferences = UpdatePreferencesStore(
     baseDirectory: supportDirectory,
   );
-  final RateSyncPreferencesStore rateSyncPreferences =
-      RateSyncPreferencesStore(baseDirectory: supportDirectory);
-  final ThemePreferencesStore themePreferences =
-      ThemePreferencesStore(baseDirectory: supportDirectory);
+  final RateSyncPreferencesStore rateSyncPreferences = RateSyncPreferencesStore(
+    baseDirectory: supportDirectory,
+  );
+  final ThemePreferencesStore themePreferences = ThemePreferencesStore(
+    baseDirectory: supportDirectory,
+  );
 
   // Автобэкап при запуске (§4): тихий, последние 10 файлов. Не блокирует
   // запуск: ошибка файловой системы игнорируется.

@@ -23,10 +23,10 @@ import '../../helpers/app_harness.dart';
 /// Запускает приложение с окном побольше (спека U9: показ валидации
 /// в узком окне давал несвязанный RenderFlex-overflow).
 Future<AppHarness> _pumpApp(WidgetTester tester) => pumpDialogApp(
-      tester,
-      size: const Size(600, 1000),
-      tempDirPrefix: 'kopilka_tx_transfer_test',
-    );
+  tester,
+  size: const Size(600, 1000),
+  tempDirPrefix: 'kopilka_tx_transfer_test',
+);
 
 /// Открывает форму перевода: вкладка операций → фильтр «Переводы» → FAB
 /// (U10: FAB открывает форму активного фильтра).
@@ -51,8 +51,8 @@ Future<void> _selectAccount(
   final int total = tester.widgetList(dropdowns).length;
   var opened = false;
   for (int i = 0; i < total && !opened; i++) {
-    final DropdownButtonFormField<String> field =
-        tester.widget<DropdownButtonFormField<String>>(dropdowns.at(i));
+    final DropdownButtonFormField<String> field = tester
+        .widget<DropdownButtonFormField<String>>(dropdowns.at(i));
     if (field.decoration.labelText == label) {
       await tester.tap(dropdowns.at(i));
       await tester.pumpAndSettle();
@@ -67,9 +67,7 @@ Future<void> _selectAccount(
 /// Поле суммы по метке (AmountField задаёт labelText): decoration у
 /// TextFormField не публичный — читаем встроенный TextField.
 TextField _amountField(WidgetTester tester, AppHarness app, String label) =>
-    tester.widget<TextField>(
-      find.widgetWithText(TextField, label),
-    );
+    tester.widget<TextField>(find.widgetWithText(TextField, label));
 
 void main() {
   testWidgets(
@@ -106,8 +104,9 @@ void main() {
       // M5-шаг 6в: после сохранения диалог остаётся открытым в режиме
       // вложения (кнопка «Готово» закрывает), операция записана точно.
       expect(find.text(app.l10n.doneAction), findsOneWidget);
-      final List<Transaction> rows = await app.db.transactionsDao
-          .getFiltered(TransactionFilter(accountId: account.id));
+      final List<Transaction> rows = await app.db.transactionsDao.getFiltered(
+        TransactionFilter(accountId: account.id),
+      );
       expect(rows, hasLength(1));
       expect(TransactionType.fromDb(rows.single.type), TransactionType.income);
       expect(rows.single.amountMinor, 2500000);
@@ -152,7 +151,10 @@ void main() {
       // Лист закрывается без выбора — форма не открывается.
       await tester.tap(find.byType(FloatingActionButton));
       await tester.pumpAndSettle();
-      await tester.tapAt(tester.getCenter(find.byType(FloatingActionButton)) - const Offset(0, 200));
+      await tester.tapAt(
+        tester.getCenter(find.byType(FloatingActionButton)) -
+            const Offset(0, 200),
+      );
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
 
@@ -205,172 +207,171 @@ void main() {
     },
   );
 
-  testWidgets(
-    'B3: экспонент 0 (JPY) — разделитель в поле суммы не вводится',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_tx_dialog_test',
-      );
+  testWidgets('B3: экспонент 0 (JPY) — разделитель в поле суммы не вводится', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_tx_dialog_test',
+    );
 
-      await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
-      final Account jpy = await app.db.accountsDao.create(
-        name: 'Иены',
-        kind: AccountKind.cash,
-        currencyCode: 'JPY',
-      );
+    await app.db.currenciesDao.create(code: 'JPY', symbol: '¥');
+    final Account jpy = await app.db.accountsDao.create(
+      name: 'Иены',
+      kind: AccountKind.cash,
+      currencyCode: 'JPY',
+    );
 
-      await tester.tap(find.text(app.l10n.navTransactions).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(FloatingActionButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(app.l10n.expenseAction));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navTransactions).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.expenseAction));
+    await tester.pumpAndSettle();
 
-      // Выбираем счёт в иенах: единственный живой счёт — выбран по умолчанию.
-      expect(find.text('Иены'), findsOneWidget);
+    // Выбираем счёт в иенах: единственный живой счёт — выбран по умолчанию.
+    expect(find.text('Иены'), findsOneWidget);
 
-      // Попытка ввести «1,5»: форматтер с экспонентом 0 не даёт ввести
-      // разделитель (silent-ограничение, B3).
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '1',
-      );
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '1,',
-      );
-      expect(
-        tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, app.l10n.amountLabel),
-            )
-            .controller
-            ?.text,
-        '1',
-      );
+    // Попытка ввести «1,5»: форматтер с экспонентом 0 не даёт ввести
+    // разделитель (silent-ограничение, B3).
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '1',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '1,',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.widgetWithText(TextFormField, app.l10n.amountLabel),
+          )
+          .controller
+          ?.text,
+      '1',
+    );
 
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '1500',
-      );
-      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
-      await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '1500',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+    await tester.pumpAndSettle();
 
-      // Сумма сохранена в минорных единицах без масштаба ×100 (экспонент 0);
-      // диалог остался в режиме вложения (6в).
-      expect(find.text(app.l10n.doneAction), findsOneWidget);
-      final List<Transaction> rows = await app.db.transactionsDao
-          .getFiltered(TransactionFilter(accountId: jpy.id));
-      expect(rows.single.amountMinor, 1500);
-      expect(rows.single.currencyCode, 'JPY');
-    },
-  );
+    // Сумма сохранена в минорных единицах без масштаба ×100 (экспонент 0);
+    // диалог остался в режиме вложения (6в).
+    expect(find.text(app.l10n.doneAction), findsOneWidget);
+    final List<Transaction> rows = await app.db.transactionsDao.getFiltered(
+      TransactionFilter(accountId: jpy.id),
+    );
+    expect(rows.single.amountMinor, 1500);
+    expect(rows.single.currencyCode, 'JPY');
+  });
 
-  testWidgets(
-    'B3: экспонент 3 (KWD) — три знака, суффикс символа счёта',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_tx_dialog_test',
-      );
+  testWidgets('B3: экспонент 3 (KWD) — три знака, суффикс символа счёта', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_tx_dialog_test',
+    );
 
-      await app.db.currenciesDao.create(code: 'KWD', symbol: 'د.ك');
-      final Account kwd = await app.db.accountsDao.create(
-        name: 'Динары',
-        kind: AccountKind.bank,
-        currencyCode: 'KWD',
-      );
+    await app.db.currenciesDao.create(code: 'KWD', symbol: 'د.ك');
+    final Account kwd = await app.db.accountsDao.create(
+      name: 'Динары',
+      kind: AccountKind.bank,
+      currencyCode: 'KWD',
+    );
 
-      await tester.tap(find.text(app.l10n.navTransactions).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(FloatingActionButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(app.l10n.expenseAction));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navTransactions).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.expenseAction));
+    await tester.pumpAndSettle();
 
-      // Три знака принимаются (форматтер пропускает, парсер разбирает).
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '3,500',
-      );
-      // Четвёртый знак не вводится (silent-ограничение).
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '3,5005',
-      );
-      expect(
-        tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, app.l10n.amountLabel),
-            )
-            .controller
-            ?.text,
-        '3,500',
-      );
+    // Три знака принимаются (форматтер пропускает, парсер разбирает).
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '3,500',
+    );
+    // Четвёртый знак не вводится (silent-ограничение).
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '3,5005',
+    );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.widgetWithText(TextFormField, app.l10n.amountLabel),
+          )
+          .controller
+          ?.text,
+      '3,500',
+    );
 
-      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
-      await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+    await tester.pumpAndSettle();
 
-      // Диалог остался в режиме вложения (6в); суммы записаны.
-      expect(find.text(app.l10n.doneAction), findsOneWidget);
-      final List<Transaction> rows = await app.db.transactionsDao
-          .getFiltered(TransactionFilter(accountId: kwd.id));
-      // 3,500 KWD = 3500 минорных (миллимные единицы), не 350 000.
-      expect(rows.single.amountMinor, 3500);
-    },
-  );
+    // Диалог остался в режиме вложения (6в); суммы записаны.
+    expect(find.text(app.l10n.doneAction), findsOneWidget);
+    final List<Transaction> rows = await app.db.transactionsDao.getFiltered(
+      TransactionFilter(accountId: kwd.id),
+    );
+    // 3,500 KWD = 3500 минорных (миллимные единицы), не 350 000.
+    expect(rows.single.amountMinor, 3500);
+  });
 
-  testWidgets(
-    'B3: при смене счёта поле суммы очищается (валюта сменилась)',
-    (WidgetTester tester) async {
-      final AppHarness app = await pumpDialogApp(
-        tester,
-        tempDirPrefix: 'kopilka_tx_dialog_test',
-      );
+  testWidgets('B3: при смене счёта поле суммы очищается (валюта сменилась)', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness app = await pumpDialogApp(
+      tester,
+      tempDirPrefix: 'kopilka_tx_dialog_test',
+    );
 
-      await app.db.currenciesDao.create(code: 'USD', symbol: r'$');
-      await app.db.accountsDao.create(
-        name: 'Рубли',
-        kind: AccountKind.cash,
-        currencyCode: baseCurrencyCode,
-      );
-      await app.db.accountsDao.create(
-        name: 'Доллары',
-        kind: AccountKind.bank,
-        currencyCode: 'USD',
-      );
+    await app.db.currenciesDao.create(code: 'USD', symbol: r'$');
+    await app.db.accountsDao.create(
+      name: 'Рубли',
+      kind: AccountKind.cash,
+      currencyCode: baseCurrencyCode,
+    );
+    await app.db.accountsDao.create(
+      name: 'Доллары',
+      kind: AccountKind.bank,
+      currencyCode: 'USD',
+    );
 
-      await tester.tap(find.text(app.l10n.navTransactions).last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(FloatingActionButton));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(app.l10n.expenseAction));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.navTransactions).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(app.l10n.expenseAction));
+    await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.widgetWithText(TextFormField, app.l10n.amountLabel),
-        '100',
-      );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '100',
+    );
 
-      // Смена счёта в dropdown'е: поле очищается (просто и предсказуемо,
-      // решение ревью: пересчитывать введённый текст не нужно).
-      await tester.tap(find.text('Рубли').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Доллары').last);
-      await tester.pumpAndSettle();
+    // Смена счёта в dropdown'е: поле очищается (просто и предсказуемо,
+    // решение ревью: пересчитывать введённый текст не нужно).
+    await tester.tap(find.text('Рубли').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Доллары').last);
+    await tester.pumpAndSettle();
 
-      expect(
-        tester
-            .widget<TextFormField>(
-              find.widgetWithText(TextFormField, app.l10n.amountLabel),
-            )
-            .controller
-            ?.text,
-        '',
-      );
-    },
-  );
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.widgetWithText(TextFormField, app.l10n.amountLabel),
+          )
+          .controller
+          ?.text,
+      '',
+    );
+  });
 
   testWidgets(
     'B4.1: одинаковые валюты счетов — одна сумма, вторая не показывается, пишется NULL',
@@ -393,9 +394,18 @@ void main() {
       // Одна сумма с дефолтным ключом amountLabel; «Списано»/«Зачислено»
       // и расчётная строка курса не показываются (B4.1: не disabled —
       // не показывается вовсе).
-      expect(find.widgetWithText(AmountField, app.l10n.amountLabel), findsOneWidget);
-      expect(find.widgetWithText(AmountField, app.l10n.transferAmountOut), findsNothing);
-      expect(find.widgetWithText(AmountField, app.l10n.transferAmountIn), findsNothing);
+      expect(
+        find.widgetWithText(AmountField, app.l10n.amountLabel),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(AmountField, app.l10n.transferAmountOut),
+        findsNothing,
+      );
+      expect(
+        find.widgetWithText(AmountField, app.l10n.transferAmountIn),
+        findsNothing,
+      );
       expect(find.textContaining('По курсу'), findsNothing);
 
       await tester.enterText(
@@ -422,7 +432,11 @@ void main() {
     (WidgetTester tester) async {
       final AppHarness app = await _pumpApp(tester);
       // 1 $ = 97,50 ₽; списание в рублях, зачисление в долларах.
-      await app.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 97.5);
+      await app.db.currenciesDao.create(
+        code: 'USD',
+        symbol: r'$',
+        rateToBase: 97.5,
+      );
       await app.db.accountsDao.create(
         name: 'Рубли',
         kind: AccountKind.cash,
@@ -440,14 +454,25 @@ void main() {
 
       // Две суммы с метками B4.1 и суффиксами валют своих счетов.
       expect(
-        _amountField(tester, app, app.l10n.transferAmountOut).decoration?.suffixText,
+        _amountField(
+          tester,
+          app,
+          app.l10n.transferAmountOut,
+        ).decoration?.suffixText,
         '₽',
       );
       expect(
-        _amountField(tester, app, app.l10n.transferAmountIn).decoration?.suffixText,
+        _amountField(
+          tester,
+          app,
+          app.l10n.transferAmountIn,
+        ).decoration?.suffixText,
         r'$',
       );
-      expect(find.widgetWithText(AmountField, app.l10n.amountLabel), findsNothing);
+      expect(
+        find.widgetWithText(AmountField, app.l10n.amountLabel),
+        findsNothing,
+      );
 
       // Ввод суммы списания: вторая сумма предзаполняется оценкой по
       // текущему курсу (100 ₽ → 1,03 $: 100/97,5 = 1,0256, half-up D-22)
@@ -457,14 +482,16 @@ void main() {
         '100',
       );
       await tester.pumpAndSettle();
-      expect(_amountField(tester, app, app.l10n.transferAmountIn).controller?.text, '1,03');
+      expect(
+        _amountField(tester, app, app.l10n.transferAmountIn).controller?.text,
+        '1,03',
+      );
       expect(find.text(app.l10n.transferPrefillNote), findsOneWidget);
 
       // Расчётная строка — производный курс введённых сумм (D-17):
       // 100 ₽ за 1,03 $ ≈ 0,971; формат — formatRate шага 2 (до 6
       // значащих знаков, D-26; EN-разделитель — конвенция формата курса).
-      final String prefilledRate =
-          formatRate(derivedRate(10000, 103));
+      final String prefilledRate = formatRate(derivedRate(10000, 103));
       expect(
         find.text(app.l10n.transferRateLine('RUB', prefilledRate, 'USD')),
         findsOneWidget,
@@ -479,7 +506,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(app.l10n.transferPrefillNote), findsNothing);
       expect(
-        find.text(app.l10n.transferRateLine('RUB', formatRate(derivedRate(10000, 50)), 'USD')),
+        find.text(
+          app.l10n.transferRateLine(
+            'RUB',
+            formatRate(derivedRate(10000, 50)),
+            'USD',
+          ),
+        ),
         findsOneWidget,
       );
 
@@ -503,7 +536,11 @@ void main() {
     'B4.1: без курса в справочнике предзаполнения нет, поле пустое без ошибки',
     (WidgetTester tester) async {
       final AppHarness app = await _pumpApp(tester);
-      await app.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 97.5);
+      await app.db.currenciesDao.create(
+        code: 'USD',
+        symbol: r'$',
+        rateToBase: 97.5,
+      );
       await app.db.accountsDao.create(
         name: 'Рубли',
         kind: AccountKind.cash,
@@ -532,14 +569,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(_amountField(tester, app, app.l10n.transferAmountIn).controller?.text, '');
+      expect(
+        _amountField(tester, app, app.l10n.transferAmountIn).controller?.text,
+        '',
+      );
       expect(find.text(app.l10n.transferPrefillNote), findsNothing);
       // Валидация обеих сумм: сохранение с пустой второй суммой невозможно.
       await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
       await tester.pump();
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(
-        _amountField(tester, app, app.l10n.transferAmountIn).decoration?.errorText,
+        _amountField(
+          tester,
+          app,
+          app.l10n.transferAmountIn,
+        ).decoration?.errorText,
         app.l10n.amountInvalid,
       );
     },
@@ -549,7 +593,11 @@ void main() {
     'B4.1: смена любого счёта очищает обе суммы, пересчёт под новую валюту',
     (WidgetTester tester) async {
       final AppHarness app = await _pumpApp(tester);
-      await app.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 97.5);
+      await app.db.currenciesDao.create(
+        code: 'USD',
+        symbol: r'$',
+        rateToBase: 97.5,
+      );
       await app.db.accountsDao.create(
         name: 'Рубли',
         kind: AccountKind.cash,
@@ -569,7 +617,10 @@ void main() {
         '100',
       );
       await tester.pumpAndSettle();
-      expect(_amountField(tester, app, app.l10n.transferAmountIn).controller?.text, '1,03');
+      expect(
+        _amountField(tester, app, app.l10n.transferAmountIn).controller?.text,
+        '1,03',
+      );
 
       // Смена счёта списания на долларовый: обе суммы очищаются (D-27 —
       // смена валюты поля очищает сумму), поля остаются с одной суммой
@@ -592,7 +643,11 @@ void main() {
     (WidgetTester tester) async {
       final AppHarness app = await _pumpApp(tester);
       // 1 $ = 0,60 ₽-базы... в минорных: курс JPY 0.6 к базовой RUB.
-      await app.db.currenciesDao.create(code: 'JPY', symbol: '¥', rateToBase: 0.6);
+      await app.db.currenciesDao.create(
+        code: 'JPY',
+        symbol: '¥',
+        rateToBase: 0.6,
+      );
       await app.db.accountsDao.create(
         name: 'Рубли',
         kind: AccountKind.cash,
@@ -615,9 +670,16 @@ void main() {
       await tester.pumpAndSettle();
       // 100 ₽ → база 100 → 100 / 0.6 = 166,(6) мажорных йен → 167
       // (half-up, D-22); без дробной части (экспонент 0).
-      expect(_amountField(tester, app, app.l10n.transferAmountIn).controller?.text, '167');
       expect(
-        _amountField(tester, app, app.l10n.transferAmountIn).decoration?.suffixText,
+        _amountField(tester, app, app.l10n.transferAmountIn).controller?.text,
+        '167',
+      );
+      expect(
+        _amountField(
+          tester,
+          app,
+          app.l10n.transferAmountIn,
+        ).decoration?.suffixText,
         '¥',
       );
     },

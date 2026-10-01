@@ -23,7 +23,11 @@ import 'package:path/path.dart' as p;
 /// (восстановленный бэкап, D-64) — вложение видно с текстом «файл
 /// отсутствует», без падения (D-63/64: метаданные без файла — норма).
 class AttachmentSection extends ConsumerStatefulWidget {
-  const AttachmentSection({required this.ownerKind, required this.ownerId, super.key});
+  const AttachmentSection({
+    required this.ownerKind,
+    required this.ownerId,
+    super.key,
+  });
 
   /// Владелец вложения: операция (M5) или долг (M6, D-82).
   final AttachmentOwnerKind ownerKind;
@@ -99,10 +103,16 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
         final bool? result = await showDialog<bool>(
           context: context,
           builder: (BuildContext dialogContext) {
-            final bool replace = ref
-                .read(ownerAttachmentProvider((widget.ownerKind, widget.ownerId)))
-                .value !=
-            null;
+            final bool replace =
+                ref
+                    .read(
+                      ownerAttachmentProvider((
+                        widget.ownerKind,
+                        widget.ownerId,
+                      )),
+                    )
+                    .value !=
+                null;
             // D-89 §6.2: текст «…с этой операцией» на долге лжёт — у
             // долга свой ключ; у замены общий текст про удаление прежнего
             // файла, владелец в нём не назван.
@@ -118,9 +128,7 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
               content: Text(
                 '$fileName · '
                 '${formatAttachmentSize(bytes.length, locale: _locale())}\n\n'
-                '${replace
-                    ? AppLocalizations.of(context).attachmentReplaceBody
-                    : pickBody}',
+                '${replace ? AppLocalizations.of(context).attachmentReplaceBody : pickBody}',
               ),
               actions: <Widget>[
                 TextButton(
@@ -149,7 +157,6 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
         await _attach(picked);
     }
   }
-
 
   Future<void> _attach(AttachmentPickLoaded picked) async {
     final AttachOutcome outcome = widget.ownerKind == AttachmentOwnerKind.debt
@@ -229,11 +236,7 @@ class _AttachmentSectionState extends ConsumerState<AttachmentSection> {
               view: view,
               busy: _busy,
               locale: _locale(),
-              onOpen: () => openAttachment(
-                context,
-                ref,
-                view.attachment,
-              ),
+              onOpen: () => openAttachment(context, ref, view.attachment),
               // Замена = повторный выбор файла (правило «один живой файл
               // на операцию», D-63): тот же флоу пикера, но подтверждение
               // показывает текст замены (текущее вложение будет удалено).
@@ -293,17 +296,13 @@ class _AttachmentCard extends StatelessWidget {
                 Text(
                   '${formatAttachmentSize(attachment.fileSize, locale: locale)}'
                   ' · ${attachment.mimeType}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
+                  style: Theme.of(context).textTheme.bodySmall
                       ?.copyWith(color: subtitleColor),
                 ),
                 if (!view.fileExists)
                   Text(
                     l10n.attachmentFileMissing,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
+                    style: Theme.of(context).textTheme.bodySmall
                         ?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
               ],
@@ -346,8 +345,7 @@ Future<void> openAttachment(
 ) async {
   final AppLocalizations l10n = AppLocalizations.of(context);
   final AttachmentsService service = ref.read(attachmentsServiceProvider);
-  final String path =
-      p.join(service.directory.path, attachment.filePath);
+  final String path = p.join(service.directory.path, attachment.filePath);
   // Проверка файла — через шов I/O (в тестах фейк без файловой системы).
   if (!await ref.read(attachmentsIoProvider).exists(path)) {
     if (!context.mounted) {

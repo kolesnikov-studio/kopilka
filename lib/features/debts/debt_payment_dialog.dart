@@ -22,10 +22,7 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 /// предзаполняется по текущему курсу с подсказкой `transferPrefillNote`,
 /// авто-пересчётов «на лету» нет. Отказ DAO на переводе откатывает весь
 /// поток («ни перевода, ни платежа», §4), гонка «долг удалён» — notFound.
-Future<void> showDebtPaymentDialog(
-  BuildContext context, {
-  required Debt debt,
-}) {
+Future<void> showDebtPaymentDialog(BuildContext context, {required Debt debt}) {
   return showDialog<void>(
     context: context,
     builder: (BuildContext dialogContext) => _DebtPaymentDialog(debt: debt),
@@ -38,8 +35,7 @@ class _DebtPaymentDialog extends ConsumerStatefulWidget {
   final Debt debt;
 
   @override
-  ConsumerState<_DebtPaymentDialog> createState() =>
-      _DebtPaymentDialogState();
+  ConsumerState<_DebtPaymentDialog> createState() => _DebtPaymentDialogState();
 }
 
 class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
@@ -88,9 +84,8 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
   String _formatDate(BuildContext context) =>
       MaterialLocalizations.of(context).formatMediumDate(_date.toLocal());
 
-  Account? _accountOf(List<Account> accounts, String? id) => accounts
-      .where((Account account) => account.id == id)
-      .firstOrNull;
+  Account? _accountOf(List<Account> accounts, String? id) =>
+      accounts.where((Account account) => account.id == id).firstOrNull;
 
   String _symbolOf(String? code) =>
       ref.watch(currenciesMapProvider).value?[code]?.symbol ?? (code ?? '');
@@ -186,10 +181,7 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
         // сумма, своего поля нет.
         final int outExponent = currencyExponentByCode(from.currencyCode);
         final int? outAmountMinor = multiCurrency
-            ? parseAmountToMinor(
-                _transferOut.text,
-                exponent: outExponent,
-              )
+            ? parseAmountToMinor(_transferOut.text, exponent: outExponent)
             : amountMinor;
         if (outAmountMinor == null) {
           await showSnack(context, l10n.errorInvalidInput);
@@ -256,9 +248,11 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
     }
     if (_inAccountId == null) {
       final Account? match = accounts
-          .where((Account account) =>
-              account.currencyCode == _debt.currencyCode &&
-              account.id != _outAccountId)
+          .where(
+            (Account account) =>
+                account.currencyCode == _debt.currencyCode &&
+                account.id != _outAccountId,
+          )
           .firstOrNull;
       _inAccountId = match?.id;
     }
@@ -267,7 +261,10 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
     final Account? into = _accountOf(accounts, _inAccountId);
     final int debtExponent = currencyExponentByCode(_debt.currencyCode);
     final bool multiCurrency =
-        _linkTransfer && out != null && into != null && out.currencyCode != into.currencyCode;
+        _linkTransfer &&
+        out != null &&
+        into != null &&
+        out.currencyCode != into.currencyCode;
     final int outExponent = currencyExponentByCode(out?.currencyCode ?? '');
     final int intoExponent = currencyExponentByCode(into?.currencyCode ?? '');
 
@@ -281,12 +278,14 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
     final String? rateLine = fromMinor != null && toMinor != null
         ? l10n.transferRateLine(
             out?.currencyCode ?? '',
-            formatRate(derivedRate(
-              fromMinor,
-              toMinor,
-              fromExponent: outExponent,
-              toExponent: intoExponent,
-            )),
+            formatRate(
+              derivedRate(
+                fromMinor,
+                toMinor,
+                fromExponent: outExponent,
+                toExponent: intoExponent,
+              ),
+            ),
             into?.currencyCode ?? '',
           )
         : null;
@@ -312,8 +311,9 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
               Row(
                 children: <Widget>[
                   Expanded(
-                    child:
-                        Text('${l10n.debtPaymentDateLabel}: ${_formatDate(context)}'),
+                    child: Text(
+                      '${l10n.debtPaymentDateLabel}: ${_formatDate(context)}',
+                    ),
                   ),
                   IconButton(
                     tooltip: l10n.dateLabel,
@@ -348,8 +348,9 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
               if (_linkTransfer) ...<Widget>[
                 DropdownButtonFormField<String>(
                   initialValue: _outAccountId,
-                  decoration:
-                      InputDecoration(labelText: l10n.debtTransferOutAccount),
+                  decoration: InputDecoration(
+                    labelText: l10n.debtTransferOutAccount,
+                  ),
                   validator: (String? value) =>
                       value == null ? l10n.selectAccountValidator : null,
                   items: accounts
@@ -372,8 +373,10 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                         // Равные валюты — поле списания исчезает (D-17):
                         // невидимый текст не должен стать суммой перевода.
                         final Account? nextOut = _accountOf(accounts, value);
-                        final Account? nextIn =
-                            _accountOf(accounts, _inAccountId);
+                        final Account? nextIn = _accountOf(
+                          accounts,
+                          _inAccountId,
+                        );
                         if (nextIn == null ||
                             nextOut?.currencyCode == nextIn.currencyCode) {
                           _transferOut.clear();
@@ -386,14 +389,13 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _inAccountId,
-                  decoration:
-                      InputDecoration(labelText: l10n.debtTransferInAccount),
+                  decoration: InputDecoration(
+                    labelText: l10n.debtTransferInAccount,
+                  ),
                   validator: (String? value) =>
                       value == null ? l10n.selectAccountValidator : null,
                   items: accounts
-                      .where(
-                        (Account account) => account.id != _outAccountId,
-                      )
+                      .where((Account account) => account.id != _outAccountId)
                       .map(
                         (Account account) => DropdownMenuItem<String>(
                           value: account.id,
@@ -447,10 +449,8 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                       child: Text(
                         l10n.transferPrefillNote,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   if (rateLine != null)
@@ -459,17 +459,15 @@ class _DebtPaymentDialogState extends ConsumerState<_DebtPaymentDialog> {
                       child: Text(
                         rateLine,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color:
-                                  Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                 ],
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _note,
-                  decoration:
-                      InputDecoration(labelText: l10n.debtTransferNote),
+                  decoration: InputDecoration(labelText: l10n.debtTransferNote),
                 ),
               ],
             ],

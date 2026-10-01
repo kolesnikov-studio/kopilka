@@ -41,24 +41,25 @@ void main() {
     await tempDir.delete(recursive: true);
   });
 
-  test('хранилище каталога: пусто по умолчанию, сохраняется и читается',
-      () async {
-    final AutoBackupDirectoryStore store =
-        container.read(autoBackupDirectoryStoreProvider);
-
-    expect(await store.read(), '');
-
-    await store.write(p.join(tempDir.path, 'backups'));
-    expect(await store.read(), p.join(tempDir.path, 'backups'));
-
-    // Пустая строка отключает автобэкап: файл удаляется.
-    await store.write('');
-    expect(await store.read(), '');
-  });
-
   test(
-      'контроллер каталога: setDirectory пишет в хранилище и состояние, load читает',
-      () async {
+    'хранилище каталога: пусто по умолчанию, сохраняется и читается',
+    () async {
+      final AutoBackupDirectoryStore store = container.read(
+        autoBackupDirectoryStoreProvider,
+      );
+
+      expect(await store.read(), '');
+
+      await store.write(p.join(tempDir.path, 'backups'));
+      expect(await store.read(), p.join(tempDir.path, 'backups'));
+
+      // Пустая строка отключает автобэкап: файл удаляется.
+      await store.write('');
+      expect(await store.read(), '');
+    },
+  );
+
+  test('контроллер каталога: setDirectory пишет в хранилище и состояние, load читает', () async {
     final AutoBackupDirectoryController controller = container.read(
       autoBackupDirectoryProvider.notifier,
     );
@@ -70,8 +71,9 @@ void main() {
 
     // Новый экземпляр контроллера (как при перезапуске приложения)
     // загружает сохранённое значение из хранилища.
-    final AutoBackupDirectoryController reloaded =
-        container.read(autoBackupDirectoryProvider.notifier);
+    final AutoBackupDirectoryController reloaded = container.read(
+      autoBackupDirectoryProvider.notifier,
+    );
     await reloaded.load();
     expect(container.read(autoBackupDirectoryProvider), path);
   });
@@ -94,50 +96,58 @@ void main() {
         .runAutoBackupNow();
 
     expect(result, isA<AutoBackupCreated>());
-    final List<FileSystemEntity> files = await Directory(target).list().toList();
+    final List<FileSystemEntity> files = await Directory(target)
+        .list()
+        .toList();
     expect(files, hasLength(1));
     // Файл — корректный бэкап v1: читается кодеком.
-    final Map<String, dynamic> document =
-        jsonDecode(await File(files.single.path).readAsString())
-            as Map<String, dynamic>;
+    final Map<String, dynamic> document = jsonDecode(
+      await File(files.single.path).readAsString(),
+    ) as Map<String, dynamic>;
     final DecodedBackup backup = decodeJson(document);
     expect(backup.currencies.single.code, 'RUB');
   });
 
   test('runAutoBackupOnLaunch: нет каталога — ничего не делает', () async {
-    final AutoBackupDirectoryStore store =
-        container.read(autoBackupDirectoryStoreProvider);
+    final AutoBackupDirectoryStore store = container.read(
+      autoBackupDirectoryStoreProvider,
+    );
     await runAutoBackupOnLaunch(store: store, db: db);
     // В каталоге хранилища не появилось ничего, кроме файла настроек.
     expect(await tempDir.list().length, lessThanOrEqualTo(1));
   });
 
-  test('runAutoBackupOnLaunch: с каталогом создаёт бэкап, IOException глотает',
-      () async {
-    final String target = p.join(tempDir.path, 'launch');
-    final AutoBackupDirectoryStore store =
-        container.read(autoBackupDirectoryStoreProvider);
-    await store.write(target);
+  test(
+    'runAutoBackupOnLaunch: с каталогом создаёт бэкап, IOException глотает',
+    () async {
+      final String target = p.join(tempDir.path, 'launch');
+      final AutoBackupDirectoryStore store = container.read(
+        autoBackupDirectoryStoreProvider,
+      );
+      await store.write(target);
 
-    await runAutoBackupOnLaunch(store: store, db: db);
+      await runAutoBackupOnLaunch(store: store, db: db);
 
-    final List<FileSystemEntity> files = await Directory(target).list().toList();
-    expect(files, hasLength(1));
-    expect(
-      p.basename(files.single.path).startsWith('kopilka-backup-'),
-      isTrue,
-    );
-    expect(p.basename(files.single.path).endsWith('.json'), isTrue);
-  });
+      final List<FileSystemEntity> files = await Directory(target)
+          .list()
+          .toList();
+      expect(files, hasLength(1));
+      expect(
+        p.basename(files.single.path).startsWith('kopilka-backup-'),
+        isTrue,
+      );
+      expect(p.basename(files.single.path).endsWith('.json'), isTrue);
+    },
+  );
 
-  test('runAutoBackupOnLaunch: недоступный каталог не роняет запуск',
-      () async {
+  test('runAutoBackupOnLaunch: недоступный каталог не роняет запуск', () async {
     // Каталог, путь которого конфликтует с файлом, — create(recursive)
     // бросит IOException, функция обязана его поглотить.
     final String blockerPath = p.join(tempDir.path, 'blocker');
     await File(blockerPath).writeAsString('x');
-    final AutoBackupDirectoryStore store =
-        container.read(autoBackupDirectoryStoreProvider);
+    final AutoBackupDirectoryStore store = container.read(
+      autoBackupDirectoryStoreProvider,
+    );
     await store.write(p.join(blockerPath, 'inside'));
 
     // Не бросает.
@@ -146,7 +156,10 @@ void main() {
 
   test('decodeDocument парсит строку в Map', () {
     final Map<String, dynamic> document = decodeDocument(
-      jsonEncode(<String, dynamic>{'schema_version': 1, 'data': <String, dynamic>{}}),
+      jsonEncode(<String, dynamic>{
+        'schema_version': 1,
+        'data': <String, dynamic>{},
+      }),
     );
     expect(document['schema_version'], 1);
   });

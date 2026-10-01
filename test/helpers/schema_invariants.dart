@@ -60,8 +60,9 @@ Future<void> expectTimestampColumns(
 
 /// Типы колонок таблицы (имя → тип SQLite).
 Future<Map<String, String>> columnTypes(AppDatabase db, String table) async {
-  final List<QueryRow> rows =
-      await db.customSelect('PRAGMA table_info($table)').get();
+  final List<QueryRow> rows = await db
+      .customSelect('PRAGMA table_info($table)')
+      .get();
   return {
     for (final QueryRow row in rows)
       row.read<String>('name'): row.read<String>('type'),

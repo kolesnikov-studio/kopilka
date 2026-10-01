@@ -26,12 +26,11 @@ class FlNRemindersPermission implements RemindersPermission {
     // Android: через типизированный фасад плагина (D-83: тот же пакет).
     final fln.FlutterLocalNotificationsPlugin plugin =
         fln.FlutterLocalNotificationsPlugin();
-    final bool? granted =
-        await plugin
-            .resolvePlatformSpecificImplementation<
-              fln.AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.requestNotificationsPermission();
+    final bool? granted = await plugin
+        .resolvePlatformSpecificImplementation<
+          fln.AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
     return granted ?? false;
   }
 }

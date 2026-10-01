@@ -66,27 +66,29 @@ void main() {
       );
     });
 
-    test('мягко удалённая операция — тоже notFound (файл не крепится)',
-        () async {
-      final Transaction tx = await seedTransaction();
-      await f.transactions.softDelete(tx.id);
+    test(
+      'мягко удалённая операция — тоже notFound (файл не крепится)',
+      () async {
+        final Transaction tx = await seedTransaction();
+        await f.transactions.softDelete(tx.id);
 
-      await expectLater(
-        f.attachments.create(
-          transactionId: tx.id,
-          filePath: 'att-1.png',
-          mimeType: 'image/png',
-          fileSize: 1234,
-        ),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.notFound,
+        await expectLater(
+          f.attachments.create(
+            transactionId: tx.id,
+            filePath: 'att-1.png',
+            mimeType: 'image/png',
+            fileSize: 1234,
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.notFound,
+            ),
+          ),
+        );
+      },
+    );
 
     test('mime вне белого списка — отказ invalidInput (D-63)', () async {
       final Transaction tx = await seedTransaction();
@@ -109,35 +111,37 @@ void main() {
       }
     });
 
-    test('лимит размера — константа (D-63): 0 и больше лимита — отказ',
-        () async {
-      final Transaction tx = await seedTransaction();
-      for (final int size in <int>[0, -1, 10 * 1024 * 1024 + 1]) {
-        await expectLater(
-          f.attachments.create(
-            transactionId: tx.id,
-            filePath: 'att-1.png',
-            mimeType: 'image/png',
-            fileSize: size,
-          ),
-          throwsA(
-            isA<DataValidationException>().having(
-              (DataValidationException e) => e.kind,
-              'kind',
-              DataFailure.invalidInput,
+    test(
+      'лимит размера — константа (D-63): 0 и больше лимита — отказ',
+      () async {
+        final Transaction tx = await seedTransaction();
+        for (final int size in <int>[0, -1, 10 * 1024 * 1024 + 1]) {
+          await expectLater(
+            f.attachments.create(
+              transactionId: tx.id,
+              filePath: 'att-1.png',
+              mimeType: 'image/png',
+              fileSize: size,
             ),
-          ),
+            throwsA(
+              isA<DataValidationException>().having(
+                (DataValidationException e) => e.kind,
+                'kind',
+                DataFailure.invalidInput,
+              ),
+            ),
+          );
+        }
+        // Граница включена: ровно лимит проходит.
+        final Attachment att = await f.attachments.create(
+          transactionId: tx.id,
+          filePath: 'att-big.pdf',
+          mimeType: 'application/pdf',
+          fileSize: 10 * 1024 * 1024,
         );
-      }
-      // Граница включена: ровно лимит проходит.
-      final Attachment att = await f.attachments.create(
-        transactionId: tx.id,
-        filePath: 'att-big.pdf',
-        mimeType: 'application/pdf',
-        fileSize: 10 * 1024 * 1024,
-      );
-      expect(att.fileSize, 10 * 1024 * 1024);
-    });
+        expect(att.fileSize, 10 * 1024 * 1024);
+      },
+    );
 
     test('пустой путь файла — отказ invalidInput', () async {
       final Transaction tx = await seedTransaction();
@@ -160,38 +164,40 @@ void main() {
   });
 
   group('правило «один живой файл на операцию» (D-63)', () {
-    test('повторное вложение заменяет прежнее: старая запись soft delete',
-        () async {
-      final Transaction tx = await seedTransaction();
-      final Attachment first = await f.attachments.create(
-        transactionId: tx.id,
-        filePath: 'att-1.png',
-        mimeType: 'image/png',
-        fileSize: 111,
-      );
-      f.clock.advance(const Duration(minutes: 1));
-      final Attachment second = await f.attachments.create(
-        transactionId: tx.id,
-        filePath: 'att-2.pdf',
-        mimeType: 'application/pdf',
-        fileSize: 222,
-      );
+    test(
+      'повторное вложение заменяет прежнее: старая запись soft delete',
+      () async {
+        final Transaction tx = await seedTransaction();
+        final Attachment first = await f.attachments.create(
+          transactionId: tx.id,
+          filePath: 'att-1.png',
+          mimeType: 'image/png',
+          fileSize: 111,
+        );
+        f.clock.advance(const Duration(minutes: 1));
+        final Attachment second = await f.attachments.create(
+          transactionId: tx.id,
+          filePath: 'att-2.pdf',
+          mimeType: 'application/pdf',
+          fileSize: 222,
+        );
 
-      final Attachment? alive = await f.attachments.findByTransaction(tx.id);
-      expect(alive?.id, second.id);
-      expect(alive?.filePath, 'att-2.pdf');
-      // Старая запись осталась в таблице, но мягко удалена (§3).
-      expect(await rawRowCount(f.db, 'attachments'), 2);
-      final Attachment? firstById = await f.attachments.findById(first.id);
-      expect(firstById, isNull, reason: 'findById — только живые');
-      // Обе записи физически существуют (soft delete).
-      final List<Attachment> all = await f.db.select(f.db.attachments).get();
-      expect(all, hasLength(2));
-      expect(
-        all.firstWhere((Attachment a) => a.id == first.id).deletedAt,
-        isNotNull,
-      );
-    });
+        final Attachment? alive = await f.attachments.findByTransaction(tx.id);
+        expect(alive?.id, second.id);
+        expect(alive?.filePath, 'att-2.pdf');
+        // Старая запись осталась в таблице, но мягко удалена (§3).
+        expect(await rawRowCount(f.db, 'attachments'), 2);
+        final Attachment? firstById = await f.attachments.findById(first.id);
+        expect(firstById, isNull, reason: 'findById — только живые');
+        // Обе записи физически существуют (soft delete).
+        final List<Attachment> all = await f.db.select(f.db.attachments).get();
+        expect(all, hasLength(2));
+        expect(
+          all.firstWhere((Attachment a) => a.id == first.id).deletedAt,
+          isNotNull,
+        );
+      },
+    );
 
     test('вложения разных операций не мешают друг другу', () async {
       final Transaction tx1 = await seedTransaction();
@@ -209,8 +215,10 @@ void main() {
         fileSize: 222,
       );
 
-      expect((await f.attachments.findByTransaction(tx1.id))?.filePath,
-          'att-1.png');
+      expect(
+        (await f.attachments.findByTransaction(tx1.id))?.filePath,
+        'att-1.png',
+      );
       expect((await f.attachments.findByTransaction(tx2.id))?.id, second.id);
     });
 
@@ -243,8 +251,10 @@ void main() {
       );
       expect(dead, hasLength(2));
       expect(dead.every((Attachment a) => a.deletedAt != null), isTrue);
-      expect((await f.attachments.findByTransaction(tx.id))?.filePath,
-          'att-3.png');
+      expect(
+        (await f.attachments.findByTransaction(tx.id))?.filePath,
+        'att-3.png',
+      );
     });
   });
 
@@ -274,37 +284,39 @@ void main() {
       expect(all.single.updatedAt.toUtc(), f.clock.read());
     });
 
-    test('повторный soft delete / чужой id — отказ notFound (_requireAlive)',
-        () async {
-      final Transaction tx = await seedTransaction();
-      final Attachment att = await f.attachments.create(
-        transactionId: tx.id,
-        filePath: 'att-1.png',
-        mimeType: 'image/png',
-        fileSize: 111,
-      );
-      await f.attachments.softDelete(att.id);
+    test(
+      'повторный soft delete / чужой id — отказ notFound (_requireAlive)',
+      () async {
+        final Transaction tx = await seedTransaction();
+        final Attachment att = await f.attachments.create(
+          transactionId: tx.id,
+          filePath: 'att-1.png',
+          mimeType: 'image/png',
+          fileSize: 111,
+        );
+        await f.attachments.softDelete(att.id);
 
-      await expectLater(
-        f.attachments.softDelete(att.id),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.notFound,
+        await expectLater(
+          f.attachments.softDelete(att.id),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.notFound,
+            ),
           ),
-        ),
-      );
-      await expectLater(
-        f.attachments.softDelete('nope'),
-        throwsA(
-          isA<DataValidationException>().having(
-            (DataValidationException e) => e.kind,
-            'kind',
-            DataFailure.notFound,
+        );
+        await expectLater(
+          f.attachments.softDelete('nope'),
+          throwsA(
+            isA<DataValidationException>().having(
+              (DataValidationException e) => e.kind,
+              'kind',
+              DataFailure.notFound,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   });
 }

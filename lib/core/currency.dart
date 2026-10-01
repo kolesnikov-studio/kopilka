@@ -89,8 +89,7 @@ int convertMinor(
   final int magnitude = negative ? -amountMinor : amountMinor;
   // Разница экспонентов источников: 10^2 / 10^exponent (экспонент 3 даёт
   // масштаб 0.1 — минорные динары в 10 раз крупнее минорных копеек).
-  final double scale =
-      _pow10(defaultCurrencyExponent) / _pow10(exponent);
+  final double scale = _pow10(defaultCurrencyExponent) / _pow10(exponent);
   // round() округляет половину от положительного числа вверх — половину
   // вверх по модулю (D-22); знак вернём отдельно.
   final int converted = (magnitude * rateToBase * scale).round();
@@ -142,8 +141,7 @@ double derivedRate(
   int fromExponent = defaultCurrencyExponent,
   int toExponent = defaultCurrencyExponent,
 }) {
-  final double fromMajor =
-      amountFromMinor / _pow10(fromExponent);
+  final double fromMajor = amountFromMinor / _pow10(fromExponent);
   final double toMajor = amountToMinor / _pow10(toExponent);
   return toMajor / fromMajor;
 }

@@ -63,7 +63,9 @@ enum DebtDirection {
   static DebtDirection fromDb(String value) => switch (value) {
     'they_owe_me' => DebtDirection.theyOweMe,
     'i_owe_them' => DebtDirection.iOweThem,
-    _ => throw DataValidationException('неизвестное направление долга: «$value»'),
+    _ => throw DataValidationException(
+      'неизвестное направление долга: «$value»',
+    ),
   };
 }
 

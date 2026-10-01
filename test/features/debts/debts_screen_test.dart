@@ -62,10 +62,10 @@ class _FakeRemindersPermission implements RemindersPermission {
 /// attachment_section_test.dart): владелец — долг (M6/D-82).
 class _FakeAttachmentsService extends AttachmentsService {
   _FakeAttachmentsService()
-      : super(
-          AttachmentsStorage(rootDirectory: Directory.systemTemp),
-          _UnusedDao(),
-        );
+    : super(
+        AttachmentsStorage(rootDirectory: Directory.systemTemp),
+        _UnusedDao(),
+      );
 
   // Пере-цепляется к БД приложения после сборки харнесса (useDatabase).
   late AttachmentsDao dao;
@@ -168,8 +168,9 @@ Future<_App> _pumpApp(
   addTearDown(tester.platformDispatcher.clearLocaleTestValue);
   addTearDown(tester.platformDispatcher.clearLocalesTestValue);
 
-  final AppLocalizations l10n =
-      await AppLocalizations.delegate.load(const Locale('ru'));
+  final AppLocalizations l10n = await AppLocalizations.delegate.load(
+    const Locale('ru'),
+  );
 
   final AppDatabase db = AppDatabase.forTesting(NativeDatabase.memory());
   addTearDown(db.close);
@@ -179,8 +180,9 @@ Future<_App> _pumpApp(
     () => Directory.systemTemp.createTemp('kopilka_debts_test'),
   ))!;
   addTearDown(() => tester.runAsync(() => baseDir.delete(recursive: true)));
-  final RemindersPreferencesStore remindersStore =
-      RemindersPreferencesStore(baseDirectory: baseDir);
+  final RemindersPreferencesStore remindersStore = RemindersPreferencesStore(
+    baseDirectory: baseDir,
+  );
 
   final ProviderContainer container = ProviderContainer(
     overrides: [
@@ -202,10 +204,7 @@ Future<_App> _pumpApp(
   addTearDown(container.dispose);
 
   await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: const _Host(),
-    ),
+    UncontrolledProviderScope(container: container, child: const _Host()),
   );
   // Старт на списке долгов (ветка шестая, D-89).
   container.read(routerProvider).go('/debts');
@@ -228,12 +227,9 @@ Future<List<Debt>> _aliveDebts(AppDatabase db) =>
 
 /// Одноразовая выборка живых платежей долга (§7: не через watch-стрим).
 Future<List<DebtPayment>> _paymentsOf(AppDatabase db, String debtId) =>
-    (db.select(db.debtPayments)..where(
-          (t) =>
-              t.debtId.equals(debtId) &
-              t.deletedAt.isNull(),
-        ))
-        .get();
+    (db.select(
+      db.debtPayments,
+    )..where((t) => t.debtId.equals(debtId) & t.deletedAt.isNull())).get();
 
 Future<Debt> _seedTheyOweMe(AppDatabase db, {String person = 'Аня'}) =>
     db.debtsDao.create(
@@ -279,10 +275,7 @@ void main() {
       expect(find.text(app.l10n.debtRecordPaymentAction), findsOneWidget);
       expect(find.text(app.l10n.debtPaymentsEmpty), findsOneWidget);
       expect(find.text(app.l10n.debtPaidOffBadge), findsNothing);
-      expect(
-        find.textContaining(app.l10n.debtRemainingLine('')),
-        findsWidgets,
-      );
+      expect(find.textContaining(app.l10n.debtRemainingLine('')), findsWidgets);
     },
   );
 
@@ -396,7 +389,8 @@ void main() {
           await tester.runAsync(() => _paymentsOf(app.db, debt.id)) ??
           <DebtPayment>[];
       expect(payments, isEmpty);
-      final List<Transaction> rows = await tester.runAsync(
+      final List<Transaction> rows =
+          await tester.runAsync(
             () => app.db.select(app.db.transactions).get(),
           ) ??
           <Transaction>[];
@@ -412,7 +406,11 @@ void main() {
       final _App app = await _pumpApp(tester);
       // Валюта долга USD в справочнике (курс 1 — неважно, суммы задаём
       // вручную); счёт списания RUB, зачисления USD (валюта долга).
-      await app.db.currenciesDao.create(code: 'USD', symbol: r'$', rateToBase: 1);
+      await app.db.currenciesDao.create(
+        code: 'USD',
+        symbol: r'$',
+        rateToBase: 1,
+      );
       await app.db.accountsDao.create(
         name: 'Рублёвая карта',
         kind: AccountKind.card,
@@ -469,12 +467,16 @@ void main() {
       expect(payments.single.transactionId, isNotNull);
       // Перевод: списание 85000 минорных RUB, зачисление 1050 минорных USD —
       // обе суммы по D-17 (мультивалютный перевод — с targetAmountMinor).
-      final List<Transaction> rows = await tester.runAsync(
+      final List<Transaction> rows =
+          await tester.runAsync(
             () => app.db.select(app.db.transactions).get(),
           ) ??
           <Transaction>[];
       expect(rows, hasLength(1));
-      expect(TransactionType.fromDb(rows.single.type), TransactionType.transfer);
+      expect(
+        TransactionType.fromDb(rows.single.type),
+        TransactionType.transfer,
+      );
       expect(rows.single.amountMinor, 85000);
       expect(rows.single.currencyCode, 'RUB');
       expect(rows.single.targetAmountMinor, 1050);

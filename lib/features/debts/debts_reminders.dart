@@ -36,8 +36,7 @@ class RemindersToggleController extends Notifier<bool> {
   /// `setEnabled(true)` → пересчёт расписания → снек. При отказе в
   /// разрешении настройка не включается (D-88.1/D-89 §7).
   Future<RemindersEnableOutcome> enable(BuildContext context) async {
-    final bool granted =
-        await ref.read(remindersPermissionProvider).request();
+    final bool granted = await ref.read(remindersPermissionProvider).request();
     if (!granted) {
       if (context.mounted) {
         await showSnack(
@@ -78,8 +77,8 @@ class RemindersToggleController extends Notifier<bool> {
 
 final remindersToggleProvider =
     NotifierProvider<RemindersToggleController, bool>(
-  RemindersToggleController.new,
-);
+      RemindersToggleController.new,
+    );
 
 /// MaterialBanner-приглашение над секциями списка долгов (§7): показывается,
 /// пока напоминания выключены и пользователь не скрыл баннер в этой сессии
@@ -109,8 +108,7 @@ class _RemindersBannerState extends ConsumerState<RemindersBanner> {
     if (enabled || _dismissed) {
       return const SizedBox.shrink();
     }
-    final bool isLinux =
-        Theme.of(context).platform == TargetPlatform.linux;
+    final bool isLinux = Theme.of(context).platform == TargetPlatform.linux;
     return MaterialBanner(
       // Баннер над секциями списка (§7) — внутри тела экрана, не
       // ScaffoldMessenger: экраны-вкладки живут в своих ветках.
@@ -122,24 +120,22 @@ class _RemindersBannerState extends ConsumerState<RemindersBanner> {
             children: <Widget>[
               const Icon(Icons.notifications_none),
               const SizedBox(width: 12),
-              Expanded(
-                child: Text(l10n.remindersBannerTitle),
-              ),
+              Expanded(child: Text(l10n.remindersBannerTitle)),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             l10n.remindersBannerBody,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           if (isLinux)
             Text(
               l10n.remindersLinuxHint,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
         ],
       ),
@@ -153,9 +149,7 @@ class _RemindersBannerState extends ConsumerState<RemindersBanner> {
         ),
         TextButton(
           onPressed: () async {
-            await ref
-                .read(remindersToggleProvider.notifier)
-                .enable(context);
+            await ref.read(remindersToggleProvider.notifier).enable(context);
           },
           child: Text(l10n.remindersEnableAction),
         ),
