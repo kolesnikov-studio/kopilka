@@ -1,0 +1,187 @@
+name: Build artifacts
+
+# Переиспользуемый сборочный workflow (D-108): собирает те же артефакты,
+# что и релиз (ARCHITECTURE.md §7) — Android universal APK, Windows
+# NSIS + portable zip, Linux AppImage.
+#
+# Вызывается из:
+#   * release.yml — на тег v* (там же черновой GitHub Release);
+#   * ci.yml — на push main и workflow_dispatch как пре-релизная проверка:
+#     дефект сборки обязан вскрываться на обычном пуше, а не на теге
+#     (D-105: CI Release №6 упал на Android-джобе только на теге v0.6.0).
+#
+# Джобы живут в одном файле для обоих вызовов: копия в двух файлах со
+# временем разойдётся и обесценит замок (D-108).
+
+on:
+  workflow_call:
+    inputs:
+      artifact_label:
+        description: >-
+          Метка версии для имён артефактов, обычно тег (v0.6.0) из
+          release.yml. Пустая — версия берётся из pubspec.yaml (репетиция
+          на push main).
+        required: false
+        type: string
+        default: ''
+
+env:
+  FLUTTER_VERSION: '3.47.5'
+
+jobs:
+  android:
+    name: Android universal APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Build universal APK
+        run: flutter build apk --release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kopilka-android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  windows:
+    name: Windows NSIS + portable
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve artifact label
+        id: label
+        shell: pwsh
+        env:
+          INPUT_LABEL: ${{ inputs.artifact_label }}
+        run: |
+          # Из release.yml метка — тег (v0.6.0); в репетиции на push main
+          # берём версию из pubspec.yaml (version: 0.6.0+1 → v0.6.0).
+          $label = $env:INPUT_LABEL
+          if (-not $label) {
+            $version = (Select-String -Path pubspec.yaml -Pattern '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)').Matches[0].Groups[1].Value
+            $label = "v$version"
+          }
+          "label=$label" >> $env:GITHUB_OUTPUT
+          "version=$($label.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Make NSIS installer
+        shell: pwsh
+        env:
+          LABEL: ${{ steps.label.outputs.label }}
+          VERSION: ${{ steps.label.outputs.version }}
+        run: |
+          # choco добавляет NSIS в PATH только для новых сессий; в текущей
+          # джобы его нет — зовём по месту установки с fallback в PATH
+          # (воспроизведено: makensis not recognized, прогон 2026-09-25)
+          $makensis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (-not (Test-Path $makensis)) { $makensis = (Get-Command makensis).Source }
+          # OutFile — абсолютным: makensis трактует его от рабочей папки,
+          # а File в скрипте — от каталога скрипта; не смешиваем
+          $outFile = Join-Path (Get-Location) "Kopilka-setup-$env:LABEL.exe"
+          & $makensis /DPRODUCT_VERSION=$env:VERSION "/DOUTFILE=$outFile" packaging/windows/kopilka.nsi
+
+      - name: Make portable zip
+        shell: pwsh
+        env:
+          LABEL: ${{ steps.label.outputs.label }}
+        run: |
+          Compress-Archive -Path 'build/windows/x64/runner/Release/*' -DestinationPath "Kopilka-portable-$env:LABEL.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kopilka-windows
+          path: |
+            Kopilka-setup-*.exe
+            Kopilka-portable-*.zip
+
+  linux:
+    name: Linux AppImage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Resolve artifact label
+        id: label
+        env:
+          INPUT_LABEL: ${{ inputs.artifact_label }}
+        run: |
+          # Как в windows-джобе: тег из release.yml либо версия из pubspec.yaml
+          label="$INPUT_LABEL"
+          if [ -z "$label" ]; then
+            version="$(sed -nE 's/^version: ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' pubspec.yaml | head -n 1)"
+            label="v$version"
+          fi
+          echo "label=$label" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libfuse2
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      - name: Assemble AppDir
+        shell: bash
+        env:
+          LABEL: ${{ steps.label.outputs.label }}
+        run: ./packaging/linux/make_appdir.sh "$LABEL"
+
+      - name: Make AppImage
+        shell: bash
+        env:
+          LABEL: ${{ steps.label.outputs.label }}
+        run: |
+          # appimagetool (appimage/AppImageKit) работает без монтирования:
+          # упаковывает AppDir в образ через mksquashfs, FUSE нужен только
+          # для ЗАПУСКА готового AppImage, поэтому в CI он собирается.
+          curl -sSL -o appimagetool.AppImage \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool.AppImage
+          ./appimagetool.AppImage --appimage-extract-and-run Kopilka.AppDir \
+            "Kopilka-${LABEL#v}-x86_64.AppImage"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kopilka-linux-appimage
+          path: Kopilka-*-x86_64.AppImage

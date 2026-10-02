@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   analyze-and-test:
@@ -34,3 +35,51 @@ jobs:
 
       - name: Test
         run: flutter test
+
+  changes:
+    name: build paths filter
+    # Тяжёлые сборки артефактов не гоняем на docs-only коммитах, но analyze
+    # и test идут на каждом пуше: на любом коммите main есть зелёный прогон
+    # (D-108 — подготовка релиза видит зелёный прогон на целевом коммите).
+    # Диапазон push'а сравнивается своим диффом, без внешних action'ов.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.filter.outputs.build }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Нужна база push'а (github.event.before) для диффа.
+          fetch-depth: 0
+
+      - name: Detect build-relevant changes
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: |
+          # Собираем, если база неизвестна (workflow_dispatch без before или
+          # первый push ветки) либо недоступна (force-push), или если менялся
+          # код и конфигурация сборки, а не только документация.
+          build=false
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            build=true
+          elif ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            build=true
+          elif git diff --name-only "${BASE_SHA}" "${GITHUB_SHA}" | grep -qE '^(lib|test|android|windows|linux|packaging|assets)/|^(pubspec\.(yaml|lock)|l10n\.yaml|analysis_options\.yaml)$|^\.github/workflows/'; then
+            build=true
+          fi
+          echo "build=${build}" >> "$GITHUB_OUTPUT"
+          echo "build-relevant changes: ${build}"
+
+  build-artifacts:
+    name: build artifacts (пре-релизная проверка)
+    # Триггер — push в main и workflow_dispatch, не PR: замок ставится перед
+    # постановкой тега (D-108).
+    if: github.event_name != 'pull_request' && needs.changes.outputs.build == 'true'
+    # Сборки — только на зелёных analyze/test: красный прогон любого шага
+    # обязан блокировать релиз (D-108).
+    needs: [analyze-and-test, changes]
+    # Те же джобы и тот же код, что на теге (release.yml) — единый источник
+    # сборки артефактов, копия в двух файлах разошлась бы (D-108).
+    uses: ./.github/workflows/build-artifacts.yml
