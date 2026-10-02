@@ -840,4 +840,142 @@ void main() {
       },
     );
   });
+
+  group('watchCategoryNetByPeriodInBase (M7/D-116, D-117)', () {
+    test(
+      'суммы по категориям, видам и месяцам в базовой; переводы и удалённые '
+      'операции не в счёт',
+      () async {
+        final DataLayerFixture f = DataLayerFixture();
+        addTearDown(f.dispose);
+        await f.ensureRub();
+        // Курс — степень двойки: произведение точно в double, проверяется
+        // правило построчного half-up (D-22), а не хвосты float.
+        await f.seedCurrency('USD', symbol: r'$', rateToBase: 2);
+        final Account rub = await f.seedAccount(name: 'Рублёвый');
+        final Account usd = await f.accounts.create(
+          name: 'Долларовый',
+          kind: AccountKind.card,
+          currencyCode: 'USD',
+        );
+        final Category food = await f.seedCategory(name: 'Еда');
+        final Category salary = await f.seedCategory(
+          name: 'Зарплата',
+          kind: CategoryKind.income,
+        );
+
+        await f.transactions.create(
+          type: TransactionType.expense,
+          accountId: rub.id,
+          categoryId: food.id,
+          amountMinor: 10000,
+          date: DateTime.utc(2026, 9, 5, 10),
+        );
+        // USD 20,00 × курс 2 → 4000 в базовой.
+        await f.transactions.create(
+          type: TransactionType.expense,
+          accountId: usd.id,
+          categoryId: food.id,
+          amountMinor: 2000,
+          date: DateTime.utc(2026, 9, 20, 10),
+        );
+        await f.transactions.create(
+          type: TransactionType.income,
+          accountId: rub.id,
+          categoryId: salary.id,
+          amountMinor: 50000,
+          date: DateTime.utc(2026, 9, 1),
+        );
+        await f.transactions.create(
+          type: TransactionType.expense,
+          accountId: rub.id,
+          categoryId: food.id,
+          amountMinor: 700,
+          date: DateTime.utc(2026, 10, 2),
+        );
+        final Transaction hidden = await f.transactions.create(
+          type: TransactionType.expense,
+          accountId: rub.id,
+          categoryId: food.id,
+          amountMinor: 999,
+          date: DateTime.utc(2026, 9, 30),
+        );
+        await f.transactions.softDelete(hidden.id);
+        await f.transactions.create(
+          type: TransactionType.transfer,
+          accountId: rub.id,
+          targetAccountId: usd.id,
+          amountMinor: 500,
+          targetAmountMinor: 250,
+          date: DateTime.utc(2026, 9, 15),
+        );
+
+        final List<CategoryNetBase> rows = await f.transactions
+            .watchCategoryNetByPeriodInBase(
+              from: DateTime.utc(2026, 9, 1),
+              to: DateTime.utc(2026, 11, 1),
+            )
+            .first;
+
+        expect(rows, hasLength(3));
+        expect(rows[0].categoryId, food.id);
+        expect(rows[0].categoryName, 'Еда');
+        expect(rows[0].monthKey, '2026-09');
+        expect(rows[0].type, TransactionType.expense);
+        expect(rows[0].amountMinor, 14000);
+        expect(rows[1].categoryId, salary.id);
+        expect(rows[1].monthKey, '2026-09');
+        expect(rows[1].type, TransactionType.income);
+        expect(rows[1].amountMinor, 50000);
+        expect(rows[2].categoryId, food.id);
+        expect(rows[2].monthKey, '2026-10');
+        expect(rows[2].amountMinor, 700);
+      },
+    );
+
+    test('поток живой: новая операция меняет выдачу без перезапуска', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await f.ensureRub();
+      final Account account = await f.seedAccount();
+      final Category food = await f.seedCategory(name: 'Еда');
+
+      final Stream<List<CategoryNetBase>> stream = f.transactions
+          .watchCategoryNetByPeriodInBase(
+            from: DateTime.utc(2026, 9, 1),
+            to: DateTime.utc(2026, 10, 1),
+          );
+
+      await f.transactions.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: food.id,
+        amountMinor: 1234,
+      );
+
+      await expectLater(
+        stream,
+        emitsThrough(
+          predicate<List<CategoryNetBase>>(
+            (List<CategoryNetBase> list) =>
+                list.single.amountMinor == 1234 &&
+                list.single.monthKey == '2026-09',
+            'сумма 12,34 ₽ за сентябрь 2026',
+          ),
+        ),
+      );
+    });
+
+    test('пустой период — отказ invalidInput', () async {
+      final DataLayerFixture f = DataLayerFixture();
+      addTearDown(f.dispose);
+      await expectLater(
+        () => f.transactions.watchCategoryNetByPeriodInBase(
+          from: DateTime.utc(2026, 9, 1),
+          to: DateTime.utc(2026, 9, 1),
+        ),
+        throwsA(isA<DataValidationException>()),
+      );
+    });
+  });
 }

@@ -26,6 +26,32 @@ class CategoryExpenseBase {
   final int amountMinor;
 }
 
+/// Суммы живых операций одной категории одного вида за календарный месяц
+/// UTC в базовой валюте (M7/D-116): первый потребитель — средние прогноза
+/// (D-117). Значения — минорные единицы базовой валюты.
+class CategoryNetBase {
+  const CategoryNetBase({
+    required this.categoryId,
+    required this.categoryName,
+    required this.monthKey,
+    required this.type,
+    required this.amountMinor,
+  });
+
+  final String categoryId;
+  final String categoryName;
+
+  /// Месяц операций — ключ `YYYY-MM` UTC: окно истории прогноза считается
+  /// «с первой операции» (D-117), то есть по самому раннему месяцу с данными.
+  final String monthKey;
+
+  /// Вид операций: доход или расход (переводов в агрегате нет).
+  final TransactionType type;
+
+  /// Сумма конвертированных построчно операций, минорные единицы базовой.
+  final int amountMinor;
+}
+
 /// Доходы и расходы одного календарного месяца в базовой валюте
 /// (M3-шаг 5, D-18). Изменяемый класс:
 /// DAO собирает итоги из групп конвертированных строк.
@@ -748,5 +774,77 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       (MonthTotalsBase a, MonthTotalsBase b) =>
           a.monthKey.compareTo(b.monthKey),
     );
+  }
+
+  /// Суммы живых операций по категориям, видам и календарным месяцам UTC
+  /// за период [from, to) в базовой валюте (M7/D-116): первый потребитель —
+  /// средние прогноза баланса (D-117).
+  ///
+  /// Один SELECT [_baseAggregateOpsSelect] (не клон), построчная
+  /// конвертация в Dart до суммирования (D-18/D-22). Месяц в строке нужен
+  /// потребителю: окно истории прогноза — «с первой операции» (D-117), то
+  /// есть по самому раннему месяцу с данными. Переводы в агрегат не входят;
+  /// мягко удалённые операции и категории не учитываются. Пустой период
+  /// (to <= from) — отказ [DataFailure.invalidInput] (образец
+  /// [watchTotalsByMonthInBase]).
+  Stream<List<CategoryNetBase>> watchCategoryNetByPeriodInBase({
+    required DateTime from,
+    required DateTime to,
+  }) {
+    if (!to.isAfter(from)) {
+      throw DataValidationException(
+        'период пуст: to должен быть позже from',
+        kind: DataFailure.invalidInput,
+      );
+    }
+    return _baseAggregateOpsSelect(from, to, <String>[
+      TransactionType.income.dbValue,
+      TransactionType.expense.dbValue,
+    ]).watch().map(_readCategoryNetInBase);
+  }
+
+  /// Группирует конвертированные построчно операции по категориям, видам и
+  /// месяцам. Порядок результата детерминирован: месяц, имя категории,
+  /// вид (для потребителя и тестов).
+  List<CategoryNetBase> _readCategoryNetInBase(List<QueryRow> rows) {
+    final Map<String, List<Object>> byBucket = <String, List<Object>>{};
+    for (final QueryRow row in rows) {
+      final int converted = _convertToBase(row);
+      // Ключ группы: UUID категории, ключ месяца и вид операции — ни один
+      // из них не содержит символа-разделителя.
+      final String bucketKey =
+          '${row.read<String>('category_id')}|'
+          '${row.read<String>('month_key')}|'
+          '${row.read<String>('type')}';
+      final List<Object>? bucket = byBucket[bucketKey];
+      if (bucket == null) {
+        byBucket[bucketKey] = <Object>[
+          row.read<String>('category_id'),
+          row.read<String>('category_name'),
+          row.read<String>('month_key'),
+          TransactionType.fromDb(row.read<String>('type')),
+          converted,
+        ];
+      } else {
+        bucket[4] = (bucket[4] as int) + converted;
+      }
+    }
+    return <CategoryNetBase>[
+      for (final List<Object> bucket in byBucket.values)
+        CategoryNetBase(
+          categoryId: bucket[0] as String,
+          categoryName: bucket[1] as String,
+          monthKey: bucket[2] as String,
+          type: bucket[3] as TransactionType,
+          amountMinor: bucket[4] as int,
+        ),
+    ]..sort((CategoryNetBase a, CategoryNetBase b) {
+      final int byMonth = a.monthKey.compareTo(b.monthKey);
+      if (byMonth != 0) {
+        return byMonth;
+      }
+      final int byName = a.categoryName.compareTo(b.categoryName);
+      return byName != 0 ? byName : a.type.dbValue.compareTo(b.type.dbValue);
+    });
   }
 }
