@@ -1222,5 +1222,24 @@
   "transactionViewAttachment": "View attachment",
   "@transactionViewAttachment": {
     "description": "Context menu item of a transaction tile opening the attached file; shown only when the transaction has an attachment (D-67.в, designer spec §5)"
+  },
+
+  "reminderOverBudgetBody": "“{category}” is close to the limit: {amount} left for {days} days.",
+  "@reminderOverBudgetBody": {
+    "description": "Draft body of the overspend alert (D-118): category, remaining amount and days left; the designer spec of steps C/D finalizes the wording",
+    "placeholders": {
+      "category": { "type": "String" },
+      "amount": { "type": "String" },
+      "days": { "type": "int" }
+    }
+  },
+  "reminderOverBudgetExceededBody": "“{category}” is over the limit by {amount}, {days} days to go.",
+  "@reminderOverBudgetExceededBody": {
+    "description": "Draft body of the overspend alert when the limit is already exceeded (D-118): category, overspent amount, days to the period end; the designer spec of steps C/D finalizes the wording",
+    "placeholders": {
+      "category": { "type": "String" },
+      "amount": { "type": "String" },
+      "days": { "type": "int" }
+    }
   }
 }

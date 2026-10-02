@@ -8,6 +8,8 @@ import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/debts_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
+import 'package:kopilka/data/db/dao/plans_dao.dart';
+import 'package:kopilka/data/db/dao/scheduled_transfers_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/export/backup_service.dart';
 
@@ -50,6 +52,16 @@ final attachmentsDaoProvider = Provider<AttachmentsDao>(
 /// Долги и погашения (v7, M6/D-82).
 final debtsDaoProvider = Provider<DebtsDao>(
   (ref) => ref.watch(appDatabaseProvider).debtsDao,
+);
+
+/// Планы (v8, M7/D-116).
+final plansDaoProvider = Provider<PlansDao>(
+  (ref) => ref.watch(appDatabaseProvider).plansDao,
+);
+
+/// Отложенные переводы (v8, M7/D-116/D-119).
+final scheduledTransfersDaoProvider = Provider<ScheduledTransfersDao>(
+  (ref) => ref.watch(appDatabaseProvider).scheduledTransfersDao,
 );
 
 /// Хранилище файлов вложений (v6, D-63): каталог `attachments/` рядом с

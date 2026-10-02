@@ -17,6 +17,11 @@ const String _fileName = 'reminders-preferences.json';
 
 const String _keyEnabled = 'enabled';
 
+/// Ключ состояния дедупа оповещений о перерасходе (D-118): карта
+/// «ключ показа → дата последнего показа UTC»; отдельное поле расширения
+/// (старый файл без поля = пусто).
+const String _keyAlertLastShown = 'alert_last_shown';
+
 /// Хранилище opt-in настройки напоминаний (D-83: по умолчанию выкл;
 /// файл — истина между запусками, load() в main до runApp). Реализует
 /// шов [RemindersPreferencesFake] (имя историческое — шов fake persistence
@@ -42,6 +47,33 @@ class RemindersPreferencesStore implements RemindersPreferencesFake {
   @override
   Future<void> writeEnabled(bool enabled) async =>
       _writeAll(<String, dynamic>{...(await _readAll()), _keyEnabled: enabled});
+
+  /// Карта «ключ показа → дата последнего показа (UTC, `YYYY-MM-DD`)».
+  /// Старый файл без поля, поле не карта или значения не строки — пусто
+  /// (терпимость необязательных полей, образец v4/v5).
+  @override
+  Future<Map<String, String>> readAlertLastShown() async {
+    final Object? raw = (await _readAll())[_keyAlertLastShown];
+    if (raw is! Map) {
+      return <String, String>{};
+    }
+    final Map<String, String> lastShown = <String, String>{};
+    for (final MapEntry<Object?, Object?> entry in raw.entries) {
+      final Object? key = entry.key;
+      final Object? value = entry.value;
+      if (key is String && value is String) {
+        lastShown[key] = value;
+      }
+    }
+    return lastShown;
+  }
+
+  @override
+  Future<void> writeAlertLastShown(Map<String, String> lastShown) async =>
+      _writeAll(<String, dynamic>{
+        ...(await _readAll()),
+        _keyAlertLastShown: lastShown,
+      });
 }
 
 /// Провайдер хранилища; создаётся в `main` (платформенный путь) и

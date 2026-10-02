@@ -1933,6 +1933,22 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View attachment'**
   String get transactionViewAttachment;
+
+  /// Draft body of the overspend alert (D-118): category, remaining amount and days left; the designer spec of steps C/D finalizes the wording
+  ///
+  /// In en, this message translates to:
+  /// **'“{category}” is close to the limit: {amount} left for {days} days.'**
+  String reminderOverBudgetBody(String category, String amount, int days);
+
+  /// Draft body of the overspend alert when the limit is already exceeded (D-118): category, overspent amount, days to the period end; the designer spec of steps C/D finalizes the wording
+  ///
+  /// In en, this message translates to:
+  /// **'“{category}” is over the limit by {amount}, {days} days to go.'**
+  String reminderOverBudgetExceededBody(
+    String category,
+    String amount,
+    int days,
+  );
 }
 
 class _AppLocalizationsDelegate

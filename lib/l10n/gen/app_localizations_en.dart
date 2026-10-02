@@ -1070,4 +1070,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transactionViewAttachment => 'View attachment';
+
+  @override
+  String reminderOverBudgetBody(String category, String amount, int days) {
+    return '“$category” is close to the limit: $amount left for $days days.';
+  }
+
+  @override
+  String reminderOverBudgetExceededBody(
+    String category,
+    String amount,
+    int days,
+  ) {
+    return '“$category” is over the limit by $amount, $days days to go.';
+  }
 }

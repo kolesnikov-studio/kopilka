@@ -1082,4 +1082,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get transactionViewAttachment => 'Просмотр вложения';
+
+  @override
+  String reminderOverBudgetBody(String category, String amount, int days) {
+    return '«$category»: близко к лимиту — осталось $amount на $days дн.';
+  }
+
+  @override
+  String reminderOverBudgetExceededBody(
+    String category,
+    String amount,
+    int days,
+  ) {
+    return '«$category»: лимит превышен на $amount, до конца периода $days дн.';
+  }
 }

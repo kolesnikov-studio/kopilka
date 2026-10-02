@@ -72,4 +72,44 @@ void main() {
       expect(await store.readEnabled(), isFalse);
     });
   });
+
+  group('состояние дедупа оповещений о перерасходе (D-118)', () {
+    test('старого файла без поля нет — пустая карта (необязательное поле)',
+        () async {
+      File(
+        '${directory.path}${Platform.pathSeparator}reminders-preferences.json',
+      ).writeAsStringSync('{"enabled": true}');
+
+      expect(await store.readAlertLastShown(), isEmpty);
+      // Старое поле при этом цело (расширение не ломает прежний формат).
+      expect(await store.readEnabled(), isTrue);
+    });
+
+    test('карта переживает запись, настройка enabled не теряется', () async {
+      await store.writeEnabled(true);
+      await store.writeAlertLastShown(<String, String>{
+        'budget:cat-1:2026-10': '2026-10-15',
+      });
+
+      expect(await store.readAlertLastShown(), <String, String>{
+        'budget:cat-1:2026-10': '2026-10-15',
+      });
+      expect(await store.readEnabled(), isTrue);
+    });
+
+    test('поле не карта или значения не строки — пусто, без падения',
+        () async {
+      for (final String raw in <String>[
+        '{"alert_last_shown": [1, 2]}',
+        '{"alert_last_shown": {"key": 5}}',
+        '{"alert_last_shown": "строка"}',
+      ]) {
+        File(
+          '${directory.path}${Platform.pathSeparator}reminders-preferences.json',
+        ).writeAsStringSync(raw);
+
+        expect(await store.readAlertLastShown(), isEmpty, reason: raw);
+      }
+    });
+  });
 }

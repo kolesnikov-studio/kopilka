@@ -329,5 +329,8 @@
   "adviceMinBalanceBody": "Деньги на обычном счёте не приносят процентов. Заведите накопительный счёт — напоминание подскажет, когда начислить.",
   "adviceMinBalanceAction": "Создать накопительный счёт",
 
-  "transactionViewAttachment": "Просмотр вложения"
+  "transactionViewAttachment": "Просмотр вложения",
+
+  "reminderOverBudgetBody": "«{category}»: близко к лимиту — осталось {amount} на {days} дн.",
+  "reminderOverBudgetExceededBody": "«{category}»: лимит превышен на {amount}, до конца периода {days} дн."
 }

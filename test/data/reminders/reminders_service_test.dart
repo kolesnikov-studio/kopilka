@@ -14,12 +14,21 @@ import 'package:kopilka/data/reminders/reminders_service.dart';
 
 class _FakePrefs implements RemindersPreferencesFake {
   bool enabled = false;
+  Map<String, String> alertLastShown = <String, String>{};
 
   @override
   Future<bool> readEnabled() async => enabled;
 
   @override
   Future<void> writeEnabled(bool value) async => enabled = value;
+
+  @override
+  Future<Map<String, String>> readAlertLastShown() async =>
+      Map<String, String>.of(alertLastShown);
+
+  @override
+  Future<void> writeAlertLastShown(Map<String, String> lastShown) async =>
+      alertLastShown = Map<String, String>.of(lastShown);
 }
 
 class _FakePlugin implements RemindersPlugin {
@@ -84,6 +93,12 @@ void main() {
     service = RemindersService(
       prefs: prefs,
       plugin: plugin,
+      overBudgetBody:
+          ({
+            required String categoryName,
+            required int remainingMinor,
+            required int daysLeft,
+          }) => 'K=$remainingMinor D=$daysLeft',
       clock: () => fixedNow,
     );
     addTearDown(db.close);
@@ -322,6 +337,24 @@ void main() {
 
       expect(slots.single.title, reminderTitle);
       expect(slots.single.body, reminderBodyInterest);
+    });
+  });
+
+  group('разовое уведомление вне расписания (D-119)', () {
+    test('showNow показывает при включённом opt-in', () async {
+      prefs.enabled = true;
+
+      await service.showNow(payload: 'scheduled:s-1', body: 'Исполнен');
+
+      expect(plugin.shown, <String>['scheduled:s-1']);
+    });
+
+    test('выключенный opt-in — показа нет и плагин не инициализируется',
+        () async {
+      await service.showNow(payload: 'scheduled:s-1', body: 'Исполнен');
+
+      expect(plugin.shown, isEmpty);
+      expect(plugin.initializeCalls, 0);
     });
   });
 }
