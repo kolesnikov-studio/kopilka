@@ -11,6 +11,7 @@ import 'package:kopilka/data/db/seed.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/data/reminders/reminders_binding.dart';
 import 'package:kopilka/data/reminders/reminders_preferences.dart';
+import 'package:kopilka/data/scheduled/scheduled_transfers_binding.dart';
 import 'package:kopilka/features/settings/rate_sync_controller.dart';
 import 'package:kopilka/features/settings/rate_sync_preferences.dart';
 import 'package:kopilka/features/settings/settings_controller.dart';
@@ -114,6 +115,17 @@ Future<void> main() async {
   unawaited(
     container
         .read(remindersBindingProvider)
+        .start()
+        .then((_) {}, onError: (Object _) {}),
+  );
+
+  // Исполнение отложенных переводов (M7, D-119): при запуске и после
+  // записи pending-строк — атомарно одной транзакцией, идемпотентно по
+  // executed_at; уведомление об исполнении — через RemindersService при
+  // общем opt-in (D-83). Отказы глушатся: запуск не зависит от них.
+  unawaited(
+    container
+        .read(scheduledTransfersBindingProvider)
         .start()
         .then((_) {}, onError: (Object _) {}),
   );
