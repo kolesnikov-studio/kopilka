@@ -10,6 +10,10 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications требует core library desugaring: без него
+        // AAR-метаданные плагина валят проверку :app и release-сборка APK падает
+        // (CI Release на теге v0.6.0, D-105).
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -36,6 +40,13 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+    // Версия из раздела «Gradle setup» плагина flutter_local_notifications
+    // (не ниже 2.1.4; 2.1.5 — последняя стабильная, нужна для compileSdk 36
+    // и совместима с AGP 9.1.0 проекта).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 kotlin {
