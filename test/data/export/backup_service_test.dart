@@ -1330,4 +1330,300 @@ void main() {
       expect(await database.transactionsDao.getFiltered(), hasLength(1));
     },
   );
+
+  // --- v8: планы и отложенные переводы в формате экспорта (D-120) ---
+
+  /// Документ v8 с одной строкой плана и/или отложенного перевода (задаёт
+  /// тест); база документа — валидные справочники, счета, категории
+  /// и один перевод — как у v7WithDebt.
+  Map<String, dynamic> v8Document({
+    Map<String, dynamic>? plan,
+    Map<String, dynamic>? scheduled,
+  }) => <String, dynamic>{
+    'schema_version': 8,
+    'data': <String, dynamic>{
+      'currencies': <dynamic>[
+        <String, dynamic>{
+          'code': 'RUB',
+          'symbol': '₽',
+          'is_base': true,
+          'rate_to_base': 1,
+          'created_at': '2026-10-01T00:00:00.000Z',
+          'updated_at': '2026-10-01T00:00:00.000Z',
+        },
+      ],
+      'accounts': <dynamic>[
+        <String, dynamic>{
+          'id': 'acc-1',
+          'name': 'Карта',
+          'kind': 'card',
+          'currency_code': 'RUB',
+          'created_at': '2026-10-01T00:00:00.000Z',
+          'updated_at': '2026-10-01T00:00:00.000Z',
+        },
+        <String, dynamic>{
+          'id': 'acc-2',
+          'name': 'Наличные',
+          'kind': 'cash',
+          'currency_code': 'RUB',
+          'created_at': '2026-10-01T00:00:00.000Z',
+          'updated_at': '2026-10-01T00:00:00.000Z',
+        },
+      ],
+      'categories': <dynamic>[
+        <String, dynamic>{
+          'id': 'cat-food',
+          'name': 'Продукты',
+          'kind': 'expense',
+          'is_system': false,
+          'created_at': '2026-10-01T00:00:00.000Z',
+          'updated_at': '2026-10-01T00:00:00.000Z',
+        },
+        <String, dynamic>{
+          'id': 'cat-fee',
+          'name': 'Комиссии',
+          'kind': 'expense',
+          'is_system': false,
+          'created_at': '2026-10-01T00:00:00.000Z',
+          'updated_at': '2026-10-01T00:00:00.000Z',
+        },
+      ],
+      'transactions': <dynamic>[
+        <String, dynamic>{
+          'id': 'tx-1',
+          'type': 'transfer',
+          'account_id': 'acc-1',
+          'target_account_id': 'acc-2',
+          'amount_minor': 100,
+          'currency_code': 'RUB',
+          'date': '2026-10-02T00:00:00.000Z',
+          'created_at': '2026-10-01T00:00:00.000Z',
+          'updated_at': '2026-10-01T00:00:00.000Z',
+        },
+      ],
+      'budgets': <dynamic>[],
+      'attachments': <dynamic>[],
+      'debts': <dynamic>[],
+      'debt_payments': <dynamic>[],
+      'plans': <dynamic>[?plan],
+      'scheduled_transfers': <dynamic>[?scheduled],
+    },
+  };
+
+  final Map<String, dynamic> servicePlan = <String, dynamic>{
+    'id': 'plan-1',
+    'category_id': 'cat-food',
+    'period_start': '2026-10-01T00:00:00.000Z',
+    'period_end': '2026-11-01T00:00:00.000Z',
+    'amount_minor': 4000000,
+    'created_at': '2026-10-01T00:00:00.000Z',
+    'updated_at': '2026-10-01T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  final Map<String, dynamic> serviceScheduled = <String, dynamic>{
+    'id': 'sched-1',
+    'account_id': 'acc-1',
+    'target_account_id': 'acc-2',
+    'amount_minor': 500000,
+    'target_amount_minor': null,
+    'execute_at': '2026-10-03T00:00:00.000Z',
+    'commission_minor': 2500,
+    'commission_category_id': 'cat-fee',
+    'executed_at': null,
+    'executed_transaction_id': null,
+    'created_at': '2026-10-01T00:00:00.000Z',
+    'updated_at': '2026-10-01T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  test(
+    'импорт v8 восстанавливает планы и отложенные переводы (D-120)',
+    () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      final String json = jsonEncode(
+        v8Document(plan: servicePlan, scheduled: serviceScheduled),
+      );
+
+      await BackupService(database).importJson(json);
+
+      final List<Plan> plans = await database.plansDao.watchAlive().first;
+      expect(plans, hasLength(1));
+      expect(plans.single.categoryId, 'cat-food');
+      expect(plans.single.periodStart, '2026-10-01T00:00:00.000Z');
+      expect(plans.single.amountMinor, 4000000);
+      final List<ScheduledTransfer> scheduled = await database
+          .scheduledTransfersDao
+          .watchAlive()
+          .first;
+      expect(scheduled, hasLength(1));
+      expect(scheduled.single.accountId, 'acc-1');
+      expect(scheduled.single.targetAccountId, 'acc-2');
+      expect(scheduled.single.amountMinor, 500000);
+      expect(scheduled.single.executeAt, '2026-10-03T00:00:00.000Z');
+      expect(scheduled.single.commissionMinor, 2500);
+      expect(scheduled.single.commissionCategoryId, 'cat-fee');
+      expect(scheduled.single.executedAt, isNull);
+    },
+  );
+
+  test('экспорт v8: планы и отложенные переводы в дампе, версия 8', () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final Category food = (await database.categoriesDao.getAlive(
+      kind: CategoryKind.expense,
+    )).first;
+    await database.plansDao.create(
+      categoryId: food.id,
+      periodStart: DateTime.utc(2026, 10, 1),
+      periodEnd: DateTime.utc(2026, 11, 1),
+      amountMinor: 123456,
+    );
+    final Account cash = (await database.accountsDao.getAlive()).single;
+    final Account bank = await database.accountsDao.create(
+      name: 'Банк',
+      kind: AccountKind.bank,
+      currencyCode: 'RUB',
+    );
+    await database.scheduledTransfersDao.create(
+      accountId: cash.id,
+      targetAccountId: bank.id,
+      amountMinor: 500000,
+      executeAt: DateTime.utc(2026, 10, 3),
+    );
+
+    final Map<String, dynamic> document = jsonDecode(
+      await BackupService(database).exportJson(),
+    ) as Map<String, dynamic>;
+    expect(document['schema_version'], backupSchemaVersion);
+    expect(backupSchemaVersion, 8);
+    final Map<String, dynamic> data = document['data'] as Map<String, dynamic>;
+    final List<dynamic> plans = data['plans'] as List<dynamic>;
+    expect(plans, hasLength(1));
+    expect(
+      (plans.single as Map<String, dynamic>)['period_start'],
+      '2026-10-01T00:00:00.000Z',
+    );
+    final List<dynamic> scheduled =
+        data['scheduled_transfers'] as List<dynamic>;
+    expect(scheduled, hasLength(1));
+    expect(
+      (scheduled.single as Map<String, dynamic>)['execute_at'],
+      '2026-10-03T00:00:00.000Z',
+    );
+    expect((scheduled.single as Map<String, dynamic>)['amount_minor'], 500000);
+  });
+
+  test(
+    'импорт v7-файла: планов и отложенных нет (пустые списки, D-120)',
+    () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      final Map<String, dynamic> document = v8Document(
+        plan: servicePlan,
+        scheduled: serviceScheduled,
+      );
+      final Map<String, dynamic> data =
+          document['data'] as Map<String, dynamic>;
+      data
+        ..remove('plans')
+        ..remove('scheduled_transfers');
+      document['schema_version'] = 7;
+
+      await BackupService(database).importJson(jsonEncode(document));
+
+      expect(
+        (await database.customSelect('SELECT COUNT(*) AS c FROM plans').get())
+            .single
+            .read<int>('c'),
+        0,
+      );
+      expect(
+        (await database
+                .customSelect('SELECT COUNT(*) AS c FROM scheduled_transfers')
+                .get())
+            .single
+            .read<int>('c'),
+        0,
+      );
+      // Данные v7 при этом восстановлены.
+      expect(await database.transactionsDao.getFiltered(), hasLength(1));
+    },
+  );
+
+  test(
+    'план на отсутствующую категорию — отказ до транзакции (D-120)',
+    () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      final String json = jsonEncode(
+        v8Document(
+          plan: <String, dynamic>{...servicePlan, 'category_id': 'cat-нет'},
+        ),
+      );
+      expect(
+        () => BackupService(database).importJson(json),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException e) => e.kind,
+            'kind',
+            BackupFailure.invalidData,
+          ),
+        ),
+      );
+      // Отказ до транзакции: база не тронута.
+      expect(await database.transactionsDao.getFiltered(), hasLength(0));
+    },
+  );
+
+  test('отложенный перевод на отсутствующий счёт — отказ (D-120)', () async {
+    final AppDatabase database = await seeded();
+    addTearDown(database.close);
+    final String json = jsonEncode(
+      v8Document(
+        scheduled: <String, dynamic>{
+          ...serviceScheduled,
+          'target_account_id': 'acc-нет',
+        },
+      ),
+    );
+    expect(
+      () => BackupService(database).importJson(json),
+      throwsA(
+        isA<BackupValidationException>().having(
+          (BackupValidationException e) => e.kind,
+          'kind',
+          BackupFailure.invalidData,
+        ),
+      ),
+    );
+  });
+
+  test(
+    'исполненная ссылка на отсутствующую операцию — отказ (D-120)',
+    () async {
+      final AppDatabase database = await seeded();
+      addTearDown(database.close);
+      final String json = jsonEncode(
+        v8Document(
+          scheduled: <String, dynamic>{
+            ...serviceScheduled,
+            'executed_at': '2026-10-04T00:00:00.000Z',
+            'executed_transaction_id': 'tx-нет',
+          },
+        ),
+      );
+      expect(
+        () => BackupService(database).importJson(json),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException e) => e.kind,
+            'kind',
+            BackupFailure.invalidData,
+          ),
+        ),
+      );
+    },
+  );
 }

@@ -28,7 +28,8 @@ class BackupService {
   /// Атомарно заменяет содержимое БД на данные бэкапа.
   ///
   /// Порядок транзакции: всё снести → валюты → счета → категории →
-  /// операции → долги → платежи → вложения. Транзакция drift атомарна:
+  /// операции → долги → платежи → вложения → планы → отложенные
+  /// переводы. Транзакция drift атомарна:
   /// падение посреди импорта оставляет базу нетронутой. Валидация формата
   /// и ссылок выполняется ДО транзакции.
   ///
@@ -62,6 +63,8 @@ class BackupService {
     await db.customStatement('PRAGMA foreign_keys = OFF');
     try {
       await db.transaction(() async {
+        await db.customUpdate('DELETE FROM scheduled_transfers');
+        await db.customUpdate('DELETE FROM plans');
         await db.customUpdate('DELETE FROM debt_payments');
         await db.customUpdate('DELETE FROM debts');
         await db.customUpdate('DELETE FROM attachments');
@@ -193,6 +196,45 @@ class BackupService {
                   id: row.id,
                   categoryId: row.categoryId,
                   limitMinor: row.limitMinor,
+                  createdAt: row.createdAt,
+                  updatedAt: row.updatedAt,
+                  deletedAt: Value(row.deletedAt),
+                ),
+              );
+        }
+        // v8 (D-120): планы и отложенные переводы — в общем механизме
+        // дампа, включая мягко удалённые и исполненные строки.
+        for (final BackupPlan row in backup.plans) {
+          await db
+              .into(db.plans)
+              .insert(
+                PlansCompanion.insert(
+                  id: row.id,
+                  categoryId: row.categoryId,
+                  periodStart: row.periodStart.toUtc().toIso8601String(),
+                  periodEnd: row.periodEnd.toUtc().toIso8601String(),
+                  amountMinor: row.amountMinor,
+                  createdAt: row.createdAt,
+                  updatedAt: row.updatedAt,
+                  deletedAt: Value(row.deletedAt),
+                ),
+              );
+        }
+        for (final BackupScheduledTransfer row in backup.scheduledTransfers) {
+          await db
+              .into(db.scheduledTransfers)
+              .insert(
+                ScheduledTransfersCompanion.insert(
+                  id: row.id,
+                  accountId: row.accountId,
+                  targetAccountId: row.targetAccountId,
+                  amountMinor: row.amountMinor,
+                  targetAmountMinor: Value(row.targetAmountMinor),
+                  executeAt: row.executeAt.toUtc().toIso8601String(),
+                  commissionMinor: Value(row.commissionMinor),
+                  commissionCategoryId: Value(row.commissionCategoryId),
+                  executedAt: Value(row.executedAt?.toUtc().toIso8601String()),
+                  executedTransactionId: Value(row.executedTransactionId),
                   createdAt: row.createdAt,
                   updatedAt: row.updatedAt,
                   deletedAt: Value(row.deletedAt),
@@ -344,6 +386,50 @@ class BackupService {
       if (!categoryIds.contains(row.categoryId)) {
         throw BackupValidationException(
           'бюджет ссылается на отсутствующую категорию ${row.categoryId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+    }
+    // v8 (D-120): ссылки планов и отложенных переводов — по правилу
+    // остальных таблиц (D-64): существование PK, мягко удалённые владельцы
+    // импорту не препятствуют (D-25).
+    for (final BackupPlan row in backup.plans) {
+      if (!categoryIds.contains(row.categoryId)) {
+        throw BackupValidationException(
+          'план ${row.id} ссылается на отсутствующую категорию '
+          '${row.categoryId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+    }
+    for (final BackupScheduledTransfer row in backup.scheduledTransfers) {
+      if (!accountIds.contains(row.accountId)) {
+        throw BackupValidationException(
+          'отложенный перевод ${row.id} ссылается на отсутствующий счёт '
+          '${row.accountId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+      if (!accountIds.contains(row.targetAccountId)) {
+        throw BackupValidationException(
+          'отложенный перевод ${row.id} ссылается на отсутствующий счёт '
+          'зачисления ${row.targetAccountId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+      if (row.commissionCategoryId != null &&
+          !categoryIds.contains(row.commissionCategoryId)) {
+        throw BackupValidationException(
+          'отложенный перевод ${row.id} ссылается на отсутствующую '
+          'категорию комиссии ${row.commissionCategoryId}',
+          kind: BackupFailure.invalidData,
+        );
+      }
+      if (row.executedTransactionId != null &&
+          !transactionIds.contains(row.executedTransactionId)) {
+        throw BackupValidationException(
+          'отложенный перевод ${row.id} ссылается на отсутствующую '
+          'операцию исполнения ${row.executedTransactionId}',
           kind: BackupFailure.invalidData,
         );
       }

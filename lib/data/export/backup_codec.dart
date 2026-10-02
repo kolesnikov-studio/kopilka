@@ -46,6 +46,18 @@ import 'package:kopilka/data/db/enums.dart';
 // даты — валидный UTC или NULL; ссылки debt_id/transaction_id — в
 // _validateReferences по правилу остальных таблиц (D-64). Чтение v1–v6
 // не меняется: нет ключей = пустые списки, нет поля = NULL.
+//
+// v8 (M7, D-120): в data появились таблицы plans (срочные планы, D-115)
+// и scheduled_transfers (отложенные переводы, D-115/D-119) — строки таблиц
+// БД в общем механизме дампа. Чтение v1–v7 не меняется: нет ключей =
+// пустые списки (образец v1→v2). Валидация строк строгая (D-25):
+// amount_minor > 0; period_start/period_end — валидный UTC и end > start;
+// execute_at/executed_at — валидный UTC; commission_minor >= 0 и пара
+// commission-полей «обе или ни одной»; executed-поля — парой. Currency-
+// правил у plans нет (суммы в базовой), у scheduled_transfers валюты
+// наследуются от счетов (D-120); ссылки category_id / account_id /
+// target_account_id / commission_category_id / executed_transaction_id —
+// в _validateReferences по правилу остальных таблиц (D-64).
 // Правила §3, которые кодек обязан воспроизводить дословно:
 // - PK — UUID v4 (TEXT), сгенерирован приложением при создании записи;
 // - каждая строка содержит created_at/updated_at (UTC) и deleted_at
@@ -58,8 +70,8 @@ import 'package:kopilka/data/db/enums.dart';
 // машиночитаемым видом, локализованный текст подбирает вызывающий код.
 
 /// Текущая версия формата экспорта. Совпадает с schema_version БД: полный
-/// дамп таблиц v7.
-const int backupSchemaVersion = 7;
+/// дамп таблиц v8.
+const int backupSchemaVersion = 8;
 
 /// Нарушение формата бэкапа: старая/новая версия, битые строки, неизвестные
 /// значения справочников. [kind] машиночитаем — для локализованного
@@ -105,9 +117,12 @@ enum BackupFailure {
 /// таблица attachments, её отсутствие в файле означает пустой список
 /// (D-64). v6 → v7: правки не требует — в v7 добавились таблицы
 /// debts/debt_payments и необязательное поле строк accounts; их отсутствие
-/// означает пустые списки и NULL (D-85).
+/// означает пустые списки и NULL (D-85). v7 → v8: правки не требует —
+/// в v8 добавились таблицы plans/scheduled_transfers, их отсутствие
+/// означает пустые списки (D-120).
 Map<String, dynamic> Function(Map<String, dynamic>) _migrateFrom(int from) {
   return switch (from) {
+    8 => (Map<String, dynamic> document) => document,
     7 => (Map<String, dynamic> document) => document,
     6 => (Map<String, dynamic> document) => document,
     5 => (Map<String, dynamic> document) => document,
@@ -227,6 +242,12 @@ const Set<String> _dateColumns = <String>{
   'due_date',
   'paid_at',
   'interest_reminder_date',
+  // v8 (D-115/D-119): периоды планов и моменты отложенных переводов —
+  // тоже UTC-даты в ISO-тексте (TEXT-колонки).
+  'period_start',
+  'period_end',
+  'execute_at',
+  'executed_at',
 };
 
 const Set<String> _boolColumns = <String>{
@@ -293,6 +314,10 @@ Future<Map<String, dynamic>> exportToJson(AppDatabase db) async {
     // мягко удалённые строки.
     'debts': await dumpTable('debts'),
     'debt_payments': await dumpTable('debt_payments'),
+    // v8 (D-120): планы и отложенные переводы — в общем механизме дампа,
+    // включая мягко удалённые строки.
+    'plans': await dumpTable('plans'),
+    'scheduled_transfers': await dumpTable('scheduled_transfers'),
   };
   return <String, dynamic>{
     'schema_version': backupSchemaVersion,
@@ -312,6 +337,8 @@ const Set<String> dumpedTables = <String>{
   'attachments',
   'debts',
   'debt_payments',
+  'plans',
+  'scheduled_transfers',
 };
 
 /// Разбирает JSON-документ бэкапа в типизированный дамп с миграцией формата.
@@ -601,6 +628,29 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
       ),
   ];
 
+  // v8 (D-120): чтение v1–v7 не меняется — нет ключей `plans` /
+  // `scheduled_transfers` = пустые списки (образец v1→v2). Валидация
+  // строк строгая: см. _decodePlanRow/_decodeScheduledTransferRow.
+  final List<BackupPlan> plans = <BackupPlan>[
+    for (final Map<String, dynamic> row
+        in data['plans'] == null
+            ? const <Map<String, dynamic>>[]
+            : _requireTable(data['plans'], 'plans'))
+      _decodePlanRow(row),
+  ];
+
+  final List<BackupScheduledTransfer> scheduledTransfers =
+      <BackupScheduledTransfer>[
+        for (final Map<String, dynamic> row
+            in data['scheduled_transfers'] == null
+                ? const <Map<String, dynamic>>[]
+                : _requireTable(
+                    data['scheduled_transfers'],
+                    'scheduled_transfers',
+                  ))
+          _decodeScheduledTransferRow(row),
+      ];
+
   // v6 (D-64): чтение v1–v5 не меняется — нет ключа `attachments` =
   // пустой список (образец v1→v2 в каркасе миграций формата); ключ есть,
   // но не массив — отказ invalidFormat по общему правилу _requireTable.
@@ -661,6 +711,149 @@ DecodedBackup decodeJson(Map<String, dynamic> document) {
     attachments: attachments,
     debts: debts,
     debtPayments: debtPayments,
+    plans: plans,
+    scheduledTransfers: scheduledTransfers,
+  );
+}
+
+/// Строгая валидация строки плана (v8, D-120/D-25): сумма > 0, период —
+/// валидный UTC и end > start; отказ импорта, не тихая нормализация.
+BackupPlan _decodePlanRow(Map<String, dynamic> row) {
+  final DateTime periodStart = _requireDate(
+    row['period_start'],
+    'plans.period_start',
+  );
+  final DateTime periodEnd = _requireDate(
+    row['period_end'],
+    'plans.period_end',
+  );
+  if (!periodEnd.isAfter(periodStart)) {
+    throw BackupValidationException(
+      'plans.period_end: конец периода не позже начала — '
+      'отказ импорта (D-120/D-25)',
+      kind: BackupFailure.invalidData,
+    );
+  }
+  return BackupPlan(
+    id: _requireString(row['id'], 'plans.id'),
+    categoryId: _requireString(row['category_id'], 'plans.category_id'),
+    periodStart: periodStart,
+    periodEnd: periodEnd,
+    amountMinor: switch (_requireInt(
+      row['amount_minor'],
+      'plans.amount_minor',
+    )) {
+      final int amount when amount > 0 => amount,
+      final int amount => throw BackupValidationException(
+        'plans.amount_minor: сумма $amount не положительна — '
+        'отказ импорта (D-120/D-25)',
+        kind: BackupFailure.invalidData,
+      ),
+    },
+    createdAt: _requireDate(row['created_at'], 'plans.created_at'),
+    updatedAt: _requireDate(row['updated_at'], 'plans.updated_at'),
+    deletedAt: row['deleted_at'] == null
+        ? null
+        : _requireDate(row['deleted_at'], 'plans.deleted_at'),
+  );
+}
+
+/// Строгая валидация строки отложенного перевода (v8, D-120/D-25):
+/// суммы, пара commission-полей «обе или ни одной», momentы — валидный UTC;
+/// executed-поля — парой (D-116/D-119). Currency-правил нет: валюты
+/// наследуются от счетов (D-120), их сходимость проверяет DAO при записи.
+BackupScheduledTransfer _decodeScheduledTransferRow(Map<String, dynamic> row) {
+  final int? commissionMinor = row['commission_minor'] == null
+      ? null
+      : switch (_requireInt(
+          row['commission_minor'],
+          'scheduled_transfers.commission_minor',
+        )) {
+          final int value when value >= 0 => value,
+          final int value => throw BackupValidationException(
+            'scheduled_transfers.commission_minor: отрицательная комиссия '
+            '$value — отказ импорта (D-120/D-25)',
+            kind: BackupFailure.invalidData,
+          ),
+        };
+  final String? commissionCategoryId = _optionalString(
+    row['commission_category_id'],
+    'scheduled_transfers.commission_category_id',
+  );
+  if ((commissionMinor == null) != (commissionCategoryId == null)) {
+    throw BackupValidationException(
+      'scheduled_transfers: commission_minor и commission_category_id '
+      'задаются парой «обе или ни одной» — отказ импорта (D-115/D-120)',
+      kind: BackupFailure.invalidData,
+    );
+  }
+  final DateTime? executedAt = row['executed_at'] == null
+      ? null
+      : _requireDate(row['executed_at'], 'scheduled_transfers.executed_at');
+  final String? executedTransactionId = _optionalString(
+    row['executed_transaction_id'],
+    'scheduled_transfers.executed_transaction_id',
+  );
+  if ((executedAt == null) != (executedTransactionId == null)) {
+    throw BackupValidationException(
+      'scheduled_transfers: executed_at и executed_transaction_id '
+      'задаются парой (D-116/D-119) — отказ импорта',
+      kind: BackupFailure.invalidData,
+    );
+  }
+  return BackupScheduledTransfer(
+    id: _requireString(row['id'], 'scheduled_transfers.id'),
+    accountId: _requireString(
+      row['account_id'],
+      'scheduled_transfers.account_id',
+    ),
+    targetAccountId: _requireString(
+      row['target_account_id'],
+      'scheduled_transfers.target_account_id',
+    ),
+    amountMinor: switch (_requireInt(
+      row['amount_minor'],
+      'scheduled_transfers.amount_minor',
+    )) {
+      final int amount when amount > 0 => amount,
+      final int amount => throw BackupValidationException(
+        'scheduled_transfers.amount_minor: сумма $amount не положительна — '
+        'отказ импорта (D-120/D-25)',
+        kind: BackupFailure.invalidData,
+      ),
+    },
+    targetAmountMinor: row['target_amount_minor'] == null
+        ? null
+        : switch (_requireInt(
+            row['target_amount_minor'],
+            'scheduled_transfers.target_amount_minor',
+          )) {
+            final int amount when amount > 0 => amount,
+            final int amount => throw BackupValidationException(
+              'scheduled_transfers.target_amount_minor: сумма $amount '
+              'не положительна — отказ импорта (D-120/D-25)',
+              kind: BackupFailure.invalidData,
+            ),
+          },
+    executeAt: _requireDate(
+      row['execute_at'],
+      'scheduled_transfers.execute_at',
+    ),
+    commissionMinor: commissionMinor,
+    commissionCategoryId: commissionCategoryId,
+    executedAt: executedAt,
+    executedTransactionId: executedTransactionId,
+    createdAt: _requireDate(
+      row['created_at'],
+      'scheduled_transfers.created_at',
+    ),
+    updatedAt: _requireDate(
+      row['updated_at'],
+      'scheduled_transfers.updated_at',
+    ),
+    deletedAt: row['deleted_at'] == null
+        ? null
+        : _requireDate(row['deleted_at'], 'scheduled_transfers.deleted_at'),
   );
 }
 
@@ -676,6 +869,8 @@ class DecodedBackup {
     required this.attachments,
     required this.debts,
     required this.debtPayments,
+    required this.plans,
+    required this.scheduledTransfers,
     this.exportedAt,
   });
 
@@ -698,6 +893,13 @@ class DecodedBackup {
 
   /// Погашения долгов (v7, D-85); у файлов v1–v6 ключа нет — пустой список.
   final List<BackupDebtPayment> debtPayments;
+
+  /// Планы (v8, D-120); у файлов v1–v7 ключа нет — пустой список.
+  final List<BackupPlan> plans;
+
+  /// Отложенные переводы (v8, D-120); у файлов v1–v7 ключа нет — пустой
+  /// список. Включая исполненные и мягко удалённые — дамп полный.
+  final List<BackupScheduledTransfer> scheduledTransfers;
 }
 
 /// Валюта дампа.
@@ -860,6 +1062,78 @@ class BackupDebtPayment {
   final String? transactionId;
   final int amountMinor;
   final DateTime paidAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+}
+
+/// План дампа (v8, D-120): срочная целевая сумма категории на период.
+class BackupPlan {
+  const BackupPlan({
+    required this.id,
+    required this.categoryId,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.amountMinor,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String categoryId;
+
+  /// Период — полузамкнутый [periodStart, periodEnd), UTC; конец строго
+  /// позже начала (проверено при декодировании).
+  final DateTime periodStart;
+  final DateTime periodEnd;
+
+  /// Сумма в минорных единицах базовой валюты, > 0.
+  final int amountMinor;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+}
+
+/// Отложенный перевод дампа (v8, D-120): включая исполненные строки
+/// (executed-поля) — дамп полный, идемпотентность подтверждается ими.
+class BackupScheduledTransfer {
+  const BackupScheduledTransfer({
+    required this.id,
+    required this.accountId,
+    required this.targetAccountId,
+    required this.amountMinor,
+    required this.executeAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.targetAmountMinor,
+    this.commissionMinor,
+    this.commissionCategoryId,
+    this.executedAt,
+    this.executedTransactionId,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String accountId;
+  final String targetAccountId;
+
+  /// Сумма списания, > 0; сумма зачисления (D-17) — NULL или > 0.
+  final int amountMinor;
+  final int? targetAmountMinor;
+
+  /// Момент исполнения (UTC); дата создаваемой операции (D-119).
+  final DateTime executeAt;
+
+  /// Комиссия: обе NULL (без комиссии) или обе заданы (D-115.г).
+  final int? commissionMinor;
+  final String? commissionCategoryId;
+
+  /// Отметка исполнения (D-116/D-119): обе NULL у ожидающей строки либо
+  /// обе заданы у исполненной.
+  final DateTime? executedAt;
+  final String? executedTransactionId;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? deletedAt;

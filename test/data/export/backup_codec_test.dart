@@ -966,8 +966,8 @@ void main() {
           jsonDecode(json) as Map<String, dynamic>;
       expect(document['schema_version'], backupSchemaVersion);
       // Замок версии формата (прецедент замков миграций D-55): экспорт
-      // обязан быть v7 — долги и платежи в дампе (M6, D-85).
-      expect(backupSchemaVersion, 7);
+      // обязан быть v8 — планы и отложенные переводы в дампе (M7, D-120).
+      expect(backupSchemaVersion, 8);
 
       final AppDatabase restored = AppDatabase.forTesting(
         NativeDatabase.memory(),
@@ -982,4 +982,166 @@ void main() {
       expect(savings.excludeFromBalance, isTrue);
     },
   );
+
+  // --- v8: планы и отложенные переводы в формате экспорта (D-120) ---
+
+  /// Минимальный документ v8 с одной строкой плана и/или отложенного
+  /// перевода (задаёт тест); чтение v1–v7 не меняется.
+  Map<String, dynamic> v8Document({
+    Map<String, dynamic>? plan,
+    Map<String, dynamic>? scheduled,
+  }) => <String, dynamic>{
+    'schema_version': 8,
+    'data': <String, dynamic>{
+      'currencies': <dynamic>[],
+      'accounts': <dynamic>[],
+      'categories': <dynamic>[],
+      'transactions': <dynamic>[],
+      'budgets': <dynamic>[],
+      'attachments': <dynamic>[],
+      'debts': <dynamic>[],
+      'debt_payments': <dynamic>[],
+      if (plan != null) 'plans': <dynamic>[plan],
+      if (scheduled != null) 'scheduled_transfers': <dynamic>[scheduled],
+    },
+  };
+
+  final Map<String, dynamic> basePlan = <String, dynamic>{
+    'id': 'plan-1',
+    'category_id': 'cat-1',
+    'period_start': '2026-10-01T00:00:00.000Z',
+    'period_end': '2026-11-01T00:00:00.000Z',
+    'amount_minor': 4000000,
+    'created_at': '2026-10-01T00:00:00.000Z',
+    'updated_at': '2026-10-01T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  final Map<String, dynamic> baseScheduled = <String, dynamic>{
+    'id': 'sched-1',
+    'account_id': 'acc-1',
+    'target_account_id': 'acc-2',
+    'amount_minor': 500000,
+    'target_amount_minor': null,
+    'execute_at': '2026-10-03T00:00:00.000Z',
+    'commission_minor': 2500,
+    'commission_category_id': 'cat-fee',
+    'executed_at': null,
+    'executed_transaction_id': null,
+    'created_at': '2026-10-01T00:00:00.000Z',
+    'updated_at': '2026-10-01T00:00:00.000Z',
+    'deleted_at': null,
+  };
+
+  test('v8: план и отложенный перевод читаются типизированно (D-120)', () {
+    final DecodedBackup backup = decodeJson(
+      v8Document(plan: basePlan, scheduled: baseScheduled),
+    );
+    expect(backup.schemaVersion, 8);
+    expect(backup.plans, hasLength(1));
+    expect(backup.plans.single.id, 'plan-1');
+    expect(backup.plans.single.categoryId, 'cat-1');
+    expect(backup.plans.single.periodStart.toUtc(), DateTime.utc(2026, 10, 1));
+    expect(backup.plans.single.periodEnd.toUtc(), DateTime.utc(2026, 11, 1));
+    expect(backup.plans.single.amountMinor, 4000000);
+    expect(backup.scheduledTransfers, hasLength(1));
+    final BackupScheduledTransfer scheduled = backup.scheduledTransfers.single;
+    expect(scheduled.accountId, 'acc-1');
+    expect(scheduled.targetAccountId, 'acc-2');
+    expect(scheduled.amountMinor, 500000);
+    expect(scheduled.targetAmountMinor, isNull);
+    expect(scheduled.executeAt.toUtc(), DateTime.utc(2026, 10, 3));
+    expect(scheduled.commissionMinor, 2500);
+    expect(scheduled.commissionCategoryId, 'cat-fee');
+    expect(scheduled.executedAt, isNull);
+    expect(scheduled.executedTransactionId, isNull);
+  });
+
+  test(
+    'v7-файл без ключей plans/scheduled_transfers: пустые списки (D-120)',
+    () {
+      final Map<String, dynamic> document = v8Document(
+        plan: basePlan,
+        scheduled: baseScheduled,
+      );
+      (document['data'] as Map<String, dynamic>)
+        ..remove('plans')
+        ..remove('scheduled_transfers');
+      document['schema_version'] = 7;
+      final DecodedBackup backup = decodeJson(document);
+      expect(backup.schemaVersion, 7);
+      expect(backup.plans, isEmpty);
+      expect(backup.scheduledTransfers, isEmpty);
+    },
+  );
+
+  test('v8: битые строки плана — отказ invalidData (D-120/D-25)', () {
+    for (final Map<String, dynamic> broken in <Map<String, dynamic>>[
+      <String, dynamic>{...basePlan, 'amount_minor': 0},
+      <String, dynamic>{...basePlan, 'amount_minor': -1},
+      <String, dynamic>{...basePlan, 'period_end': basePlan['period_start']},
+      <String, dynamic>{
+        ...basePlan,
+        'period_start': '2026-12-01T00:00:00.000Z',
+      },
+      <String, dynamic>{...basePlan, 'period_start': 'не дата'},
+      <String, dynamic>{...basePlan, 'category_id': ''},
+    ]) {
+      expect(
+        () => decodeJson(v8Document(plan: broken)),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException error) => error.kind,
+            'kind',
+            BackupFailure.invalidData,
+          ),
+        ),
+        reason: 'строка ${broken['id']}',
+      );
+    }
+  });
+
+  test('v8: битые строки отложенного перевода — отказ invalidData', () {
+    for (final Map<String, dynamic> broken in <Map<String, dynamic>>[
+      <String, dynamic>{...baseScheduled, 'amount_minor': 0},
+      <String, dynamic>{...baseScheduled, 'target_amount_minor': 0},
+      <String, dynamic>{...baseScheduled, 'target_amount_minor': -5},
+      <String, dynamic>{...baseScheduled, 'commission_minor': -1},
+      <String, dynamic>{...baseScheduled, 'commission_category_id': null},
+      <String, dynamic>{...baseScheduled, 'commission_minor': null},
+      <String, dynamic>{...baseScheduled, 'execute_at': 'завтра'},
+      <String, dynamic>{
+        ...baseScheduled,
+        'executed_at': '2026-10-04T00:00:00.000Z',
+      },
+      <String, dynamic>{...baseScheduled, 'executed_transaction_id': 'tx-1'},
+    ]) {
+      expect(
+        () => decodeJson(v8Document(scheduled: broken)),
+        throwsA(
+          isA<BackupValidationException>().having(
+            (BackupValidationException error) => error.kind,
+            'kind',
+            BackupFailure.invalidData,
+          ),
+        ),
+        reason: 'строка ${broken['id']}',
+      );
+    }
+  });
+
+  test('v8: исполненный перевод читается типизированно (D-116/D-119)', () {
+    final DecodedBackup backup = decodeJson(
+      v8Document(
+        scheduled: <String, dynamic>{
+          ...baseScheduled,
+          'executed_at': '2026-10-04T00:00:00.000Z',
+          'executed_transaction_id': 'tx-9',
+        },
+      ),
+    );
+    final BackupScheduledTransfer scheduled = backup.scheduledTransfers.single;
+    expect(scheduled.executedAt?.toUtc(), DateTime.utc(2026, 10, 4));
+    expect(scheduled.executedTransactionId, 'tx-9');
+  });
 }

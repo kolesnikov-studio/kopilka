@@ -208,6 +208,53 @@ richSeeded() async {
     fileSize: 4096,
   );
 
+  // План (v8, D-115): живой; направление — производная от категории.
+  await database.plansDao.create(
+    categoryId: milk.id,
+    periodStart: DateTime.utc(2026, 10, 1),
+    periodEnd: DateTime.utc(2026, 11, 1),
+    amountMinor: 250000,
+  );
+
+  // Отложенные переводы (v8, D-115/D-119): ожидающий с комиссией,
+  // исполненный (ссылка на созданную операцию) и мягко удалённый.
+  await database.scheduledTransfersDao.create(
+    accountId: card.id,
+    targetAccountId: savings.id,
+    amountMinor: 1000,
+    targetAmountMinor: 88,
+    executeAt: DateTime.utc(2026, 10, 5),
+    commissionMinor: 50,
+    commissionCategoryId: milk.id,
+  );
+  final ScheduledTransfer executedScheduled = await database
+      .scheduledTransfersDao
+      .create(
+        accountId: usdCash.id,
+        targetAccountId: savings.id,
+        amountMinor: 700,
+        executeAt: DateTime.utc(2026, 10, 6),
+      );
+  final Transaction scheduledResult = await database.transactionsDao.create(
+    type: TransactionType.transfer,
+    accountId: usdCash.id,
+    targetAccountId: savings.id,
+    amountMinor: 700,
+  );
+  await database.scheduledTransfersDao.markExecuted(
+    executedScheduled.id,
+    transactionId: scheduledResult.id,
+    executedAt: DateTime.utc(2026, 10, 6),
+  );
+  final ScheduledTransfer deadScheduled = await database.scheduledTransfersDao
+      .create(
+        accountId: usdCash.id,
+        targetAccountId: savings.id,
+        amountMinor: 500,
+        executeAt: DateTime.utc(2026, 10, 7),
+      );
+  await database.scheduledTransfersDao.softDelete(deadScheduled.id);
+
   return (
     db: database,
     groceriesId: groceriesId,
@@ -333,14 +380,15 @@ void main() {
 
       // Все виды операций живыми: расход (4, с категорией и без — включая
       // носителя вложения на 1500), доход (2, в т.ч. в USD), перевод между
-      // счетами в разных валютах; один расход мягко удалён и в живой список
-      // не входит.
+      // счетами в разных валютах (7000) и перевод исполненного отложенного
+      // (v8, 700); один расход мягко удалён и в живой список не входит.
       final List<Transaction> alive = await restored.transactionsDao
           .getFiltered();
-      expect(alive, hasLength(7));
+      expect(alive, hasLength(8));
       final Transaction transfer = alive.singleWhere(
         (Transaction t) =>
-            TransactionType.fromDb(t.type) == TransactionType.transfer,
+            TransactionType.fromDb(t.type) == TransactionType.transfer &&
+            t.amountMinor == 7000,
       );
       expect(transfer.accountId, isNotNull);
       expect(transfer.targetAccountId, isNotNull);
@@ -438,6 +486,40 @@ void main() {
         (Account a) => a.name == 'Накопительный RUB',
       );
       expect(restoredSavings.interestReminderDate, '2026-10-30T00:00:00.000Z');
+
+      // Планы и отложенные (v8, D-120): живой план пережил round-trip;
+      // ожидающий перевод — с замороженными суммами и комиссией,
+      // исполненный — с отметкой и ссылкой на операцию, мягко удалённый —
+      // физически в дампе.
+      final List<Plan> plans = await restored.plansDao.watchAlive().first;
+      expect(plans, hasLength(1));
+      expect(plans.single.amountMinor, 250000);
+      expect(plans.single.periodStart, '2026-10-01T00:00:00.000Z');
+      expect(plans.single.periodEnd, '2026-11-01T00:00:00.000Z');
+      final List<ScheduledTransfer> scheduled = await restored
+          .scheduledTransfersDao
+          .watchAlive()
+          .first;
+      expect(scheduled, hasLength(2)); // ожидающий + исполненный
+      final ScheduledTransfer restoredPending = scheduled.singleWhere(
+        (ScheduledTransfer row) => row.executedAt == null,
+      );
+      expect(restoredPending.amountMinor, 1000);
+      expect(restoredPending.targetAmountMinor, 88);
+      expect(restoredPending.commissionMinor, 50);
+      expect(restoredPending.commissionCategoryId, isNotNull);
+      final ScheduledTransfer restoredExecuted = scheduled.singleWhere(
+        (ScheduledTransfer row) => row.executedAt != null,
+      );
+      expect(restoredExecuted.executedAt, '2026-10-06T00:00:00.000Z');
+      expect(restoredExecuted.executedTransactionId, isNotNull);
+      final List<QueryRow> deadScheduled = await restored
+          .customSelect(
+            'SELECT COUNT(*) AS c FROM scheduled_transfers '
+            'WHERE deleted_at IS NOT NULL',
+          )
+          .get();
+      expect(deadScheduled.single.read<int>('c'), 1);
     },
   );
 
