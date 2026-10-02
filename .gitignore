@@ -44,3 +44,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Офисные файлы агентов (находка F, D-111): до этого исключались только
+# через .git/info/exclude — локальную настройку, которая не наследуется
+# клоном. Правила продублированы в отслеживаемом .gitignore.
+/.freebuff/
+/briefs/
+/reports/
+/.office-hold/
+/TEAM.md
+/AGENTS.md
