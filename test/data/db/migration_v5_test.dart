@@ -159,7 +159,7 @@ void main() {
         (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
           'user_version',
         );
-    expect(version, 7, reason: 'после открытия база должна быть на v7');
+    expect(version, 8, reason: 'после открытия база должна быть на v8');
 
     // Колонка существует, nullable и без default (D-21-образец) —
     // семантика колонки суть этого теста, raw-PRAGMA. drift хранит
@@ -232,12 +232,11 @@ void main() {
 
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
-
     expect(
       (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
         'user_version',
       ),
-      7,
+      8,
     );
 
     // Все шаги цепочки исполнены: budgets создана, обе колонки добавлены
@@ -295,7 +294,7 @@ void main() {
       expect(
         (await second.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version'),
-        7,
+        8,
       );
       final Account alive = (await second.accountsDao.getAlive()).single;
       expect(alive.id, savings.id);

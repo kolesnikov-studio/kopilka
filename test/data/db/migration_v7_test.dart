@@ -172,7 +172,7 @@ void main() {
           (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
             'user_version',
           );
-      expect(version, 7, reason: 'после открытия база должна быть на v7');
+      expect(version, 8, reason: 'после открытия база должна быть на v8');
 
       // Таблицы долгов существуют; структурные колонки §3 на месте
       // (S3-инвариант). Колонки — из D-81 дословно.
@@ -290,12 +290,11 @@ void main() {
 
     final AppDatabase db = AppDatabase.forTesting(NativeDatabase(dbFile));
     addTearDown(db.close);
-
     expect(
       (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
         'user_version',
       ),
-      7,
+      8,
     );
 
     // Все шаги цепочки исполнены: budgets создана, колонки добавлены,
@@ -380,7 +379,7 @@ void main() {
       expect(
         (await second.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version'),
-        7,
+        8,
       );
       final Account? restored = await second.accountsDao.findById(savings.id);
       expect(restored?.interestReminderDate, isNotNull);

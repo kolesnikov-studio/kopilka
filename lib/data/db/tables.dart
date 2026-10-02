@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-// Схема v6. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
+// Схема v8. v1 — дословно по ARCHITECTURE.md §3 (currencies, accounts,
 // categories, transactions). v2 добавляет бюджеты (M2, D-14). v3 добавляет
 // nullable-колонку transactions.target_amount_minor — суммы зачисления
 // перевода между счетами в разных валютах (M3, D-17/D-21). v4 добавляет
@@ -12,6 +12,8 @@ import 'package:drift/drift.dart';
 // v7 добавляет таблицы debts и debt_payments — долги и их погашения
 // (M6, D-81), и nullable-колонку accounts.interest_reminder_date — дату
 // напоминания о процентах накопительного счёта (M6, D-81).
+// v8 добавляет таблицы plans — срочные планы по категориям (M7, D-115) —
+// и scheduled_transfers — отложенные переводы с комиссией (M7, D-115).
 // См. миграцию в database.dart.
 //
 // Общие правила (нарушать нельзя):
@@ -274,6 +276,112 @@ class DebtPayments extends Table {
 
   /// Дата факта платежа (UTC).
   TextColumn get paidAt => text()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Планы (v8, M7/D-115): срочная целевая сумма по категории на период.
+///
+/// Бюджеты (D-14) и планы — разные сущности (D-115.б): бюджет —
+/// повторяющийся месячный лимит расходов без дат, план — целевая сумма
+/// на конкретный период [period_start, period_end) обоих направлений.
+/// Направление «доход/расход» — не колонка, а производная от
+/// `categories.kind` (D-115.а): один источник истины (образец D-17).
+/// Сумма — в минорных единицах базовой валюты (образец D-19: у категории
+/// валюты нет). Пересекающиеся живые планы одной категории невозможны —
+/// правило DAO, не SQL (D-115.в).
+class Plans extends Table {
+  /// UUID v4, генерирует приложение.
+  TextColumn get id => text()();
+
+  /// Категория плана (FK на `categories.id`, без каскада). Направление
+  /// плана производно от `categories.kind` (D-115.а).
+  TextColumn get categoryId => text().references(Categories, #id)();
+
+  /// Начало периода (TEXT UTC, ISO-8601): полузамкнутый интервал
+  /// [periodStart, periodEnd) — образец SQL-окон бюджетов (D-115.а).
+  /// TEXT (не unix-секунды), как due_date долгов: сравнения в SQL идут
+  /// через strftime('%s', ...).
+  TextColumn get periodStart => text()();
+
+  /// Конец периода (TEXT UTC, не включается): строго позже начала.
+  TextColumn get periodEnd => text()();
+
+  /// Целевая сумма периода в минорных единицах базовой валюты, > 0 (D-19).
+  IntColumn get amountMinor => integer()();
+
+  DateTimeColumn get createdAt => dateTime()();
+
+  DateTimeColumn get updatedAt => dateTime()();
+
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Отложенные переводы (v8, M7/D-115/D-119): перевод между счетами,
+/// который исполняется в дату `execute_at` сервисом `data/scheduled`.
+///
+/// Pending-строки **не участвуют в балансах** до исполнения (§8-агрегаты
+/// не трогаются, D-115.г): балансы остаются вычисляемыми только из
+/// живых операций. Суммы фиксируются при планировании (D-17: валюты
+/// счетов различаются ⇔ обе суммы; курс заморожен, при исполнении
+/// пересчёта нет). Комиссия — пара `commission_minor` +
+/// `commission_category_id` «обе или ни одной» (D-115.г): при исполнении
+/// создаётся расход в категорию комиссии со счёта списания. Удаление
+/// счёта или категории комиссии при живых отложенных (ещё не исполненных)
+/// переводах — отказ DAO.
+class ScheduledTransfers extends Table {
+  /// UUID v4, генерирует приложение.
+  TextColumn get id => text()();
+
+  /// Счёт списания (FK на `accounts.id`, без каскада).
+  @ReferenceName('outgoingScheduledTransfers')
+  TextColumn get accountId => text().references(Accounts, #id)();
+
+  /// Счёт зачисления (FK на `accounts.id`, без каскада).
+  @ReferenceName('incomingScheduledTransfers')
+  TextColumn get targetAccountId => text().references(Accounts, #id)();
+
+  /// Сумма списания в минорных единицах, строго положительная.
+  IntColumn get amountMinor => integer()();
+
+  /// Сумма зачисления (правило D-17): NULL, когда валюты счетов совпадают;
+  /// обязательна и положительна, когда различаются. Замораживается при
+  /// планировании — при исполнении не пересчитывается (D-115.г).
+  IntColumn get targetAmountMinor => integer().nullable()();
+
+  /// Момент исполнения (TEXT UTC, ISO-8601). Дата создаваемой операции —
+  /// именно `execute_at`, не момент запуска (D-119).
+  TextColumn get executeAt => text()();
+
+  /// Комиссия в минорных единицах, >= 0: NULL вместе с
+  /// `commission_category_id` (без комиссии) или >= 0 вместе с ней
+  /// (D-115.г). Одна из пары без другой — отказ DAO.
+  IntColumn get commissionMinor => integer().nullable()();
+
+  /// Категория расхода комиссии (FK на `categories.id`, без каскада);
+  /// NULL = комиссии нет (D-115.г).
+  TextColumn get commissionCategoryId =>
+      text().nullable().references(Categories, #id)();
+
+  /// Момент исполнения-отметки (TEXT UTC) или NULL = перевод ещё ожидает
+  /// (D-116/D-119: идемпотентность — повторный запуск не исполняет).
+  TextColumn get executedAt => text().nullable()();
+
+  /// Созданная исполнением операция-перевод (FK на `transactions.id`,
+  /// без каскада) или NULL, пока перевод не исполнен (D-116:
+  /// `markExecuted(id, transactionId, executedAt)`).
+  TextColumn get executedTransactionId =>
+      text().nullable().references(Transactions, #id)();
 
   DateTimeColumn get createdAt => dateTime()();
 

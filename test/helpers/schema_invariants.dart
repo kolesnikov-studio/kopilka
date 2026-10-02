@@ -44,6 +44,14 @@ const Set<String> expectedTablesV7 = <String>{
   'debt_payments',
 };
 
+/// Ожидаемый набор таблиц схемы v8: выше + plans и scheduled_transfers
+/// (M7, D-115).
+const Set<String> expectedTablesV8 = <String>{
+  ...expectedTablesV7,
+  'plans',
+  'scheduled_transfers',
+};
+
 /// Инвариант служебных колонок: в каждой таблице [tables] есть
 /// created_at, updated_at, deleted_at (§3).
 Future<void> expectTimestampColumns(

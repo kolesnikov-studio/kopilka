@@ -23,7 +23,7 @@ part 'categories_dao.g.dart';
 /// бюджеты скрытой категории продолжают существовать и считаться, а в
 /// списках с историей (LEFT JOIN по `category_id`) имя по-прежнему
 /// резолвится. Вернуть скрытую — [restore].
-@DriftAccessor(tables: [Budgets, Categories, Transactions])
+@DriftAccessor(tables: [Budgets, Categories, Transactions, ScheduledTransfers])
 class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
   CategoriesDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -170,6 +170,10 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   /// Мягко удаляет категорию. Запрещено для системных категорий, категорий с
   /// живыми вложенными и категорий, на которые ссылаются живые операции:
   /// каскадов нет (§3), а осиротевшие записи потеряли бы смысл.
+  ///
+  /// Живой (ещё не исполненный) отложенный перевод с этой категорией
+  /// комиссии — тоже запрет (v8, D-115.г): исполнение расхода комиссии
+  /// обязано найти категорию (D-119). Исполненные не мешают.
   Future<void> softDelete(String id) async {
     final Category current = await _requireAlive(id);
     if (current.isSystem) {
@@ -202,6 +206,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.categoryHasBudget,
       );
     }
+    await _assertNoPendingScheduledTransfers(current);
     final DateTime now = clock();
     await (update(categories)..where((t) => t.id.equals(id))).write(
       CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
@@ -215,7 +220,9 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   /// Разрешено только системным: не-системные удаляются [softDelete] с теми
   /// же запретами (вложенные, операции, бюджеты), отдельного скрытия у них
   /// нет — непустая пользовательская категория не должна потерять ни кнопку
-  /// удаления, ни объяснение отказа.
+  /// удаления, ни объяснение отказа. Запрет живых отложенных переводов
+  /// (D-115.г) действует и здесь: скрытие — то же удаление из живых списков,
+  /// исполнение должно найти категорию комиссии (D-119).
   Future<Category> hide(String id) async {
     final Category current = await _requireAlive(id);
     if (!current.isSystem) {
@@ -224,6 +231,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.categoryIsSystem,
       );
     }
+    await _assertNoPendingScheduledTransfers(current);
     final DateTime now = clock();
     await (update(categories)..where((t) => t.id.equals(id))).write(
       CategoriesCompanion(deletedAt: Value(now), updatedAt: Value(now)),
@@ -410,5 +418,29 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
               ))
             .getSingle();
     return row.read(count) ?? 0;
+  }
+
+  /// Живые (ещё не исполненные) отложенные переводы, у которых категория —
+  /// категория комиссии (v8, D-115.г): удалить/скрыть её нельзя, пока они
+  /// ожидают исполнения (D-119).
+  Future<void> _assertNoPendingScheduledTransfers(Category current) async {
+    final Expression<int> count = scheduledTransfers.id.count();
+    final TypedResult row =
+        await (selectOnly(scheduledTransfers)
+              ..addColumns([count])
+              ..where(
+                scheduledTransfers.commissionCategoryId.equals(current.id) &
+                    scheduledTransfers.deletedAt.isNull() &
+                    scheduledTransfers.executedAt.isNull(),
+              ))
+            .getSingle();
+    final int pending = row.read(count) ?? 0;
+    if (pending > 0) {
+      throw DataValidationException(
+        'на категорию «${current.name}» ссылается живой отложенный перевод '
+        '($pending) — сначала удалите или исполните его',
+        kind: DataFailure.categoryHasScheduledTransfers,
+      );
+    }
   }
 }

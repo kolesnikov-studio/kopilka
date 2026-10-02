@@ -176,8 +176,8 @@ void main() {
         );
     expect(
       version,
-      7,
-      reason: 'после открытия база на v7 — цепочка миграций дошла до конца',
+      8,
+      reason: 'после открытия база на v8 — цепочка миграций дошла до конца',
     );
 
     // Колонка существует, nullable и без default (D-54) — через S3-хелпер.
@@ -291,7 +291,7 @@ void main() {
         (await db.customSelect('PRAGMA user_version').getSingle()).read<int>(
           'user_version',
         ),
-        7,
+        8,
       );
 
       // Все три шага цепочки исполнены: budgets создана, колонки добавлены.
@@ -346,7 +346,7 @@ void main() {
       expect(
         (await second.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version'),
-        7,
+        8,
       );
       final Category alive = (await second.categoriesDao.getAlive()).single;
       expect(alive.id, food.id);

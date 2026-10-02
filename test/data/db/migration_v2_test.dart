@@ -137,7 +137,7 @@ void main() {
         );
     expect(
       version,
-      7,
+      8,
       reason: 'после открытия база должна быть на текущей схеме',
     );
 
@@ -221,7 +221,7 @@ void main() {
       expect(
         (await second.customSelect('PRAGMA user_version').getSingle())
             .read<int>('user_version'),
-        7,
+        8,
       );
       final List<Budget> alive = await second.budgetsDao.getAlive();
       expect(alive.single.id, budget.id);

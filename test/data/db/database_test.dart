@@ -26,16 +26,14 @@ void main() {
     await db.close();
   });
 
-  test('schemaVersion = 7', () {
-    expect(db.schemaVersion, 7);
+  test('schemaVersion = 8', () {
+    expect(db.schemaVersion, 8);
   });
 
-  test(
-    'схема создаёт семь таблиц: пять прежних, attachments и долги (v7)',
-    () async {
-      expect(await tableNames(db), containsAll(expectedTablesV7));
-    },
-  );
+  test('схема создаёт десять таблиц: пять прежних, attachments, долги, '
+      'планы и отложенные переводы (v8)', () async {
+    expect(await tableNames(db), containsAll(expectedTablesV8));
+  });
 
   test('ключ — UUID-текст, деньги — целые в минорных единицах', () async {
     final Map<String, String> account = await columnTypes(db, 'accounts');
@@ -55,7 +53,7 @@ void main() {
   test(
     'в каждой таблице есть created_at, updated_at и deleted_at (S3)',
     () async {
-      await expectTimestampColumns(db, expectedTablesV7);
+      await expectTimestampColumns(db, expectedTablesV8);
     },
   );
 

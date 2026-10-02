@@ -22,7 +22,7 @@ class AccountBalance {
 }
 
 /// Счета: CRUD, soft delete и балансы.
-@DriftAccessor(tables: [Accounts, Transactions, Currencies])
+@DriftAccessor(tables: [Accounts, Transactions, Currencies, ScheduledTransfers])
 class AccountsDao extends DatabaseAccessor<AppDatabase>
     with _$AccountsDaoMixin {
   AccountsDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -206,6 +206,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   /// Мягко удаляет счёт. Каскадов нет (§3), поэтому удалить счёт с живыми
   /// операциями нельзя — операции остались бы без счёта.
+  ///
+  /// Живой (ещё не исполненный) отложенный перевод на этот счёт — тоже
+  /// запрет (v8, D-115.г): исполнить перевод со счёта, которого уже нет,
+  /// невозможно (D-119). Исполненные отложенные удалению не мешают —
+  /// их результат уже в операциях.
   Future<void> softDelete(String id) async {
     final Account current = await _requireAlive(id);
     final int linked = await _aliveTransactionsTouching(id);
@@ -213,6 +218,14 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       throw DataValidationException(
         'у счёта ${current.name} есть живые операции ($linked) — сначала удалите их',
         kind: DataFailure.accountHasTransactions,
+      );
+    }
+    final int scheduled = await _pendingScheduledTransfersTouching(id);
+    if (scheduled > 0) {
+      throw DataValidationException(
+        'на счёт ${current.name} ссылается живой отложенный перевод '
+        '($scheduled) — сначала удалите или исполните его',
+        kind: DataFailure.accountHasScheduledTransfers,
       );
     }
     final DateTime now = clock();
@@ -270,6 +283,24 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
               ..where(accounts.deletedAt.isNull()))
             .getSingle();
     return (row.read(maxOrder) ?? -1) + 1;
+  }
+
+  /// Живые (ещё не исполненные) отложенные переводы, где счёт — источник
+  /// или счёт зачисления (v8, D-115.г). Исполненные (executed_at
+  /// заполнен) не считаются: их операция-результат уже создана.
+  Future<int> _pendingScheduledTransfersTouching(String id) async {
+    final Expression<int> count = scheduledTransfers.id.count();
+    final TypedResult row =
+        await (selectOnly(scheduledTransfers)
+              ..addColumns([count])
+              ..where(
+                scheduledTransfers.deletedAt.isNull() &
+                    scheduledTransfers.executedAt.isNull() &
+                    (scheduledTransfers.accountId.equals(id) |
+                        scheduledTransfers.targetAccountId.equals(id)),
+              ))
+            .getSingle();
+    return row.read(count) ?? 0;
   }
 
   /// Живые операции, где счёт — источник или счёт зачисления перевода.

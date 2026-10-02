@@ -1,35 +1,28 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'categories_dao.dart';
+part of 'plans_dao.dart';
 
 // ignore_for_file: type=lint
-mixin _$CategoriesDaoMixin on DatabaseAccessor<AppDatabase> {
+mixin _$PlansDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
-  $BudgetsTable get budgets => attachedDatabase.budgets;
+  $PlansTable get plans => attachedDatabase.plans;
   $CurrenciesTable get currencies => attachedDatabase.currencies;
   $AccountsTable get accounts => attachedDatabase.accounts;
   $TransactionsTable get transactions => attachedDatabase.transactions;
-  $ScheduledTransfersTable get scheduledTransfers =>
-      attachedDatabase.scheduledTransfers;
-  CategoriesDaoManager get managers => CategoriesDaoManager(this);
+  PlansDaoManager get managers => PlansDaoManager(this);
 }
 
-class CategoriesDaoManager {
-  final _$CategoriesDaoMixin _db;
-  CategoriesDaoManager(this._db);
+class PlansDaoManager {
+  final _$PlansDaoMixin _db;
+  PlansDaoManager(this._db);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
-  $$BudgetsTableTableManager get budgets =>
-      $$BudgetsTableTableManager(_db.attachedDatabase, _db.budgets);
+  $$PlansTableTableManager get plans =>
+      $$PlansTableTableManager(_db.attachedDatabase, _db.plans);
   $$CurrenciesTableTableManager get currencies =>
       $$CurrenciesTableTableManager(_db.attachedDatabase, _db.currencies);
   $$AccountsTableTableManager get accounts =>
       $$AccountsTableTableManager(_db.attachedDatabase, _db.accounts);
   $$TransactionsTableTableManager get transactions =>
       $$TransactionsTableTableManager(_db.attachedDatabase, _db.transactions);
-  $$ScheduledTransfersTableTableManager get scheduledTransfers =>
-      $$ScheduledTransfersTableTableManager(
-        _db.attachedDatabase,
-        _db.scheduledTransfers,
-      );
 }

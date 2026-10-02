@@ -12,6 +12,8 @@ import 'package:kopilka/data/db/dao/budgets_dao.dart';
 import 'package:kopilka/data/db/dao/categories_dao.dart';
 import 'package:kopilka/data/db/dao/debts_dao.dart';
 import 'package:kopilka/data/db/dao/currencies_dao.dart';
+import 'package:kopilka/data/db/dao/plans_dao.dart';
+import 'package:kopilka/data/db/dao/scheduled_transfers_dao.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -68,6 +70,12 @@ class DataLayerFixture {
       clock: clock.read,
     );
     debts = DebtsDao(db, idGenerator: sequentialIds('debt'), clock: clock.read);
+    plans = PlansDao(db, idGenerator: sequentialIds('plan'), clock: clock.read);
+    scheduled = ScheduledTransfersDao(
+      db,
+      idGenerator: sequentialIds('sched'),
+      clock: clock.read,
+    );
   }
 
   final AppDatabase db;
@@ -79,6 +87,12 @@ class DataLayerFixture {
   late final BudgetsDao budgets;
   late final AttachmentsDao attachments;
   late final DebtsDao debts;
+
+  /// Планы (v8, D-116).
+  late final PlansDao plans;
+
+  /// Отложенные переводы (v8, D-116).
+  late final ScheduledTransfersDao scheduled;
 
   Future<void> dispose() => db.close();
 

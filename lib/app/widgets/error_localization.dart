@@ -35,6 +35,12 @@ String localizedError(AppLocalizations l10n, DataFailure failure) {
       // Файловая система недоступна (v6, D-63): собственный текст шага
       // 6в — операция при этом цела, отказ касается только файла.
       return l10n.errorAttachmentStorage;
+    case DataFailure.accountHasScheduledTransfers:
+    case DataFailure.categoryHasScheduledTransfers:
+      // Запреты удаления M7 (D-115.г) вводятся слоем данных до UI-шагов:
+      // точные тексты и ключи l10n появятся в шагах C/D (бриф шага A —
+      // только слой данных, без l10n). До тех пор — общий текст отказа.
+      return l10n.errorUnknown;
     case DataFailure.unknown:
       return l10n.errorUnknown;
   }
