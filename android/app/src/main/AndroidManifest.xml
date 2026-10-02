@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Scheduled notifications: reschedule after reboot (README плагина
+         flutter_local_notifications 22.3.1, раздел «Gradle setup»,
+         строки 384–393; аудит D-111, находка A). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
-        android:label="kopilka"
+        android:label="Kopilka"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -30,6 +34,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Receiver'ы запланированных напоминаний (тот же раздел README
+             плагина): без них AlarmManager будильников срабатывает «в пустоту»
+             и уведомление по расписанию не приходит никогда (D-111, A). -->
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
