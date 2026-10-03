@@ -12,6 +12,7 @@ import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/features/budgets/budget_form_dialog.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/budgets/budgets_controller.dart';
+import 'package:kopilka/features/reports/forecast_card.dart';
 import 'package:kopilka/features/reports/insights_cards.dart';
 import 'package:kopilka/features/reports/reports_controller.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
@@ -42,6 +43,11 @@ class ReportsScreen extends ConsumerWidget {
             const AdviceCard(),
             const SizedBox(height: 12),
             _BalanceCard(),
+            const SizedBox(height: 12),
+            // M7-шаг D (D-117/спека D §1): прогноз под балансом и выше
+            // переключателя месяца — он не зависит от выбора месяца.
+            // Загрузка/ошибка/«нет условий» — карточка не рисуется/подпись.
+            const ForecastCard(),
             const SizedBox(height: 12),
             const _MonthSwitcher(),
             const SizedBox(height: 12),

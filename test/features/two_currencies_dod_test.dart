@@ -99,6 +99,16 @@ Future<void> _openTransactions(WidgetTester tester, AppHarness app) async {
 Finder _budgetRow(AppHarness app, int spentMinor, int limitMinor) =>
     find.text('${_money(app, spentMinor)} / ${_money(app, limitMinor)}');
 
+/// Карточка общего баланса: её значение дублируется подписью точки
+/// «сейчас» карточки прогноза (спека D §1) — суммы баланса ищем
+/// внутри карточки с заголовком reportsTotalBalance.
+Finder _balanceCard(AppHarness app) => find
+    .ancestor(
+      of: find.text(app.l10n.reportsTotalBalance),
+      matching: find.byType(Card),
+    )
+    .first;
+
 void main() {
   testWidgets('DoD: операции и балансы счетов — в валюте операции/счёта', (
     WidgetTester tester,
@@ -139,7 +149,13 @@ void main() {
       await _openReports(tester, app);
 
       // Общий баланс: 4 000,00 ₽ + 90,00 $ × 100 = 13 000,00 ₽ (D-18).
-      expect(find.text(_money(app, 1300000)), findsOneWidget);
+      expect(
+        find.descendant(
+          of: _balanceCard(app),
+          matching: find.text(_money(app, 1300000)),
+        ),
+        findsOneWidget,
+      );
       // Пометка «по текущему курсу» (B5) на карточках отчётов есть…
       expect(find.text(app.l10n.reportsAtCurrentRate), findsAtLeastNWidgets(1));
       // …«Всего» доната: 1 000,00 ₽ + 10,00 $ × 100 = 2 000,00 ₽.
@@ -183,7 +199,13 @@ void main() {
       await _openReports(tester, app);
 
       // До смены курса: 13 000,00 ₽ и бюджет 2 000,00 / 3 000,00 ₽.
-      expect(find.text(_money(app, 1300000)), findsOneWidget);
+      expect(
+        find.descendant(
+          of: _balanceCard(app),
+          matching: find.text(_money(app, 1300000)),
+        ),
+        findsOneWidget,
+      );
       await tester.ensureVisible(find.text(app.l10n.budgetsTitle));
       await tester.pumpAndSettle();
       expect(_budgetRow(app, 200000, 300000), findsOneWidget);
@@ -196,8 +218,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Баланс: 4 000,00 ₽ + 90,00 $ × 200 = 22 000,00 ₽.
-      expect(find.text(_money(app, 2200000)), findsOneWidget);
+      // Баланс: 4 000,00 ₽ + 90,00 $ × 200 = 22 000,00 ₽ (в карточке
+      // баланса — та же сумма подписью точки «сейчас» прогноза, D-117).
+      expect(
+        find.descendant(
+          of: _balanceCard(app),
+          matching: find.text(_money(app, 2200000)),
+        ),
+        findsOneWidget,
+      );
       // «Всего» доната: 1 000,00 ₽ + 10,00 $ × 200 = 3 000,00 ₽.
       expect(
         find.text('${app.l10n.reportsTotalLabel}: ${_money(app, 300000)}'),

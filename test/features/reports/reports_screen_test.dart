@@ -61,6 +61,16 @@ class Fixture {
   }
 }
 
+/// Карточка общего баланса: её значение теперь дублируется подписью
+/// точки «сейчас» карточки прогноза (спека D §1) — суммы баланса
+/// ищем внутри карточки с заголовком reportsTotalBalance.
+Finder _balanceCard(AppLocalizations l10n) => find
+    .ancestor(
+      of: find.text(l10n.reportsTotalBalance),
+      matching: find.byType(Card),
+    )
+    .first;
+
 void main() {
   testWidgets('пустая база: баланс 0, заглушка пустой разбивки', (
     WidgetTester tester,
@@ -71,7 +81,10 @@ void main() {
 
     expect(find.text(l10n.reportsTotalBalance), findsOneWidget);
     expect(
-      find.text(formatMoneyMinor(0, symbol: '₽', locale: 'ru')),
+      find.descendant(
+        of: _balanceCard(l10n),
+        matching: find.text(formatMoneyMinor(0, symbol: '₽', locale: 'ru')),
+      ),
       findsOneWidget,
     );
     expect(find.text(l10n.reportsCategoryBreakdownEmpty), findsOneWidget);
@@ -114,10 +127,17 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Баланс: 1000 − 300 − 200 = 5,00 ₽ в мажорных единицах.
+    // Баланс: 1000 − 300 − 200 = 5,00 ₽ в мажорных единицах (в карточке
+    // баланса — та же сумма подписью точки «сейчас» прогноза, D-117).
     String money(int minor) =>
         formatMoneyMinor(minor, symbol: '₽', locale: 'ru');
-    expect(find.text(money(50000)), findsOneWidget);
+    expect(
+      find.descendant(
+        of: _balanceCard(l10n),
+        matching: find.text(money(50000)),
+      ),
+      findsOneWidget,
+    );
     // Легенда: имя категории в донате и в списке, суммы — в списке.
     expect(find.text('Молочка'), findsNWidgets(2));
     expect(find.text(money(30000)), findsOneWidget);
@@ -332,8 +352,12 @@ void main() {
       // (в) футер динамики: итого 3.
       expect(find.text(l10n.reportsAtCurrentRate), findsNWidgets(3));
       // Общий баланс конвертирован: (1000,00 − 300,00) + 20,00 × 2 = 740,00 ₽.
+      // Внутри карточки баланса — сумма там же подписью прогноза.
       expect(
-        find.text(formatMoneyMinor(74000, symbol: '₽', locale: 'ru')),
+        find.descendant(
+          of: _balanceCard(l10n),
+          matching: find.text(formatMoneyMinor(74000, symbol: '₽', locale: 'ru')),
+        ),
         findsOneWidget,
       );
       // «Всего» доната: расход 300,00 ₽ в базовой — без изменений.
