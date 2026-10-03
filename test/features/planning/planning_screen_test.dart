@@ -274,8 +274,9 @@ void main() {
       findsOneWidget,
     );
     // Сумма предзаполнена «средний доход × срок» (6 мес. по умолчанию):
-    // 3000,00 × 6 = 18000,00.
-    expect(find.text('18000.00'), findsOneWidget);
+    // 3000,00 × 6 = 18000,00 — канонический разделитель поля — запятая
+    // (S2, D-137; как в префилле перевода B4.1).
+    expect(find.text('18000,00'), findsOneWidget);
     expect(
       find.text(l10n.planningAutoAmountHelper(money(300000), 6)),
       findsOneWidget,

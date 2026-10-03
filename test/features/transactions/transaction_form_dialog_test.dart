@@ -718,6 +718,11 @@ void main() {
         find.widgetWithText(TextFormField, app.l10n.noteLabel),
         findsOneWidget,
       );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.noteLabel),
+        'Заметка до отложения',
+      );
+      await tester.pumpAndSettle();
 
       // Галочка раскрывает: дата исполнения, фикс-заметка и чекбокс
       // «Комиссия»; ряд обычной даты и заметка скрыты (в
@@ -737,7 +742,10 @@ void main() {
         findsNothing,
       );
 
-      // Повторный тап возвращает обычную дату и заметку.
+      // Повторный тап возвращает обычную дату и заметку; сама заметка
+      // не пережила галку (S1, D-137): в scheduled_transfers её нет
+      // (D-115) — при включении «Отложить» поле очищается, чтобы
+      // потеря была видна, а не молчаливой.
       await tester.tap(find.text(app.l10n.transferDeferLabel));
       await tester.pumpAndSettle();
       expect(
@@ -748,6 +756,15 @@ void main() {
       expect(
         find.widgetWithText(TextFormField, app.l10n.noteLabel),
         findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.widgetWithText(TextFormField, app.l10n.noteLabel),
+            )
+            .controller!
+            .text,
+        isEmpty,
       );
     },
   );

@@ -79,11 +79,13 @@ class _AutoBudgetDialogState extends ConsumerState<_AutoBudgetDialog> {
     final bool noData = !loading && suggestion == null;
 
     // Предзаполнение «средний доход × срок»: пересчитывается при смене
-    // срока, пока пользователь не правил сумму вручную.
+    // срока, пока пользователь не правил сумму вручную. Разделитель —
+    // каноническая запятая приложения (S2, D-137), как в префилле
+    // перевода (B4.1): minorToMajorString отдаёт точку (CSV, A14).
     if (suggestion != null && !_amountEdited && !_busy) {
       final String prefilled = minorToMajorString(
         suggestion.suggestedMinor(_termMonths),
-      );
+      ).replaceAll('.', ',');
       if (_amount.text != prefilled) {
         _amount.text = prefilled;
       }

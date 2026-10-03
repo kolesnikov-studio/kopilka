@@ -656,8 +656,17 @@ class _TransactionFormDialogState
                   dense: true,
                   title: Text(l10n.transferDeferLabel),
                   value: _deferred,
-                  onChanged: (bool? value) =>
-                      setState(() => _deferred = value ?? false),
+                  // S1 (D-137): заметка, набранная до «Отложить», в
+                  // scheduled_transfers не сохраняется (D-115), а поле
+                  // скрывается — гасим её при включении, чтобы потеря
+                  // была видна, а не молчаливой (минимальный вариант
+                  // решения, новых l10n-ключей нет).
+                  onChanged: (bool? value) => setState(() {
+                    _deferred = value ?? false;
+                    if (_deferred) {
+                      _note.clear();
+                    }
+                  }),
                 ),
               if (_deferred) ...<Widget>[
                 // Дата исполнения заменяет дату операции: операция
