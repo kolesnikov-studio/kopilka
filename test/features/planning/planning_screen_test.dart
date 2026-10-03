@@ -9,6 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:kopilka/core/money_format.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
+import 'package:kopilka/features/transactions/transactions_screen.dart'
+    show transferLine;
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 import '../../helpers/app_harness.dart';
@@ -305,4 +307,99 @@ void main() {
       DateTime.utc(now.year, now.month + 6).toIso8601String(),
     );
   });
+
+  testWidgets('D-133: нет переводов — секция отложенных не рисуется', (
+    WidgetTester tester,
+  ) async {
+    final AppHarness f = await pumpDialogApp(tester);
+    final AppLocalizations l10n = f.l10n;
+
+    await openPlanning(tester, l10n);
+
+    // Секция «Отложенные переводы» появляется только при строках.
+    expect(find.text(l10n.planningTransfersSection), findsNothing);
+  });
+
+  testWidgets(
+    'D-133: split по executedAt — ожидающие и исполненные в своих подсекциях, пустая не рисуется',
+    (WidgetTester tester) async {
+      final AppHarness f = await pumpDialogApp(tester);
+      final AppLocalizations l10n = f.l10n;
+      final Account from = await f.db.accountsDao.create(
+        name: 'Рубли',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
+      );
+      final Account to = await f.db.accountsDao.create(
+        name: 'Копилка',
+        kind: AccountKind.bank,
+        currencyCode: 'RUB',
+      );
+
+      await openPlanning(tester, l10n);
+
+      // Ожидающий перевод (дата в будущем) — только подсекция «Ожидают».
+      await f.db.scheduledTransfersDao.create(
+        accountId: from.id,
+        targetAccountId: to.id,
+        amountMinor: 50000,
+        executeAt: DateTime.utc(2100, 1, 1),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.planningTransfersSection), findsOneWidget);
+      expect(find.text(l10n.planningTransfersPendingSection), findsOneWidget);
+      expect(find.text(l10n.planningTransfersExecutedSection), findsNothing);
+
+      // Исполненный (прошедшая дата + markExecuted) — появляется вторая
+      // подсекция; комиссия — только в исполненной строке.
+      final Transaction transfer = await f.db.transactionsDao.create(
+        type: TransactionType.transfer,
+        accountId: from.id,
+        targetAccountId: to.id,
+        amountMinor: 30000,
+        date: DateTime.utc(2026, 1, 1),
+      );
+      final Category commissionCategory = await f.db.categoriesDao.create(
+        name: 'Комиссии',
+        kind: CategoryKind.expense,
+      );
+      final ScheduledTransfer executed = await f.db.scheduledTransfersDao
+          .create(
+            accountId: from.id,
+            targetAccountId: to.id,
+            amountMinor: 30000,
+            executeAt: DateTime.utc(2026, 1, 1),
+            commissionMinor: 5000,
+            commissionCategoryId: commissionCategory.id,
+          );
+      await f.db.scheduledTransfersDao.markExecuted(
+        executed.id,
+        transactionId: transfer.id,
+        executedAt: DateTime.utc(2026, 1, 2),
+      );
+      await tester.pumpAndSettle();
+
+      // Split по executedAt: обе подсекции, две строки счетов; комиссия —
+      // только в исполненной.
+      expect(find.text(l10n.planningTransfersPendingSection), findsOneWidget);
+      expect(find.text(l10n.planningTransfersExecutedSection), findsOneWidget);
+      expect(find.text(transferLine('Рубли', 'Копилка')), findsNWidgets(2));
+      expect(
+        find.text(l10n.transferCommissionLine(money(5000))),
+        findsOneWidget,
+      );
+
+      // Действия только у ожидающих (спека D §4): в списке ранняя дата
+      // сверху — исполненная (2026) выше ожидающей (2100), но в виджетах
+      // подсекция «Ожидают» рисуется раньше «Исполнены». Тап по исполненной
+      // не открывает форму, тап по ожидающей открывает правку.
+      await tester.tap(find.text(transferLine('Рубли', 'Копилка')).last);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.transferEditTitle), findsNothing);
+
+      await tester.tap(find.text(transferLine('Рубли', 'Копилка')).first);
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.transferEditTitle), findsOneWidget);
+    },
+  );
 }
