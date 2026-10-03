@@ -78,6 +78,7 @@ void main() {
     service = RemindersService(
       prefs: prefs,
       plugin: plugin,
+      title: () => 'Kopilka: напоминание',
       overBudgetBody:
           ({
             required String categoryName,

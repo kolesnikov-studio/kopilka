@@ -13,10 +13,9 @@ import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/reminders/reminders_plugin.dart';
 import 'package:kopilka/data/reminders/reminders_preferences.dart';
 
-/// Тексты напоминаний (D-83): константы механики; финальные тексты —
-/// спека дизайнера шага D (D-92.1) — шов закрыт правкой литералов.
-const String reminderTitle = 'Kopilka: напоминание';
-
+/// Тексты напоминаний (D-83): константы механики; заголовок всех
+/// оповещений — l10n-ключ `reminderTitle`, приходит швом [RemindersService.title]
+/// от биндинга (M7-шаг D, D-130 §2 — константа удалена).
 const String reminderBodyInterest = 'Пора начислить проценты по счёту';
 
 const String reminderBodyDue = 'Приближается срок возврата долга';
@@ -61,14 +60,18 @@ const String reminderSourceDebt = 'debt:';
 
 /// Текст тела оповещения о перерасходе (D-118): формулировка — шов.
 /// Живой binding собирает его из l10n-ключей `reminderOverBudgetBody` /
-/// `reminderOverBudgetExceededBody` (`reminders_texts.dart`); тесты —
-/// детерминированный литерал. Черновые тексты в .arb утверждает спека
-/// шагов C/D.
+/// `reminderOverBudgetExceededBody` (`reminders_texts.dart`), сумма —
+/// со символом базовой валюты (D-130 §2); тесты — детерминированный
+/// литерал. Финальные тексты утверждает спека шага D.
 typedef OverBudgetBodyBuilder = String Function({
   required String categoryName,
   required int remainingMinor,
   required int daysLeft,
 });
+
+/// Заголовок всех оповещений (D-130 §2): l10n-ключ `reminderTitle`
+/// резолвится на момент показа — шов биндинга, как у тела.
+typedef ReminderTitleBuilder = String Function();
 
 /// Кандидат оповещения «близко к перерасходу» (D-118): источник, ключ
 /// дедупа «источник + категория + месяц/период», подпись категории,
@@ -136,7 +139,7 @@ class ReminderSlot {
 }
 
 /// Источник единого обхода напоминаний (D-96): payload (`account:<id>` /
-/// `debt:<id>`), дата показа и текст (заголовок общий — [reminderTitle]).
+/// `debt:<id>`), дата показа и текст (заголовок — шов [RemindersService.title]).
 class _ReminderEntry {
   const _ReminderEntry({
     required this.payload,
@@ -173,6 +176,7 @@ class RemindersService {
     required this.prefs,
     required this.plugin,
     required this.overBudgetBody,
+    required this.title,
     this.clock = utcNow,
   });
 
@@ -183,8 +187,12 @@ class RemindersService {
   final RemindersPlugin plugin;
 
   /// Сборка текста оповещения о перерасходе (D-118): у живого приложения —
-  /// l10n-черновики, у тестов — литерал.
+  /// l10n-тексты, у тестов — литерал.
   final OverBudgetBodyBuilder overBudgetBody;
+
+  /// Заголовок всех оповещений (D-130 §2): у живого приложения —
+  /// l10n-ключ `reminderTitle` через биндинг, у тестов — литерал.
+  final ReminderTitleBuilder title;
 
   /// Часы сервиса (в тестах — фиксированные, образец DAO `clock`).
   final Clock clock;
@@ -236,7 +244,7 @@ class RemindersService {
   Future<void> showNow({
     required String payload,
     required String body,
-    String title = reminderTitle,
+    String? title,
   }) async {
     if (!await prefs.readEnabled()) {
       return;
@@ -247,7 +255,7 @@ class RemindersService {
     try {
       await plugin.show(
         reminderNotificationId(payload),
-        title: title,
+        title: title ?? this.title(),
         body: body,
         payload: payload,
       );
@@ -267,6 +275,7 @@ class RemindersService {
     AccountsDao accountsDao,
     DebtsDao debtsDao, {
     DateTime? nowUtc,
+    required String title,
   }) async {
     final DateTime now = nowUtc ?? utcNow();
     final List<ReminderSlot> slots = <ReminderSlot>[];
@@ -283,7 +292,7 @@ class RemindersService {
         ReminderSlot(
           payload: entry.payload,
           reminderDate: entry.date,
-          title: reminderTitle,
+          title: title,
           body: entry.body,
         ),
       );
@@ -451,6 +460,7 @@ class RemindersService {
       accountsDao,
       debtsDao,
       nowUtc: clock(),
+      title: title(),
     );
     await _replaceSchedule(slots);
     await _showOverdue(accountsDao, debtsDao);
@@ -497,7 +507,7 @@ class RemindersService {
       try {
         final RemindersChannelError? error = await plugin.show(
           reminderNotificationId(candidate.key),
-          title: reminderTitle,
+          title: title(),
           body: body,
           payload: candidate.key,
         );
@@ -567,7 +577,7 @@ class RemindersService {
       try {
         await plugin.show(
           reminderNotificationId(entry.payload),
-          title: reminderTitle,
+          title: title(),
           body: entry.body,
           payload: entry.payload,
         );

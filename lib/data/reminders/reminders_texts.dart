@@ -1,16 +1,15 @@
-// Черновые тексты оповещений механики (M7-шаг B, D-118).
+// Финальные тексты оповещений о перерасходе (M7-шаг D, D-118/D-130).
 //
-// Формулировки — предварительные: финальные утверждает спека шагов C/D
-// (ключи l10n `reminderOverBudgetBody` / `reminderOverBudgetExceededBody`,
-// EN с @description, RU без). Живой binding берёт локаль устройства —
-// собственной настройки локали у приложения нет (app.dart следует
-// системной) — и форматирует сумму по правилам локали; механика-сервис
-// текстов не знает (шов `OverBudgetBodyBuilder`).
+// Формулировки утверждены спекой шага D (ICU-plural, символ базовой
+// валюты в {amount} — P3 D-124: общий форматтер `formatMoneyMinor`
+// вместо чернового). Живой binding берёт локаль устройства — собственной
+// настройки локали у приложения нет (app.dart следует системной) — и
+// читает символ базовой валюты; механика-сервис текстов не знает
+// (шов `OverBudgetBodyBuilder`).
 
 import 'dart:ui' show Locale, PlatformDispatcher;
 
-import 'package:intl/intl.dart';
-import 'package:kopilka/core/money.dart' show defaultCurrencyExponent;
+import 'package:kopilka/core/money.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Локаль устройства для текстов уведомлений (настройки локали нет —
@@ -28,28 +27,24 @@ AppLocalizations deviceLocalizations() {
 
 /// Текст тела оповещения «близко к перерасходу» (D-118): при перерасходе
 /// (K < 0) — отдельный ключ и абсолютная величина суммы. [remainingMinor]
-/// и [daysLeft] — K и D из кандидата механики.
+/// и [daysLeft] — K и D из кандидата механики; [symbol] — символ базовой
+/// валюты, его читает binding из `baseCurrencyStreamProvider` (D-130 §2).
 String overBudgetBodyFor(
   AppLocalizations l10n, {
   required String categoryName,
   required int remainingMinor,
   required int daysLeft,
+  required String symbol,
 }) {
-  final String amount = _formatMinor(remainingMinor.abs(), l10n.localeName);
+  // Форматтер общий с UI (P3 D-124 закрыт): группировка, символ базовой
+  // и экспонент 2 — конвенция базовой валюты (§3/D-27); K и так в базовой.
+  final String amount = formatMoneyMinor(
+    remainingMinor.abs(),
+    symbol: symbol,
+    locale: l10n.localeName,
+    exponent: defaultCurrencyExponent,
+  );
   return remainingMinor < 0
       ? l10n.reminderOverBudgetExceededBody(categoryName, amount, daysLeft)
       : l10n.reminderOverBudgetBody(categoryName, amount, daysLeft);
-}
-
-/// Сумма в минорных единицах базовой — строкой по правилам локали
-/// (группировка, экспонент 2 — конвенция базовой валюты, D-27).
-/// Символа валюты нет: подпись требует чтения справочника, которого
-/// у механики нет, а K и так в базовой.
-String _formatMinor(int amountMinor, String locale) {
-  final NumberFormat format = NumberFormat.decimalPatternDigits(
-    locale: locale,
-    decimalDigits: defaultCurrencyExponent,
-  );
-  // Минорные единицы базовой → мажорные: экспонент базовой — 2 (§3/D-27).
-  return format.format(amountMinor / 100);
 }

@@ -93,6 +93,7 @@ void main() {
     service = RemindersService(
       prefs: prefs,
       plugin: plugin,
+      title: () => 'Kopilka: напоминание',
       overBudgetBody:
           ({
             required String categoryName,
@@ -138,6 +139,7 @@ void main() {
           db.accountsDao,
           db.debtsDao,
           nowUtc: fixedNow,
+          title: 'Kopilka: напоминание',
         );
 
         expect(slots, hasLength(2));
@@ -170,6 +172,7 @@ void main() {
           db.accountsDao,
           db.debtsDao,
           nowUtc: fixedNow,
+          title: 'Kopilka: напоминание',
         );
 
         expect(slots, isEmpty);
@@ -193,6 +196,7 @@ void main() {
         db.accountsDao,
         db.debtsDao,
         nowUtc: fixedNow,
+        title: 'Kopilka: напоминание',
       );
 
       expect(slots, isEmpty);
@@ -333,9 +337,10 @@ void main() {
         db.accountsDao,
         db.debtsDao,
         nowUtc: fixedNow,
+        title: 'Kopilka: напоминание',
       );
 
-      expect(slots.single.title, reminderTitle);
+      expect(slots.single.title, 'Kopilka: напоминание');
       expect(slots.single.body, reminderBodyInterest);
     });
   });

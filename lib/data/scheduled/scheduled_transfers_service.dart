@@ -11,13 +11,11 @@ import 'package:kopilka/data/db/enums.dart';
 // одной drift-транзакцией: либо исполнены все, либо (сбой на любой) —
 // ни одной, частичных данных не остаётся.
 
-/// Текст уведомления об исполнении (D-119): константа механики, как у
-/// напоминаний M6 (финальные тексты и формулировки — спека шага D;
-/// показ — через шов [RemindersService.showNow]).
-const String scheduledTransferExecutedBody = 'Отложенный перевод исполнен';
-
 /// Префикс payload уведомления об исполнении (D-119; стабильный числовой
-/// id из ключа — образец `account:`/`debt:` D-83).
+/// id из ключа — образец `account:`/`debt:` D-83). Текст уведомления —
+/// l10n `scheduledTransferExecutedBody` (сумма списания в валюте счёта
+/// списания + имя счёта зачисления) и заголовок `reminderTitle`: оба
+/// резолвит живой binding (D-130 §2), показ — через [RemindersService.showNow].
 const String scheduledTransferSource = 'scheduled:';
 
 /// Обработчик исполненного перевода (D-119): живой binding показывает

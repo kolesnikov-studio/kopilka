@@ -1,11 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kopilka/core/currency.dart';
+import 'package:kopilka/core/money_format.dart';
 import 'package:kopilka/data/db/dao/scheduled_transfers_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/data/reminders/reminders_binding.dart';
+import 'package:kopilka/data/reminders/reminders_texts.dart';
 import 'package:kopilka/data/scheduled/scheduled_transfers_service.dart';
+import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 // Связка исполнения отложенных переводов (M7/D-119) с живыми данными:
 // исполнение — при старте приложения и после любой записи в
@@ -20,6 +24,10 @@ import 'package:kopilka/data/scheduled/scheduled_transfers_service.dart';
 
 /// Сервис исполнения над живыми DAO (D-119); уведомление «исполнен
 /// отложенный перевод» — через RemindersService при общем opt-in (D-83).
+/// Тексты шага D (D-130 §2): заголовок — единый `reminderTitle`, тело —
+/// `scheduledTransferExecutedBody` с деталями: сумма списания в валюте
+/// счёта списания (не в базовой — это другой шов, D-118) и имя счёта
+/// зачисления, прочитанные здесь же через AccountsDao/справочник валют.
 final scheduledTransfersServiceProvider = Provider<ScheduledTransfersService>((
   ref,
 ) {
@@ -27,12 +35,39 @@ final scheduledTransfersServiceProvider = Provider<ScheduledTransfersService>((
     db: ref.watch(appDatabaseProvider),
     scheduledDao: ref.watch(scheduledTransfersDaoProvider),
     transactionsDao: ref.watch(transactionsDaoProvider),
-    onExecuted: (ScheduledTransfer transfer) => ref
-        .read(remindersServiceProvider)
-        .showNow(
-          payload: '$scheduledTransferSource${transfer.id}',
-          body: scheduledTransferExecutedBody,
-        ),
+    onExecuted: (ScheduledTransfer transfer) async {
+      final AppLocalizations l10n = deviceLocalizations();
+      final List<Account> accounts = await ref
+          .read(accountsDaoProvider)
+          .watchAlive()
+          .first;
+      Account? from;
+      Account? to;
+      for (final Account account in accounts) {
+        if (account.id == transfer.accountId) {
+          from = account;
+        }
+        if (account.id == transfer.targetAccountId) {
+          to = account;
+        }
+      }
+      // Счёт мог быть удалён после исполнения (D-122.б блокирует только
+      // живые строки) — пустые символ/код не роняют уведомление.
+      final Currency? currency = from == null
+          ? null
+          : await ref.read(currenciesDaoProvider).findAlive(from.currencyCode);
+      final String amount = formatMoneyMinor(
+        transfer.amountMinor,
+        symbol: currency?.symbol ?? (from?.currencyCode ?? ''),
+        locale: l10n.localeName,
+        exponent: currencyExponentByCode(from?.currencyCode ?? ''),
+      );
+      await ref.read(remindersServiceProvider).showNow(
+        payload: '$scheduledTransferSource${transfer.id}',
+        title: l10n.reminderTitle,
+        body: l10n.scheduledTransferExecutedBody(amount, to?.name ?? '…'),
+      );
+    },
   );
 });
 

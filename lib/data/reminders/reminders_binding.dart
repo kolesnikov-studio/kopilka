@@ -28,11 +28,19 @@ import 'package:kopilka/data/reminders/reminders_texts.dart';
 // перепишут то же расписание либо не покажут уже показанное.
 
 /// Сервис напоминаний над opt-in настройкой и живым плагином (D-83);
-/// тексты оповещений о перерасходе — черновые l10n-ключи (D-118).
+/// тексты оповещений — l10n-ключи шага D (D-118/D-130): заголовок —
+/// единый `reminderTitle`, тело перерасхода — со символом базовой валюты.
 final remindersServiceProvider = Provider<RemindersService>((ref) {
+  // Шов символа (D-130 §2): текст читает базовую валюту в момент показа.
+  // Слушатель держит autoDispose-поток живым всё время жизни сервиса —
+  // без него выдача сбрасывалась бы между показами и первый показ мог
+  // уйти без символа (сам сервис от перестройки не зависит: его держит
+  // запущенный в main биндинг).
+  ref.listen(baseCurrencyStreamProvider, (_, _) {});
   return RemindersService(
     prefs: ref.watch(remindersPreferencesStoreProvider),
     plugin: FlNRemindersPlugin(),
+    title: () => deviceLocalizations().reminderTitle,
     overBudgetBody:
         ({
           required String categoryName,
@@ -43,6 +51,7 @@ final remindersServiceProvider = Provider<RemindersService>((ref) {
           categoryName: categoryName,
           remainingMinor: remainingMinor,
           daysLeft: daysLeft,
+          symbol: ref.read(baseCurrencyStreamProvider).value?.symbol ?? '',
         ),
   );
 });
