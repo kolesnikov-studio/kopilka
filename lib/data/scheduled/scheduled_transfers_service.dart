@@ -21,8 +21,9 @@ const String scheduledTransferSource = 'scheduled:';
 /// Обработчик исполненного перевода (D-119): живой binding показывает
 /// уведомление через RemindersService при включённом opt-in; тесты —
 /// записывают факт. Вызывается после успешной общей транзакции.
-typedef ScheduledTransferExecutedHandler =
-    Future<void> Function(ScheduledTransfer transfer);
+typedef ScheduledTransferExecutedHandler = Future<void> Function(
+  ScheduledTransfer transfer,
+);
 
 /// Заглушка «уведомлений нет» (тесты и конструкторы без потребителя).
 Future<void> _noopExecuted(ScheduledTransfer transfer) async {}
@@ -115,10 +116,7 @@ class ScheduledTransfersService {
     for (final ScheduledTransfer transfer in executed) {
       // Показ не влияет на данные: отказ канала не роняет исполнение
       // (D-43-дух/D-119) и не мешает уведомить остальные строки.
-      await onExecuted(transfer).then(
-        (_) {},
-        onError: (Object _) {},
-      );
+      await onExecuted(transfer).then((_) {}, onError: (Object _) {});
     }
   }
 }

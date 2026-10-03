@@ -62,11 +62,13 @@ final scheduledTransfersServiceProvider = Provider<ScheduledTransfersService>((
         locale: l10n.localeName,
         exponent: currencyExponentByCode(from?.currencyCode ?? ''),
       );
-      await ref.read(remindersServiceProvider).showNow(
-        payload: '$scheduledTransferSource${transfer.id}',
-        title: l10n.reminderTitle,
-        body: l10n.scheduledTransferExecutedBody(amount, to?.name ?? '…'),
-      );
+      await ref
+          .read(remindersServiceProvider)
+          .showNow(
+            payload: '$scheduledTransferSource${transfer.id}',
+            title: l10n.reminderTitle,
+            body: l10n.scheduledTransferExecutedBody(amount, to?.name ?? '…'),
+          );
     },
   );
 });

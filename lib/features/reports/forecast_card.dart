@@ -114,7 +114,10 @@ class ForecastCard extends ConsumerWidget {
             SizedBox(
               height: 110,
               child: CustomPaint(
-                painter: _ForecastLinePainter(values: values, color: theme.colorScheme.primary),
+                painter: _ForecastLinePainter(
+                  values: values,
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ),
             // Подписи значений в тех же ячейках, что и точки линии;
@@ -193,8 +196,7 @@ class _ForecastLinePainter extends CustomPainter {
     final double minY = minValue - pad;
     final double maxY = maxValue + pad;
     double x(int index) => size.width * (index + 0.5) / values.length;
-    double y(int value) =>
-        size.height * (1 - (value - minY) / (maxY - minY));
+    double y(int value) => size.height * (1 - (value - minY) / (maxY - minY));
 
     final Path path = Path();
     for (int i = 0; i < values.length; i++) {

@@ -74,8 +74,7 @@ void main() {
   });
 
   group('состояние дедупа оповещений о перерасходе (D-118)', () {
-    test('старого файла без поля нет — пустая карта (необязательное поле)',
-        () async {
+    test('старого файла без поля нет — пустая карта (необязательное поле)', () async {
       File(
         '${directory.path}${Platform.pathSeparator}reminders-preferences.json',
       ).writeAsStringSync('{"enabled": true}');
@@ -97,8 +96,7 @@ void main() {
       expect(await store.readEnabled(), isTrue);
     });
 
-    test('поле не карта или значения не строки — пусто, без падения',
-        () async {
+    test('поле не карта или значения не строки — пусто, без падения', () async {
       for (final String raw in <String>[
         '{"alert_last_shown": [1, 2]}',
         '{"alert_last_shown": {"key": 5}}',

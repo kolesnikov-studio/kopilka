@@ -38,20 +38,20 @@ void main() {
 
       // Еда: −6000 / 6 = −1000; зарплата: +5000 / 6 = 833,33 → 833 (half-up);
       // нетто месяца = −167.
-      expect(
-        points.map((ForecastPoint p) => p.month).toList(),
-        <DateTime>[
-          DateTime.utc(2026, 11, 1),
-          DateTime.utc(2027, 1, 1),
-          DateTime.utc(2027, 4, 1),
-          DateTime.utc(2027, 7, 1),
-          DateTime.utc(2027, 10, 1),
-        ],
-      );
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[99833, 99499, 98998, 98497, 97996],
-      );
+      expect(points.map((ForecastPoint p) => p.month).toList(), <DateTime>[
+        DateTime.utc(2026, 11, 1),
+        DateTime.utc(2027, 1, 1),
+        DateTime.utc(2027, 4, 1),
+        DateTime.utc(2027, 7, 1),
+        DateTime.utc(2027, 10, 1),
+      ]);
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        99833,
+        99499,
+        98998,
+        98497,
+        97996,
+      ]);
     });
 
     test('короткая история: окно — с первой операции, число месяцев меньше '
@@ -67,10 +67,13 @@ void main() {
       );
 
       // Окно — август и сентябрь (2 месяца): среднее −450.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[9550, 8650, 7300, 5950, 4600],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        9550,
+        8650,
+        7300,
+        5950,
+        4600,
+      ]);
     });
 
     test('пустая история и планы — линия плоская: все точки равны балансу', () {
@@ -81,10 +84,13 @@ void main() {
         plans: const <ForecastPlan>[],
       );
 
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[5555, 5555, 5555, 5555, 5555],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        5555,
+        5555,
+        5555,
+        5555,
+        5555,
+      ]);
       expect(points, hasLength(5));
     });
 
@@ -100,10 +106,13 @@ void main() {
       );
 
       // Окно — только сентябрь: средние +1000 и −300, нетто +700.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[1700, 3100, 5200, 7300, 9400],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        1700,
+        3100,
+        5200,
+        7300,
+        9400,
+      ]);
     });
 
     test('текущий неполный и будущие месяцы в окно не входят', () {
@@ -119,10 +128,13 @@ void main() {
       );
 
       // История — только сентябрь: среднее −100; октябрь и ноябрь — не окно.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[900, 700, 400, 100, -200],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        900,
+        700,
+        400,
+        100,
+        -200,
+      ]);
     });
 
     test('среднее округляется half-up (10 / 4 = 2,5 → 3)', () {
@@ -136,40 +148,49 @@ void main() {
       );
 
       // Окно — июль..октябрь (4 месяца): +10/4 = 2,5 → 3.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[3, 9, 18, 27, 36],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        3,
+        9,
+        18,
+        27,
+        36,
+      ]);
     });
   });
 
   group('планы: распределение по дням пересечения (D-117)', () {
-    test('план на месяцы заменяет среднее категории только в своих месяцах', () {
-      final List<ForecastPoint> points = forecastBalance(
-        now: DateTime.utc(2026, 10, 15),
-        currentBalanceMinor: 0,
-        history: <ForecastHistoryEntry>[
-          expense('food', DateTime.utc(2026, 8, 1), 3100),
-        ],
-        plans: <ForecastPlan>[
-          ForecastPlan(
-            categoryId: 'food',
-            isIncome: false,
-            periodStart: DateTime.utc(2026, 11, 15),
-            periodEnd: DateTime.utc(2026, 12, 15),
-            amountMinor: 3100,
-          ),
-        ],
-      );
+    test(
+      'план на месяцы заменяет среднее категории только в своих месяцах',
+      () {
+        final List<ForecastPoint> points = forecastBalance(
+          now: DateTime.utc(2026, 10, 15),
+          currentBalanceMinor: 0,
+          history: <ForecastHistoryEntry>[
+            expense('food', DateTime.utc(2026, 8, 1), 3100),
+          ],
+          plans: <ForecastPlan>[
+            ForecastPlan(
+              categoryId: 'food',
+              isIncome: false,
+              periodStart: DateTime.utc(2026, 11, 15),
+              periodEnd: DateTime.utc(2026, 12, 15),
+              amountMinor: 3100,
+            ),
+          ],
+        );
 
-      // Среднее — −3100 / 2 = −1550. План 30 дней: ноябрь 16 дней →
-      // 1653,33 → 1653; декабрь 14 дней → 1446,67 → 1447; январь и далее —
-      // снова среднее (−1550).
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[-1653, -4650, -9300, -13950, -18600],
-      );
-    });
+        // Среднее — −3100 / 2 = −1550. План 30 дней: ноябрь 16 дней →
+        // 1653,33 → 1653; декабрь 14 дней → 1446,67 → 1447; январь и далее —
+        // снова среднее (−1550).
+        expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+          -1653,
+          -4650,
+          -9300,
+          -13950,
+          -18600,
+        ]);
+      },
+    );
 
     test('доля плана округляется half-up по модулю (5 × 1 / 2 = 2,5 → 3)', () {
       final List<ForecastPoint> points = forecastBalance(
@@ -189,10 +210,13 @@ void main() {
       );
 
       // План 2 дня: январь — 1 день (+3), февраль — 1 день (+3), далее 0.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[3, 6, 6, 6, 6],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        3,
+        6,
+        6,
+        6,
+        6,
+      ]);
     });
 
     test('план доходной категории идёт в плюс, расходной — в минус', () {
@@ -219,10 +243,13 @@ void main() {
       );
 
       // Ноябрь: +1000 − 400 = +600; далее план не пересекает месяцы.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[600, 600, 600, 600, 600],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        600,
+        600,
+        600,
+        600,
+        600,
+      ]);
     });
 
     test('завершившийся план не влияет; без плана и истории — 0', () {
@@ -241,10 +268,13 @@ void main() {
         ],
       );
 
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[700, 700, 700, 700, 700],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        700,
+        700,
+        700,
+        700,
+        700,
+      ]);
     });
 
     test('несколько непересекающихся планов одной категории делят месяцы', () {
@@ -271,10 +301,13 @@ void main() {
       );
 
       // Ноябрь −300, декабрь −500, далее 0.
-      expect(
-        points.map((ForecastPoint p) => p.balanceMinor).toList(),
-        <int>[-300, -800, -800, -800, -800],
-      );
+      expect(points.map((ForecastPoint p) => p.balanceMinor).toList(), <int>[
+        -300,
+        -800,
+        -800,
+        -800,
+        -800,
+      ]);
     });
   });
 }

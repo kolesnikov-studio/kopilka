@@ -365,7 +365,8 @@ class RemindersService {
         candidates.add(
           OverBudgetCandidate(
             source: overBudgetSourceBudget,
-            key: '$overBudgetSourceBudget:${row.budget.categoryId}:'
+            key:
+                '$overBudgetSourceBudget:${row.budget.categoryId}:'
                 '${_monthKey(now)}',
             categoryName: row.categoryName,
             remainingMinor: row.limitMinor - row.spentMinor,
@@ -414,7 +415,8 @@ class RemindersService {
         candidates.add(
           OverBudgetCandidate(
             source: overBudgetSourcePlan,
-            key: '$overBudgetSourcePlan:${row.plan.categoryId}:'
+            key:
+                '$overBudgetSourcePlan:${row.plan.categoryId}:'
                 '${row.plan.periodStart}|${row.plan.periodEnd}',
             categoryName: row.categoryName,
             remainingMinor: row.plan.amountMinor - row.factMinor,
@@ -424,8 +426,7 @@ class RemindersService {
       }
     }
     candidates.sort(
-      (OverBudgetCandidate a, OverBudgetCandidate b) =>
-          a.key.compareTo(b.key),
+      (OverBudgetCandidate a, OverBudgetCandidate b) => a.key.compareTo(b.key),
     );
     return candidates;
   }

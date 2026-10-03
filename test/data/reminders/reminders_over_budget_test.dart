@@ -79,12 +79,11 @@ void main() {
       prefs: prefs,
       plugin: plugin,
       title: () => 'Kopilka: напоминание',
-      overBudgetBody:
-          ({
-            required String categoryName,
-            required int remainingMinor,
-            required int daysLeft,
-          }) => 'K=$remainingMinor D=$daysLeft',
+      overBudgetBody: ({
+        required String categoryName,
+        required int remainingMinor,
+        required int daysLeft,
+      }) => 'K=$remainingMinor D=$daysLeft',
       clock: () => fixedNow,
     );
     addTearDown(db.close);
@@ -98,8 +97,11 @@ void main() {
     categoriesDao: db.categoriesDao,
   );
 
-  Future<Account> seedAccount() =>
-      db.accountsDao.create(name: 'Наличные', kind: AccountKind.cash, currencyCode: 'RUB');
+  Future<Account> seedAccount() => db.accountsDao.create(
+    name: 'Наличные',
+    kind: AccountKind.cash,
+    currencyCode: 'RUB',
+  );
 
   Future<void> seedExpense(Category category, int amountMinor) async {
     final Account account = await seedAccount();
@@ -246,34 +248,31 @@ void main() {
       await recalculate();
       await recalculate();
       expect(plugin.shown, hasLength(1));
-      expect(
-        prefs.alertLastShown['budget:${food.id}:2026-10'],
-        '2026-10-15',
-      );
+      expect(prefs.alertLastShown['budget:${food.id}:2026-10'], '2026-10-15');
 
       fixedNow = DateTime.utc(2026, 10, 16, 12);
       await recalculate();
       expect(plugin.shown, hasLength(2));
-      expect(
-        prefs.alertLastShown['budget:${food.id}:2026-10'],
-        '2026-10-16',
-      );
+      expect(prefs.alertLastShown['budget:${food.id}:2026-10'], '2026-10-16');
     });
 
-    test('выключенный opt-in — ни показа, ни записи состояния дедупа', () async {
-      prefs.enabled = false;
-      final Category food = await db.categoriesDao.create(
-        name: 'Еда',
-        kind: CategoryKind.expense,
-      );
-      await db.budgetsDao.create(categoryId: food.id, limitMinor: 10000);
-      await seedExpense(food, 10000);
+    test(
+      'выключенный opt-in — ни показа, ни записи состояния дедупа',
+      () async {
+        prefs.enabled = false;
+        final Category food = await db.categoriesDao.create(
+          name: 'Еда',
+          kind: CategoryKind.expense,
+        );
+        await db.budgetsDao.create(categoryId: food.id, limitMinor: 10000);
+        await seedExpense(food, 10000);
 
-      await recalculate();
+        await recalculate();
 
-      expect(plugin.shown, isEmpty);
-      expect(prefs.alertLastShown, isEmpty);
-    });
+        expect(plugin.shown, isEmpty);
+        expect(prefs.alertLastShown, isEmpty);
+      },
+    );
 
     test('показ не состоялся (канал недоступен) — дедуп не отмечается, '
         'следующий пересчёт пробует снова', () async {

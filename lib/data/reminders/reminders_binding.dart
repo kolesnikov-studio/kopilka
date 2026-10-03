@@ -108,9 +108,7 @@ class RemindersBinding {
     ]) {
       _subscriptions.add(
         changes.listen(
-          (_) => unawaited(
-            _recalculate().then((_) {}, onError: (Object _) {}),
-          ),
+          (_) => unawaited(_recalculate().then((_) {}, onError: (Object _) {})),
         ),
       );
     }

@@ -356,7 +356,9 @@ void main() {
       expect(
         find.descendant(
           of: _balanceCard(l10n),
-          matching: find.text(formatMoneyMinor(74000, symbol: '₽', locale: 'ru')),
+          matching: find.text(
+            formatMoneyMinor(74000, symbol: '₽', locale: 'ru'),
+          ),
         ),
         findsOneWidget,
       );

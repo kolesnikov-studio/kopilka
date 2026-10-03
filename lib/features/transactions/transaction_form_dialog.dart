@@ -35,10 +35,8 @@ Future<void> showTransactionFormDialog(
 }) {
   return showDialog<void>(
     context: context,
-    builder: (BuildContext dialogContext) => _TransactionFormDialog(
-      type: type,
-      existing: existing,
-    ),
+    builder: (BuildContext dialogContext) =>
+        _TransactionFormDialog(type: type, existing: existing),
   );
 }
 
@@ -141,9 +139,7 @@ class _TransactionFormDialogState
   /// дата, чтобы initialDate не оказался раньше firstDate), максимум — 2100.
   Future<void> _pickExecuteDate() async {
     final DateTime today = calendarDayUtc(formClock());
-    final DateTime first = _executeDate.isBefore(today)
-        ? _executeDate
-        : today;
+    final DateTime first = _executeDate.isBefore(today) ? _executeDate : today;
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: _executeDate,

@@ -447,17 +447,16 @@ class _ScheduledTransferTile extends ConsumerWidget {
               existing: row,
             )
           : null,
-      onLongPress: interactive ? () => _confirmDelete(context, ref, l10n) : null,
+      onLongPress: interactive
+          ? () => _confirmDelete(context, ref, l10n)
+          : null,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              amounts,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+            Text(amounts, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 2),
             Text(
               transferLine(

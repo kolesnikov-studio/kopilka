@@ -12,8 +12,7 @@ Future<AppLocalizations> load(Locale locale) =>
     AppLocalizations.delegate.load(locale);
 
 void main() {
-  test('текст «осталось K на D дней»: категория, сумма с символом, дни — в обеих локалях',
-      () async {
+  test('текст «осталось K на D дней»: категория, сумма с символом, дни — в обеих локалях', () async {
     final AppLocalizations ru = await load(const Locale('ru'));
     final AppLocalizations en = await load(const Locale('en'));
 
@@ -45,31 +44,34 @@ void main() {
     expect(ruBody, isNot(enBody));
   });
 
-  test('один день: форма one в RU и EN (ICU-plural финальных текстов)', () async {
-    final AppLocalizations ru = await load(const Locale('ru'));
-    final AppLocalizations en = await load(const Locale('en'));
+  test(
+    'один день: форма one в RU и EN (ICU-plural финальных текстов)',
+    () async {
+      final AppLocalizations ru = await load(const Locale('ru'));
+      final AppLocalizations en = await load(const Locale('en'));
 
-    expect(
-      overBudgetBodyFor(
-        ru,
-        categoryName: 'Еда',
-        remainingMinor: 100,
-        daysLeft: 1,
-        symbol: '₽',
-      ),
-      contains('день'),
-    );
-    expect(
-      overBudgetBodyFor(
-        en,
-        categoryName: 'Food',
-        remainingMinor: 100,
-        daysLeft: 1,
-        symbol: r'$',
-      ),
-      contains('1 day'),
-    );
-  });
+      expect(
+        overBudgetBodyFor(
+          ru,
+          categoryName: 'Еда',
+          remainingMinor: 100,
+          daysLeft: 1,
+          symbol: '₽',
+        ),
+        contains('день'),
+      );
+      expect(
+        overBudgetBodyFor(
+          en,
+          categoryName: 'Food',
+          remainingMinor: 100,
+          daysLeft: 1,
+          symbol: r'$',
+        ),
+        contains('1 day'),
+      );
+    },
+  );
 
   test('перерасход: отдельный текст с абсолютной величиной суммы', () async {
     final AppLocalizations ru = await load(const Locale('ru'));
@@ -99,8 +101,9 @@ void main() {
     final AppLocalizations device = deviceLocalizations();
 
     expect(
-      AppLocalizations.supportedLocales
-          .map((Locale locale) => locale.languageCode),
+      AppLocalizations.supportedLocales.map(
+        (Locale locale) => locale.languageCode,
+      ),
       contains(device.localeName),
     );
   });

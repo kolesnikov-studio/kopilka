@@ -101,9 +101,7 @@ List<ForecastPoint> forecastBalance({
 }) {
   final DateTime thisMonth = monthStart(now);
   final _ForecastAverages averages = _averages(history, thisMonth);
-  final int maxWindow = forecastWindows.reduce(
-    (int a, int b) => a > b ? a : b,
-  );
+  final int maxWindow = forecastWindows.reduce((int a, int b) => a > b ? a : b);
   final List<int> cumulative = <int>[];
   int running = currentBalanceMinor;
   for (int monthShift = 1; monthShift <= maxWindow; monthShift++) {
@@ -213,7 +211,11 @@ int _monthNet(
 
 /// Доля плана, приходящаяся на месяц [monthStart, monthEnd): half-up
 /// (D-22) от `сумма × дни пересечения / дни плана`.
-int _planShareInMonth(ForecastPlan plan, DateTime monthStart, DateTime monthEnd) {
+int _planShareInMonth(
+  ForecastPlan plan,
+  DateTime monthStart,
+  DateTime monthEnd,
+) {
   final DateTime start = calendarDayUtc(plan.periodStart);
   final DateTime end = calendarDayUtc(plan.periodEnd);
   final int planDays = end.difference(start).inDays;
@@ -233,7 +235,11 @@ int _planShareInMonth(ForecastPlan plan, DateTime monthStart, DateTime monthEnd)
 
 /// Число дней пересечения периода плана с месяцем ([monthStart, monthEnd)) —
 /// по календарным дням UTC (периоды планов — даты формы, полуночи UTC).
-int _intersectionDays(ForecastPlan plan, DateTime monthStart, DateTime monthEnd) {
+int _intersectionDays(
+  ForecastPlan plan,
+  DateTime monthStart,
+  DateTime monthEnd,
+) {
   final DateTime start = calendarDayUtc(plan.periodStart);
   final DateTime end = calendarDayUtc(plan.periodEnd);
   final DateTime intersectionStart = start.isBefore(monthStart)

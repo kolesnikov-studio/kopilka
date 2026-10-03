@@ -23,17 +23,16 @@ void main() {
 
   tearDown(() => f.dispose());
 
-  ScheduledTransfersService buildService(
-    List<ScheduledTransfer> notified,
-  ) => ScheduledTransfersService(
-    db: f.db,
-    scheduledDao: f.scheduled,
-    transactionsDao: f.transactions,
-    onExecuted: (ScheduledTransfer transfer) async {
-      notified.add(transfer);
-    },
-    clock: f.clock.read,
-  );
+  ScheduledTransfersService buildService(List<ScheduledTransfer> notified) =>
+      ScheduledTransfersService(
+        db: f.db,
+        scheduledDao: f.scheduled,
+        transactionsDao: f.transactions,
+        onExecuted: (ScheduledTransfer transfer) async {
+          notified.add(transfer);
+        },
+        clock: f.clock.read,
+      );
 
   test('исполнение: перевод с суммами записи, дата = execute_at, отметка '
       'и уведомление', () async {
@@ -68,25 +67,27 @@ void main() {
     expect(notified.single.id, row.id);
   });
 
-  test('идемпотентность: повторный запуск — no-op (ни операций, ни показов)',
-      () async {
-    final Account source = await f.seedAccount(name: 'Основной');
-    final Account target = await f.seedAccount(name: 'Копилка');
-    await f.scheduled.create(
-      accountId: source.id,
-      targetAccountId: target.id,
-      amountMinor: 1000,
-      executeAt: DateTime.utc(2026, 9, 22, 12),
-    );
-    final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
-    final ScheduledTransfersService service = buildService(notified);
+  test(
+    'идемпотентность: повторный запуск — no-op (ни операций, ни показов)',
+    () async {
+      final Account source = await f.seedAccount(name: 'Основной');
+      final Account target = await f.seedAccount(name: 'Копилка');
+      await f.scheduled.create(
+        accountId: source.id,
+        targetAccountId: target.id,
+        amountMinor: 1000,
+        executeAt: DateTime.utc(2026, 9, 22, 12),
+      );
+      final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
+      final ScheduledTransfersService service = buildService(notified);
 
-    await service.executeDue();
-    await service.executeDue();
+      await service.executeDue();
+      await service.executeDue();
 
-    expect(await f.transactions.getFiltered(), hasLength(1));
-    expect(notified, hasLength(1));
-  });
+      expect(await f.transactions.getFiltered(), hasLength(1));
+      expect(notified, hasLength(1));
+    },
+  );
 
   test('будущая строка не исполняется', () async {
     final Account source = await f.seedAccount(name: 'Основной');
@@ -159,31 +160,34 @@ void main() {
       expect(commission.date.toUtc(), executeAt);
     });
 
-    test('комиссия 0 = отсутствие комиссии: нулевого расхода нет (D-123)',
-        () async {
-      final Account source = await f.seedAccount(name: 'Основной');
-      final Account target = await f.seedAccount(name: 'Копилка');
-      final Category fees = await f.seedCategory(name: 'Комиссии');
-      await f.scheduled.create(
-        accountId: source.id,
-        targetAccountId: target.id,
-        amountMinor: 5000,
-        executeAt: DateTime.utc(2026, 9, 22, 12),
-        commissionMinor: 0,
-        commissionCategoryId: fees.id,
-      );
-      final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
-      final ScheduledTransfersService service = buildService(notified);
+    test(
+      'комиссия 0 = отсутствие комиссии: нулевого расхода нет (D-123)',
+      () async {
+        final Account source = await f.seedAccount(name: 'Основной');
+        final Account target = await f.seedAccount(name: 'Копилка');
+        final Category fees = await f.seedCategory(name: 'Комиссии');
+        await f.scheduled.create(
+          accountId: source.id,
+          targetAccountId: target.id,
+          amountMinor: 5000,
+          executeAt: DateTime.utc(2026, 9, 22, 12),
+          commissionMinor: 0,
+          commissionCategoryId: fees.id,
+        );
+        final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
+        final ScheduledTransfersService service = buildService(notified);
 
-      await service.executeDue();
+        await service.executeDue();
 
-      final List<Transaction> transactions = await f.transactions.getFiltered();
-      expect(transactions, hasLength(1));
-      expect(
-        TransactionType.fromDb(transactions.single.type),
-        TransactionType.transfer,
-      );
-    });
+        final List<Transaction> transactions = await f.transactions
+            .getFiltered();
+        expect(transactions, hasLength(1));
+        expect(
+          TransactionType.fromDb(transactions.single.type),
+          TransactionType.transfer,
+        );
+      },
+    );
   });
 
   test('мультивалютный перевод: сумма зачисления заморожена при планировании '

@@ -94,12 +94,11 @@ void main() {
       prefs: prefs,
       plugin: plugin,
       title: () => 'Kopilka: напоминание',
-      overBudgetBody:
-          ({
-            required String categoryName,
-            required int remainingMinor,
-            required int daysLeft,
-          }) => 'K=$remainingMinor D=$daysLeft',
+      overBudgetBody: ({
+        required String categoryName,
+        required int remainingMinor,
+        required int daysLeft,
+      }) => 'K=$remainingMinor D=$daysLeft',
       clock: () => fixedNow,
     );
     addTearDown(db.close);
@@ -354,12 +353,14 @@ void main() {
       expect(plugin.shown, <String>['scheduled:s-1']);
     });
 
-    test('выключенный opt-in — показа нет и плагин не инициализируется',
-        () async {
-      await service.showNow(payload: 'scheduled:s-1', body: 'Исполнен');
+    test(
+      'выключенный opt-in — показа нет и плагин не инициализируется',
+      () async {
+        await service.showNow(payload: 'scheduled:s-1', body: 'Исполнен');
 
-      expect(plugin.shown, isEmpty);
-      expect(plugin.initializeCalls, 0);
-    });
+        expect(plugin.shown, isEmpty);
+        expect(plugin.initializeCalls, 0);
+      },
+    );
   });
 }
