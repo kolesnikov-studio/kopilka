@@ -195,6 +195,12 @@ class RemindersService {
   final ReminderTitleBuilder title;
 
   /// Часы сервиса (в тестах — фиксированные, образец DAO `clock`).
+  ///
+  /// Док-контракт (D-138): часы в UTC (шов продакшена — `utcNow`);
+  /// ключи суток/месяца дедупа собираются из UTC-компонентов и
+  /// нормализуются в ключах сами, но и остальной расчёт (окна,
+  /// дедлайны) ожидает UTC-момент — подмена часов на локальные
+  /// ломает календарные границы суток.
   final Clock clock;
 
   bool _initialized = false;
@@ -480,7 +486,9 @@ class RemindersService {
     PlansDao plansDao,
     CategoriesDao categoriesDao,
   ) async {
-    final DateTime now = clock();
+    // Ключи дедупа — по UTC-моменту (D-138): компоненты `today`
+    // собираются из UTC-суток, шов часов — `utcNow` (док-контракт).
+    final DateTime now = clock().toUtc();
     final List<OverBudgetCandidate> candidates =
         await collectOverBudgetCandidates(
           budgetsDao,
@@ -610,12 +618,21 @@ bool isNearOverBudget({required int factMinor, required int limitMinor}) {
 }
 
 /// Ключ месяца UTC `YYYY-MM` (колонки-агрегаты и ключи дедупа).
-String _monthKey(DateTime utc) =>
-    '${utc.year.toString().padLeft(4, '0')}-'
-    '${utc.month.toString().padLeft(2, '0')}';
+///
+/// Момент нормализуется через `.toUtc()` (D-138): ключ собирается из
+/// компонентов даты, поэтому подменённые на локальные часы [RemindersService.clock]
+/// не сдвигают границу месяца (в проде шов `utcNow` — правка защитная).
+String _monthKey(DateTime moment) {
+  final DateTime utc = moment.toUtc();
+  return '${utc.year.toString().padLeft(4, '0')}-'
+      '${utc.month.toString().padLeft(2, '0')}';
+}
 
-/// Ключ календарного дня UTC `YYYY-MM-DD` — дата дедупа (D-118).
-String _dayKey(DateTime utc) =>
-    '${utc.year.toString().padLeft(4, '0')}-'
-    '${utc.month.toString().padLeft(2, '0')}-'
-    '${utc.day.toString().padLeft(2, '0')}';
+/// Ключ календарного дня UTC `YYYY-MM-DD` — дата дедупа (D-118);
+/// нормализация как в [_monthKey] (D-138).
+String _dayKey(DateTime moment) {
+  final DateTime utc = moment.toUtc();
+  return '${utc.year.toString().padLeft(4, '0')}-'
+      '${utc.month.toString().padLeft(2, '0')}-'
+      '${utc.day.toString().padLeft(2, '0')}';
+}

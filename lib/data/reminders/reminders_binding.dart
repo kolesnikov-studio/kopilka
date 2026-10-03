@@ -22,10 +22,15 @@ import 'package:kopilka/data/reminders/reminders_texts.dart';
 // Жизненный цикл — контейнер провайдеров: закрытие контейнера гасит
 // подписки (§7: контейнер раньше БД).
 //
-// Гонка «пересчёт ещё идёт — пришло новое изменение» не критична:
-// пересчёт идемпотентен (полная перезапись расписания, дедуп оповещений),
-// последний вызов даёт верный итог; interleaving-вызовы лишь избыточно
-// перепишут то же расписание либо не покажут уже показанное.
+// Гонка «пересчёт ещё идёт — пришло новое изменение» гасится защёлкой
+// in-flight (D-138): без неё два interleaving-пересчёта читают карту
+// lastShown до записи и показывают ключ дважды за сутки. Защёлка
+// джойнит конкурентные вызовы (старт, события четырёх потоков,
+// recalculateNow) в один выполняющийся пересчёт — read→show→write
+// дедупа не интерливится, показ за сутки ровно один. Пересчёт
+// идемпотентен (полная перезапись расписания, дедуп оповещений),
+// поэтому деджойн не меняет итог: объединённый вызов даёт то же
+// расписание и те же показы.
 
 /// Сервис напоминаний над opt-in настройкой и живым плагином (D-83);
 /// тексты оповещений — l10n-ключи шага D (D-118/D-130): заголовок —
@@ -66,16 +71,29 @@ class RemindersBinding {
   final List<StreamSubscription<void>> _subscriptions =
       <StreamSubscription<void>>[];
 
+  /// Защёлка in-flight пересчёта (D-138): пока пересчёт идёт, повторный
+  /// вызов джойнится в него же, не стартуя вторым параллельным.
+  Future<void>? _inflight;
+
   /// Пересчёт со всеми источниками: расписание и просроченные (D-83) плюс
   /// оповещения о перерасходе (D-118) — binding передаёт DAO бюджетов,
-  /// планов и категорий.
-  Future<void> _recalculate() => _service.recalculate(
-    _ref.read(accountsDaoProvider),
-    _ref.read(debtsDaoProvider),
-    budgetsDao: _ref.read(budgetsDaoProvider),
-    plansDao: _ref.read(plansDaoProvider),
-    categoriesDao: _ref.read(categoriesDaoProvider),
-  );
+  /// планов и категорий. Конкурентные вызовы объединяются защёлкой
+  /// (см. комментарий в шапке файла): дедуп не интерливится.
+  Future<void> _recalculate() => _inflight ??= _recalculateBody();
+
+  Future<void> _recalculateBody() async {
+    try {
+      await _service.recalculate(
+        _ref.read(accountsDaoProvider),
+        _ref.read(debtsDaoProvider),
+        budgetsDao: _ref.read(budgetsDaoProvider),
+        plansDao: _ref.read(plansDaoProvider),
+        categoriesDao: _ref.read(categoriesDaoProvider),
+      );
+    } finally {
+      _inflight = null;
+    }
+  }
 
   /// Разовый пересчёт вне подписок (M6 шаг C, §7): явный запуск после
   /// включения настройки пользователем — идемпотентная перезапись расписания
