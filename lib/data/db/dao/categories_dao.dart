@@ -16,14 +16,19 @@ part 'categories_dao.g.dart';
 /// удаление запрещено, если есть живые вложенные категории или операции.
 ///
 /// Скрытие системных категорий (M5, D-54 идея 3) — тот же soft delete:
-/// отдельного признака в схеме нет, `deleted_at`-подобный механизм уже
-/// есть (§3), новых миграций не требуется. Живые списки
+/// отдельного признака в схеме нет, `deleted_at`-подобный механизм уже  /// есть (§3), новых миграций не требуется. Живые списки
 /// (`getAlive`/`watchAlive`) скрытую категорию не отдают — она исчезает
 /// из выбора в формах операций, фильтров, отчётов и бюджетов; операции и
 /// бюджеты скрытой категории продолжают существовать и считаться, а в
 /// списках с историей (LEFT JOIN по `category_id`) имя по-прежнему
 /// резолвится. Вернуть скрытую — [restore].
-@DriftAccessor(tables: [Budgets, Categories, Transactions, ScheduledTransfers])
+///
+/// Скрытие — то же удаление из живых списков, поэтому запрет живых
+/// планов (v8, D-128) действует и здесь: план со скрытой категорией
+/// не обслуживается UI честно (D-115.а).
+@DriftAccessor(
+  tables: [Budgets, Categories, Transactions, ScheduledTransfers, Plans],
+)
 class CategoriesDao extends DatabaseAccessor<AppDatabase>
     with _$CategoriesDaoMixin {
   CategoriesDao(super.db, {this.idGenerator = newId, this.clock = utcNow});
@@ -174,6 +179,10 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   /// Живой (ещё не исполненный) отложенный перевод с этой категорией
   /// комиссии — тоже запрет (v8, D-115.г): исполнение расхода комиссии
   /// обязано найти категорию (D-119). Исполненные не мешают.
+  /// Живой план на эту категорию — запрет тоже (v8, D-128): план с
+  /// удалённой категорией не обслуживается UI честно (направление —
+  /// производная недоступного вида, D-115.а), путь пользователя —
+  /// «сначала удалите план».
   Future<void> softDelete(String id) async {
     final Category current = await _requireAlive(id);
     if (current.isSystem) {
@@ -206,6 +215,14 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
         kind: DataFailure.categoryHasBudget,
       );
     }
+    final int plans = await _alivePlanCount(id);
+    if (plans > 0) {
+      throw DataValidationException(
+        'на категорию «${current.name}» ссылается живой план ($plans) — '
+        'сначала удалите его',
+        kind: DataFailure.categoryHasPlans,
+      );
+    }
     await _assertNoPendingScheduledTransfers(current);
     final DateTime now = clock();
     await (update(categories)..where((t) => t.id.equals(id))).write(
@@ -229,6 +246,14 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       throw DataValidationException(
         'скрывать можно только системную категорию, «${current.name}» — пользовательская',
         kind: DataFailure.categoryIsSystem,
+      );
+    }
+    final int plans = await _alivePlanCount(id);
+    if (plans > 0) {
+      throw DataValidationException(
+        'на категорию «${current.name}» ссылается живой план ($plans) — '
+        'сначала удалите его',
+        kind: DataFailure.categoryHasPlans,
       );
     }
     await _assertNoPendingScheduledTransfers(current);
@@ -416,6 +441,18 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
               ..where(
                 budgets.categoryId.equals(id) & budgets.deletedAt.isNull(),
               ))
+            .getSingle();
+    return row.read(count) ?? 0;
+  }
+
+  /// Живые планы категории (v8, D-128): `plans.category_id = id AND
+  /// plans.deleted_at IS NULL` — образец [_aliveBudgetCount].
+  Future<int> _alivePlanCount(String id) async {
+    final Expression<int> count = plans.id.count();
+    final TypedResult row =
+        await (selectOnly(plans)
+              ..addColumns([count])
+              ..where(plans.categoryId.equals(id) & plans.deletedAt.isNull()))
             .getSingle();
     return row.read(count) ?? 0;
   }

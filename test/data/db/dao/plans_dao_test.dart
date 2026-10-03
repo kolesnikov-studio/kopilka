@@ -424,9 +424,15 @@ void main() {
     test('план с мягко удалённой категорией не показывается', () async {
       final Category food = await seedExpenseCategory();
       final Plan plan = await seedPlan(categoryId: food.id);
-      // Удаление категории с живым планом DAO не запрещает (D-115):
-      // проверяем, что JOIN отсеивает несогласованную комбинацию.
-      await f.categories.softDelete(food.id);
+      // С D-128 DAO сам не создаёт комбинацию «план + удалённая категория»
+      // (удаление с живым планом запрещено): она возможна только из
+      // несогласованного импорта (D-25 принимает мягко удалённых
+      // владельцев) — эмулируем его прямой записью deleted_at, минуя DAO,
+      // и проверяем, что JOIN-отсев (D-122.в) остаётся защитой чтения.
+      await f.db.customStatement(
+        'UPDATE categories SET deleted_at = ? WHERE id = ?',
+        <Object?>[f.clock.read().toIso8601String(), food.id],
+      );
       final List<PlanVsFact> rows = await f.plans
           .watchPlanVsFact(
             from: DateTime.utc(2026, 10),

@@ -1084,4 +1084,138 @@ class AppLocalizationsEn extends AppLocalizations {
   ) {
     return '“$category” is over the limit by $amount, $days days to go.';
   }
+
+  @override
+  String get navPlanning => 'Planning';
+
+  @override
+  String get planningEmpty =>
+      'No plans yet. Plan an income or an expense for a period.';
+
+  @override
+  String get planningEmptyCta => 'Add plan';
+
+  @override
+  String get planningAddTooltip => 'Add plan';
+
+  @override
+  String get planningAutoTooltip => 'Auto-budget';
+
+  @override
+  String get planningSectionExpense => 'Expense plans';
+
+  @override
+  String get planningSectionIncome => 'Income plans';
+
+  @override
+  String planningPeriodRange(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String planningPlanLine(String amount) {
+    return 'Plan: $amount';
+  }
+
+  @override
+  String planningFactLine(String amount) {
+    return 'Actual: $amount';
+  }
+
+  @override
+  String planningRemainingLine(String amount) {
+    return 'Remaining: $amount';
+  }
+
+  @override
+  String planningOverByLine(String amount) {
+    return 'Over by: $amount';
+  }
+
+  @override
+  String planningGoalReachedLine(String amount) {
+    return 'Goal reached: +$amount';
+  }
+
+  @override
+  String get planningActiveBadge => 'Ongoing';
+
+  @override
+  String get planningAddTitle => 'New plan';
+
+  @override
+  String get planningEditTitle => 'Edit plan';
+
+  @override
+  String get planningKindHint => 'The plan direction follows the category kind';
+
+  @override
+  String get planningPeriodStartLabel => 'Period start';
+
+  @override
+  String get planningPeriodEndLabel => 'Period end';
+
+  @override
+  String get planningPeriodInvalid =>
+      'The period end cannot be before its start';
+
+  @override
+  String planningBaseCurrencyHint(String code) {
+    return 'The plan amount is in the base currency ($code)';
+  }
+
+  @override
+  String get planningNoCategoriesHint =>
+      'No categories of this kind yet — create them in Categories';
+
+  @override
+  String get planningDeleteTitle => 'Delete plan?';
+
+  @override
+  String planningDeleteBody(String name) {
+    return 'The plan for “$name” will be hidden from the lists. Transactions are not affected.';
+  }
+
+  @override
+  String get planningAutoTitle => 'Auto-budget';
+
+  @override
+  String get planningAutoIntro =>
+      'Kopilka will estimate the average income from your transactions and suggest a plan for the chosen term. Nothing is created without confirmation.';
+
+  @override
+  String planningAutoAverage(String amount, int count) {
+    return 'Average income: $amount per month ($count months with income in the last 6 months)';
+  }
+
+  @override
+  String get planningAutoNoData =>
+      'At least one completed month with income is needed for the estimate.';
+
+  @override
+  String get planningAutoTermLabel => 'Plan term';
+
+  @override
+  String planningAutoMonths(int months) {
+    return '$months mo.';
+  }
+
+  @override
+  String planningAutoAmountHelper(String amount, int months) {
+    return 'By average income: $amount × $months mo.';
+  }
+
+  @override
+  String get planningAutoCreateAction => 'Create plan';
+
+  @override
+  String get planningAutoCreatedSnack => 'Plan created';
+
+  @override
+  String get errorPlanOverlap =>
+      'This category already has a plan for an overlapping period. Change the period or delete the existing plan.';
+
+  @override
+  String get errorCategoryHasPlans =>
+      'A plan refers to this category. Delete it first.';
 }

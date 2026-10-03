@@ -23,6 +23,10 @@ String localizedError(AppLocalizations l10n, DataFailure failure) {
       return l10n.errorCategoryHasTransactions;
     case DataFailure.categoryHasBudget:
       return l10n.errorCategoryHasBudget;
+    case DataFailure.categoryHasPlans:
+      // Запрет удаления/скрытия категории с живым планом (v8, D-128):
+      // путь пользователя — «сначала удалите план» (спека C §5/§6.3).
+      return l10n.errorCategoryHasPlans;
     case DataFailure.categoryCycle:
       return l10n.errorCategoryCycle;
     case DataFailure.parentInvalid:

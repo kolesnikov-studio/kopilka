@@ -255,6 +255,54 @@ void main() {
     expect(await f.categories.getAlive(), isEmpty);
   });
 
+  test('категорию с живым планом удалить нельзя (D-128)', () async {
+    final Category category = await f.seedCategory();
+    await f.plans.create(
+      categoryId: category.id,
+      periodStart: DateTime.utc(2026, 10, 1),
+      periodEnd: DateTime.utc(2026, 11, 1),
+      amountMinor: 100000,
+    );
+
+    await expectLater(
+      f.categories.softDelete(category.id),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.categoryHasPlans,
+        ),
+      ),
+    );
+    // Отказ ничего не меняет: категория остаётся живой.
+    expect(await f.categories.findById(category.id), isNotNull);
+  });
+
+  test('системную категорию с живым планом скрыть нельзя (D-128)', () async {
+    final Category system = await f.seedCategory(
+      name: 'Системная',
+      isSystem: true,
+    );
+    await f.plans.create(
+      categoryId: system.id,
+      periodStart: DateTime.utc(2026, 10, 1),
+      periodEnd: DateTime.utc(2026, 11, 1),
+      amountMinor: 100000,
+    );
+
+    await expectLater(
+      f.categories.hide(system.id),
+      throwsA(
+        isA<DataValidationException>().having(
+          (DataValidationException e) => e.kind,
+          'kind',
+          DataFailure.categoryHasPlans,
+        ),
+      ),
+    );
+    expect(await f.categories.findById(system.id), isNotNull);
+  });
+
   test(
     'create/updateCategory: iconCode сохраняется, NULL валиден (v4)',
     () async {

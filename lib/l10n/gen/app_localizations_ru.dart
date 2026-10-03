@@ -1096,4 +1096,138 @@ class AppLocalizationsRu extends AppLocalizations {
   ) {
     return '«$category»: лимит превышен на $amount, до конца периода $days дн.';
   }
+
+  @override
+  String get navPlanning => 'Планирование';
+
+  @override
+  String get planningEmpty =>
+      'Планов пока нет. Запланируйте доход или расход на период.';
+
+  @override
+  String get planningEmptyCta => 'Добавить план';
+
+  @override
+  String get planningAddTooltip => 'Добавить план';
+
+  @override
+  String get planningAutoTooltip => 'Автобюджет';
+
+  @override
+  String get planningSectionExpense => 'Планы расходов';
+
+  @override
+  String get planningSectionIncome => 'Планы доходов';
+
+  @override
+  String planningPeriodRange(String start, String end) {
+    return '$start – $end';
+  }
+
+  @override
+  String planningPlanLine(String amount) {
+    return 'План: $amount';
+  }
+
+  @override
+  String planningFactLine(String amount) {
+    return 'Факт: $amount';
+  }
+
+  @override
+  String planningRemainingLine(String amount) {
+    return 'Остаток: $amount';
+  }
+
+  @override
+  String planningOverByLine(String amount) {
+    return 'Перерасход: $amount';
+  }
+
+  @override
+  String planningGoalReachedLine(String amount) {
+    return 'Цель достигнута: +$amount';
+  }
+
+  @override
+  String get planningActiveBadge => 'Идёт';
+
+  @override
+  String get planningAddTitle => 'Новый план';
+
+  @override
+  String get planningEditTitle => 'Изменить план';
+
+  @override
+  String get planningKindHint => 'Направление плана — по виду категории';
+
+  @override
+  String get planningPeriodStartLabel => 'Начало периода';
+
+  @override
+  String get planningPeriodEndLabel => 'Конец периода';
+
+  @override
+  String get planningPeriodInvalid =>
+      'Конец периода не может быть раньше начала';
+
+  @override
+  String planningBaseCurrencyHint(String code) {
+    return 'Сумма плана — в базовой валюте ($code)';
+  }
+
+  @override
+  String get planningNoCategoriesHint =>
+      'Нет категорий этого вида — создайте их в разделе «Категории»';
+
+  @override
+  String get planningDeleteTitle => 'Удалить план?';
+
+  @override
+  String planningDeleteBody(String name) {
+    return 'План «$name» будет скрыт из списков. Операции не затрагиваются.';
+  }
+
+  @override
+  String get planningAutoTitle => 'Автобюджет';
+
+  @override
+  String get planningAutoIntro =>
+      'Kopilka посчитает средний доход по операциям и предложит план на выбранный срок. Ничего не создаётся без подтверждения.';
+
+  @override
+  String planningAutoAverage(String amount, int count) {
+    return 'Средний доход: $amount в месяц ($count мес. с доходом за последние 6 мес.)';
+  }
+
+  @override
+  String get planningAutoNoData =>
+      'Для расчёта нужен хотя бы один завершённый месяц с доходами.';
+
+  @override
+  String get planningAutoTermLabel => 'Срок плана';
+
+  @override
+  String planningAutoMonths(int months) {
+    return '$months мес.';
+  }
+
+  @override
+  String planningAutoAmountHelper(String amount, int months) {
+    return 'По среднему доходу: $amount × $months мес.';
+  }
+
+  @override
+  String get planningAutoCreateAction => 'Создать план';
+
+  @override
+  String get planningAutoCreatedSnack => 'План создан';
+
+  @override
+  String get errorPlanOverlap =>
+      'У этой категории уже есть план на пересекающийся период. Измените период или удалите прежний план.';
+
+  @override
+  String get errorCategoryHasPlans =>
+      'На эту категорию ссылается план. Сначала удалите его.';
 }

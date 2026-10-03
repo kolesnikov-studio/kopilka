@@ -1949,6 +1949,216 @@ abstract class AppLocalizations {
     String amount,
     int days,
   );
+
+  /// Navigation label and screen title for the planning section, seventh navigation branch (M7, designer spec §1, D-127)
+  ///
+  /// In en, this message translates to:
+  /// **'Planning'**
+  String get navPlanning;
+
+  /// Empty state of the plans list (designer spec §2/§7)
+  ///
+  /// In en, this message translates to:
+  /// **'No plans yet. Plan an income or an expense for a period.'**
+  String get planningEmpty;
+
+  /// Call-to-action button on the empty plans list, opens the plan form (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Add plan'**
+  String get planningEmptyCta;
+
+  /// Tooltip of the add-plan FAB on the planning screen (designer spec §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Add plan'**
+  String get planningAddTooltip;
+
+  /// Tooltip of the auto-budget action in the planning app bar (D-54 idea 17, designer spec §1/§4)
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-budget'**
+  String get planningAutoTooltip;
+
+  /// Header of the expense-plans section of the plans list (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Expense plans'**
+  String get planningSectionExpense;
+
+  /// Header of the income-plans section of the plans list (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Income plans'**
+  String get planningSectionIncome;
+
+  /// Inclusive period range of a plan shown on the tile; both dates formatted by the locale date formatter, local dates (designer spec §2/§3)
+  ///
+  /// In en, this message translates to:
+  /// **'{start} – {end}'**
+  String planningPeriodRange(String start, String end);
+
+  /// Target amount line on a plan tile; {amount} formatted by formatMoneyMinor in the base currency (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Plan: {amount}'**
+  String planningPlanLine(String amount);
+
+  /// Actual amount line on a plan tile (transactions of the category over the plan's own period); {amount} formatted by formatMoneyMinor (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Actual: {amount}'**
+  String planningFactLine(String amount);
+
+  /// Remaining line on a plan tile while the plan is not yet met or overspent quietly; {amount} formatted by formatMoneyMinor (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Remaining: {amount}'**
+  String planningRemainingLine(String amount);
+
+  /// Overspend line shown instead of the remainder on an expense plan whose actual exceeded the plan; {amount} formatted by formatMoneyMinor, red (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Over by: {amount}'**
+  String planningOverByLine(String amount);
+
+  /// Line shown instead of the remainder on an income plan whose actual reached the target; {amount} formatted by formatMoneyMinor (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Goal reached: +{amount}'**
+  String planningGoalReachedLine(String amount);
+
+  /// Badge on the tile of the plan whose period includes the current moment (designer spec §2)
+  ///
+  /// In en, this message translates to:
+  /// **'Ongoing'**
+  String get planningActiveBadge;
+
+  /// Title of the plan form dialog in create mode (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'New plan'**
+  String get planningAddTitle;
+
+  /// Title of the plan form dialog in edit mode (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Edit plan'**
+  String get planningEditTitle;
+
+  /// Constant hint under the kind segment in plan forms: the segment filters categories, the plan direction is derived from the category kind (D-115.а, designer spec §3/§4)
+  ///
+  /// In en, this message translates to:
+  /// **'The plan direction follows the category kind'**
+  String get planningKindHint;
+
+  /// Label of the period start date row in the plan form (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Period start'**
+  String get planningPeriodStartLabel;
+
+  /// Label of the period end date row in the plan form; the day is included in the period (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Period end'**
+  String get planningPeriodEndLabel;
+
+  /// Field error when the picked end date is before the start date (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'The period end cannot be before its start'**
+  String get planningPeriodInvalid;
+
+  /// Helper under the plan amount field: the amount is counted in the base currency, whose code is shown (D-19, designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'The plan amount is in the base currency ({code})'**
+  String planningBaseCurrencyHint(String code);
+
+  /// Helper in the plan form when the selected kind has no live categories; save is disabled (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'No categories of this kind yet — create them in Categories'**
+  String get planningNoCategoriesHint;
+
+  /// Confirmation title for plan deletion (soft delete, designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete plan?'**
+  String get planningDeleteTitle;
+
+  /// Confirmation body for plan deletion; {name} is the category name (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'The plan for “{name}” will be hidden from the lists. Transactions are not affected.'**
+  String planningDeleteBody(String name);
+
+  /// Title of the auto-budget dialog (D-54 idea 17, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-budget'**
+  String get planningAutoTitle;
+
+  /// Intro of the auto-budget dialog naming the explicit consent in words (D-121, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Kopilka will estimate the average income from your transactions and suggest a plan for the chosen term. Nothing is created without confirmation.'**
+  String get planningAutoIntro;
+
+  /// Calculation line of the auto-budget dialog: the average and how many income months it is based on; {amount} formatted by formatMoneyMinor (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Average income: {amount} per month ({count} months with income in the last 6 months)'**
+  String planningAutoAverage(String amount, int count);
+
+  /// No-data state of the auto-budget dialog: zero income months in the last six closed months; create is disabled (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'At least one completed month with income is needed for the estimate.'**
+  String get planningAutoNoData;
+
+  /// Label above the term segmented button of the auto-budget dialog (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Plan term'**
+  String get planningAutoTermLabel;
+
+  /// Option of the term segmented button: plan length in months (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'{months} mo.'**
+  String planningAutoMonths(int months);
+
+  /// Helper under the prefilled amount of the auto-budget dialog showing how it was computed; {amount} formatted by formatMoneyMinor (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'By average income: {amount} × {months} mo.'**
+  String planningAutoAmountHelper(String amount, int months);
+
+  /// Confirm button of the auto-budget dialog — the explicit consent that creates the one plan (D-121, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Create plan'**
+  String get planningAutoCreateAction;
+
+  /// Snack after the auto-budget dialog created a plan (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Plan created'**
+  String get planningAutoCreatedSnack;
+
+  /// Refusal of overlapping live plans of one category (D-115.в); shown from the plan form after the preventive controller check and as the snack for the DAO backup refusal (designer spec §3/§6.3)
+  ///
+  /// In en, this message translates to:
+  /// **'This category already has a plan for an overlapping period. Change the period or delete the existing plan.'**
+  String get errorPlanOverlap;
+
+  /// Cannot delete or hide a category referenced by a live plan (D-128, designer spec §6.3)
+  ///
+  /// In en, this message translates to:
+  /// **'A plan refers to this category. Delete it first.'**
+  String get errorCategoryHasPlans;
 }
 
 class _AppLocalizationsDelegate
