@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/ids.dart';
@@ -7,6 +6,7 @@ import 'package:kopilka/core/months.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/data/db/tables.dart';
+import 'package:kopilka/data/db/dao/base_minor_from_row.dart';
 
 part 'budgets_dao.g.dart';
 
@@ -228,11 +228,7 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
       }
       spentByBudget[budgetId] =
           (spentByBudget[budgetId] ?? 0) +
-          convertMinor(
-            row.read<int>('amount_minor'),
-            row.read<double>('rate'),
-            exponent: currencyExponentByCode(row.read<String>('currency_code')),
-          );
+          baseMinorFromRow(row, amountField: 'amount_minor');
     }
     return <BudgetProgress>[
       for (final MapEntry<String, BudgetProgress> entry in byBudget.entries)
@@ -249,11 +245,7 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
   int _spentInBase(List<QueryRow> rows) {
     int spent = 0;
     for (final QueryRow row in rows) {
-      spent += convertMinor(
-        row.read<int>('amount_minor'),
-        row.read<double>('rate'),
-        exponent: currencyExponentByCode(row.read<String>('currency_code')),
-      );
+      spent += baseMinorFromRow(row, amountField: 'amount_minor');
     }
     return spent;
   }

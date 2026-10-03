@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
-import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/errors.dart';
 import 'package:kopilka/core/ids.dart';
 import 'package:kopilka/data/db/database.dart';
+import 'package:kopilka/data/db/dao/base_minor_from_row.dart';
 import 'package:kopilka/data/db/tables.dart';
 
 part 'plans_dao.g.dart';
@@ -269,11 +269,7 @@ class PlansDao extends DatabaseAccessor<AppDatabase> with _$PlansDaoMixin {
       }
       factByPlan[planId] =
           (factByPlan[planId] ?? 0) +
-          convertMinor(
-            row.read<int>('tx_amount_minor'),
-            row.read<double>('rate'),
-            exponent: currencyExponentByCode(row.read<String>('currency_code')),
-          );
+          baseMinorFromRow(row, amountField: 'tx_amount_minor');
     }
     return <PlanVsFact>[
       for (final MapEntry<String, PlanVsFact> entry in byPlan.entries)
