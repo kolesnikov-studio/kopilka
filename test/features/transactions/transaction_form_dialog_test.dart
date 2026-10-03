@@ -12,7 +12,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kopilka/app/widgets/amount_field.dart';
 import 'package:kopilka/core/currency.dart';
+import 'package:kopilka/core/dates.dart' show formClock, utcNow;
 import 'package:kopilka/core/rate.dart';
+import 'package:kopilka/features/transactions/transactions_screen.dart'
+    show transferLine;
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/dao/transactions_dao.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -682,6 +685,275 @@ void main() {
         ).decoration?.suffixText,
         '¥',
       );
+    },
+  );
+
+  testWidgets(
+    'D-133: галка «Отложить» раскрывает секции и скрывает дату/заметку',
+    (WidgetTester tester) async {
+      final AppHarness app = await _pumpApp(tester);
+      await app.db.accountsDao.create(
+        name: 'Рубли',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+      await app.db.accountsDao.create(
+        name: 'Копилка',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+      );
+      await _openTransferForm(tester, app);
+      await _selectAccount(tester, app, app.l10n.accountFrom, 'Рубли');
+      await _selectAccount(tester, app, app.l10n.accountTo, 'Копилка');
+
+      // До галочки: чекбокс «Отложить» на месте, секций исполнения нет,
+      // обычная дата и заметка на месте.
+      expect(find.text(app.l10n.transferDeferLabel), findsOneWidget);
+      expect(
+        find.textContaining('${app.l10n.transferExecuteDateLabel}:'),
+        findsNothing,
+      );
+      expect(find.textContaining('${app.l10n.dateLabel}:'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextFormField, app.l10n.noteLabel),
+        findsOneWidget,
+      );
+
+      // Галочка раскрывает: дата исполнения, фикс-заметка и чекбокс
+      // «Комиссия»; ряд обычной даты и заметка скрыты (в
+      // scheduled_transfers заметки нет, D-115).
+      await tester.tap(find.text(app.l10n.transferDeferLabel));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('${app.l10n.transferExecuteDateLabel}:'),
+        findsOneWidget,
+      );
+      expect(find.text(app.l10n.transferDeferredFixNote), findsOneWidget);
+      expect(find.text(app.l10n.transferCommissionToggle), findsOneWidget);
+      expect(find.textContaining('${app.l10n.dateLabel}:'), findsNothing);
+      expect(
+        find.widgetWithText(TextFormField, app.l10n.noteLabel),
+        findsNothing,
+      );
+
+      // Повторный тап возвращает обычную дату и заметку.
+      await tester.tap(find.text(app.l10n.transferDeferLabel));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('${app.l10n.transferExecuteDateLabel}:'),
+        findsNothing,
+      );
+      expect(find.textContaining('${app.l10n.dateLabel}:'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextFormField, app.l10n.noteLabel),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'D-133: комиссия «обе или ни одной» — без категории сохранения нет, с категорией пишет пару',
+    (WidgetTester tester) async {
+      final AppHarness app = await _pumpApp(tester);
+      await app.db.accountsDao.create(
+        name: 'Рубли',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+      await app.db.accountsDao.create(
+        name: 'Копилка',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+      );
+      final Category commissionCategory = await app.db.categoriesDao.create(
+        name: 'Комиссии',
+        kind: CategoryKind.expense,
+      );
+      await _openTransferForm(tester, app);
+      await _selectAccount(tester, app, app.l10n.accountFrom, 'Рубли');
+      await _selectAccount(tester, app, app.l10n.accountTo, 'Копилка');
+
+      // Основная сумма — валидация формы требует и её (> 0).
+      await tester.enterText(
+        find.widgetWithText(TextFormField, app.l10n.amountLabel),
+        '100',
+      );
+      await tester.tap(find.text(app.l10n.transferDeferLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(app.l10n.transferCommissionToggle));
+      await tester.pumpAndSettle();
+
+      // Сумма комиссии — в валюте счёта списания (D-27).
+      expect(
+        _amountField(
+          tester,
+          app,
+          app.l10n.transferCommissionAmountLabel,
+        ).decoration?.suffixText,
+        '₽',
+      );
+      await tester.enterText(
+        find.widgetWithText(
+          TextFormField,
+          app.l10n.transferCommissionAmountLabel,
+        ),
+        '50',
+      );
+
+      // «Ни одной» половинкой: сумма есть, категории нет — валидатор
+      // dropdown держит форму открытой (записи нет — доказывается итогом:
+      // ниже ровно одна строка с выбранной парой, от невалидного
+      // сохранения второй не осталось).
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        find.text(app.l10n.transferCommissionCategoryRequired),
+        findsOneWidget,
+      );
+
+      // Категория выбрана — пара сумма+категория записана (успех —
+      // закрытие диалога). Меню открывается и оседает фиксированными
+      // pump (без settle): при открытии меню материал рисует
+      // периодические кадры и pumpAndSettle не завершается (это же
+      // закрывает «мерцающие» варианты других тестов форм).
+      final Finder commissionDropdown = find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is DropdownButtonFormField<String> &&
+            widget.decoration.labelText ==
+                app.l10n.transferCommissionCategoryLabel,
+      );
+      await tester.tap(commissionDropdown);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.tap(find.text('Комиссии').last);
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 600));
+      // Пара записана в форму (initialValue dropdown'а) — по нему
+      // видно, что выбрался именно id категории комиссии.
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String>>(commissionDropdown)
+            .initialValue,
+        commissionCategory.id,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final List<ScheduledTransfer> deferred = await app.db
+          .select(app.db.scheduledTransfers)
+          .get();
+      expect(deferred, hasLength(1));
+      expect(deferred.single.amountMinor, 10000);
+      expect(deferred.single.commissionMinor, 5000);
+      expect(deferred.single.commissionCategoryId, isNotNull);
+      expect(await app.db.transactionsDao.getFiltered(), isEmpty);
+    },
+  );
+
+  testWidgets('D-133: дата исполнения — полночь UTC выбранного дня в записи', (
+    WidgetTester tester,
+  ) async {
+    // Часы формы фиксированы (шов formClock, §7 — образец
+    // transaction_form_time_test): дата исполнения по умолчанию —
+    // календарный день фиксированного момента, строка в БД детерминирована.
+    final DateTime fakeNow = DateTime.utc(2026, 12, 15, 21, 30);
+    addTearDown(() => formClock = utcNow);
+    formClock = () => fakeNow;
+
+    final AppHarness app = await _pumpApp(tester);
+    await app.db.accountsDao.create(
+      name: 'Рубли',
+      kind: AccountKind.cash,
+      currencyCode: baseCurrencyCode,
+    );
+    await app.db.accountsDao.create(
+      name: 'Копилка',
+      kind: AccountKind.bank,
+      currencyCode: baseCurrencyCode,
+    );
+    await _openTransferForm(tester, app);
+    await _selectAccount(tester, app, app.l10n.accountFrom, 'Рубли');
+    await _selectAccount(tester, app, app.l10n.accountTo, 'Копилка');
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, app.l10n.amountLabel),
+      '100',
+    );
+    await tester.tap(find.text(app.l10n.transferDeferLabel));
+    await tester.pumpAndSettle();
+    // Дата исполнения по умолчанию — день часов формы, локалью.
+    expect(
+      find.textContaining('${app.l10n.transferExecuteDateLabel}:'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, app.l10n.saveAction));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Чтение БД — SELECT, не поток drift (fake_async-зона, см. выше).
+    final List<ScheduledTransfer> rows = await app.db
+        .select(app.db.scheduledTransfers)
+        .get();
+    expect(rows, hasLength(1));
+    // Полночь UTC выбранного дня (D-119): хранение — строка ISO UTC.
+    expect(rows.single.executeAt, DateTime.utc(2026, 12, 15).toIso8601String());
+  });
+
+  testWidgets(
+    'D-133: правка отложенного — форма раскрыта без галочки, секция комиссии заполнена',
+    (WidgetTester tester) async {
+      final AppHarness app = await _pumpApp(tester);
+      await app.db.accountsDao.create(
+        name: 'Рубли',
+        kind: AccountKind.cash,
+        currencyCode: baseCurrencyCode,
+      );
+      await app.db.accountsDao.create(
+        name: 'Копилка',
+        kind: AccountKind.bank,
+        currencyCode: baseCurrencyCode,
+      );
+      final Category commissionCategory = await app.db.categoriesDao.create(
+        name: 'Комиссии',
+        kind: CategoryKind.expense,
+      );
+      final ScheduledTransfer row = await app.db.scheduledTransfersDao.create(
+        accountId: (await app.db.accountsDao.getAlive()).first.id,
+        targetAccountId: (await app.db.accountsDao.getAlive()).last.id,
+        amountMinor: 25000,
+        executeAt: DateTime.utc(2100, 1, 1),
+        commissionMinor: 9900,
+        commissionCategoryId: commissionCategory.id,
+      );
+
+      // Открытие из «Планирования» — как из списка отложенных (спека D §4).
+      await tester.tap(find.text(app.l10n.navPlanning).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(transferLine('Рубли', 'Копилка')).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text(app.l10n.transferEditTitle), findsOneWidget);
+      // Галочки нет — форма всегда отложенная (initState); секции раскрыты.
+      expect(find.text(app.l10n.transferDeferLabel), findsNothing);
+      expect(
+        find.textContaining('${app.l10n.transferExecuteDateLabel}:'),
+        findsOneWidget,
+      );
+      expect(find.text(app.l10n.transferCommissionToggle), findsOneWidget);
+      expect(
+        _amountField(
+          tester,
+          app,
+          app.l10n.transferCommissionAmountLabel,
+        ).controller?.text,
+        '99.00',
+      );
+      expect(row.id, isNotNull);
     },
   );
 }
