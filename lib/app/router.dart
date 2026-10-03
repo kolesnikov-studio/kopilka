@@ -6,6 +6,7 @@ import 'package:kopilka/features/accounts/accounts_screen.dart';
 import 'package:kopilka/features/categories/categories_screen.dart';
 import 'package:kopilka/features/debts/debt_card_screen.dart';
 import 'package:kopilka/features/debts/debts_screen.dart';
+import 'package:kopilka/features/planning/planning_screen.dart';
 import 'package:kopilka/features/reports/reports_screen.dart';
 import 'package:kopilka/features/settings/currencies_screen.dart';
 import 'package:kopilka/features/settings/hidden_categories_screen.dart';
@@ -66,6 +67,18 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.categories,
                 name: AppRoutes.categoriesName,
                 builder: (context, state) => const CategoriesScreen(),
+              ),
+            ],
+          ),
+          // Седьмая ветка «Планирование» (M7/D-127): между «Категориями» и
+          // «Отчётами» — планы держатся на категориях, раздел относится к
+          // расходной части анализа рядом с бюджетами.
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.planning,
+                name: AppRoutes.planningName,
+                builder: (context, state) => const PlanningScreen(),
               ),
             ],
           ),

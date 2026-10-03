@@ -5,6 +5,7 @@ abstract final class AppRoutes {
   static const String transactions = '/transactions';
   static const String debts = '/debts';
   static const String categories = '/categories';
+  static const String planning = '/planning';
   static const String reports = '/reports';
   static const String settings = '/settings';
   static const String currencies = '/settings/currencies';
@@ -15,6 +16,7 @@ abstract final class AppRoutes {
   static const String debtsName = 'debts';
   static const String debtName = 'debt';
   static const String categoriesName = 'categories';
+  static const String planningName = 'planning';
   static const String reportsName = 'reports';
   static const String settingsName = 'settings';
   static const String currenciesName = 'currencies';

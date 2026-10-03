@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kopilka/features/planning/auto_budget_dialog.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Ширина окна, с которой навигация переезжает в боковой rail (десктоп).
@@ -14,11 +15,16 @@ class ShellDestination {
     required this.label,
     required this.icon,
     required this.selectedIcon,
+    this.appBarActions,
   });
 
   final String label;
   final IconData icon;
   final IconData selectedIcon;
+
+  /// Действия в AppBar ветки (например, «Автобюджет» планирования, спека
+  /// C §1): собирается при сборке AppBar шелла; null — действий нет.
+  final List<Widget> Function(BuildContext context)? appBarActions;
 }
 
 /// Оболочка с навигацией: нижняя панель на телефоне, боковой rail на десктопе.
@@ -51,6 +57,20 @@ class HomeShell extends StatelessWidget {
         label: l10n.navCategories,
         icon: Icons.category_outlined,
         selectedIcon: Icons.category,
+      ),
+      // Седьмая ветка «Планирование» (M7/D-127): иконки event_note по спеке
+      // §1; IconButton автобюджета живёт в AppBar шелла (D-54.17).
+      ShellDestination(
+        label: l10n.navPlanning,
+        icon: Icons.event_note_outlined,
+        selectedIcon: Icons.event_note,
+        appBarActions: (BuildContext context) => <Widget>[
+          IconButton(
+            tooltip: l10n.planningAutoTooltip,
+            onPressed: () => showAutoBudgetDialog(context),
+            icon: const Icon(Icons.auto_graph_outlined),
+          ),
+        ],
       ),
       ShellDestination(
         label: l10n.navReports,
@@ -85,7 +105,10 @@ class HomeShell extends StatelessWidget {
     if (width >= railBreakpoint) {
       final bool extended = width >= extendedRailBreakpoint;
       return Scaffold(
-        appBar: AppBar(title: Text(title)),
+        appBar: AppBar(
+          title: Text(title),
+          actions: destinations[index].appBarActions?.call(context),
+        ),
         body: Row(
           children: [
             NavigationRail(
@@ -112,7 +135,10 @@ class HomeShell extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        actions: destinations[index].appBarActions?.call(context),
+      ),
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: index,
