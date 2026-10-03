@@ -293,4 +293,76 @@ void main() {
       expect(plugin.shown, hasLength(1));
     });
   });
+
+  group('краевые проверки D-126: UTC-границы дедупа (D-118)', () {
+    test('сутки дедупа — календарный день UTC: локальная дата устройства '
+        'не продлевает и не режет сутки', () async {
+      final Category food = await db.categoriesDao.create(
+        name: 'Еда',
+        kind: CategoryKind.expense,
+      );
+      await db.budgetsDao.create(categoryId: food.id, limitMinor: 10000);
+      await seedExpense(food, 9000);
+
+      // UTC 15.10 17:30: на машине восточнее UTC (например, UTC+6) это
+      // локальные сутки 15.10 — ключ дедупа обязан быть по UTC.
+      fixedNow = DateTime.utc(2026, 10, 15, 17, 30);
+      await recalculate();
+      expect(plugin.shown, hasLength(1));
+      expect(prefs.alertLastShown['budget:${food.id}:2026-10'], '2026-10-15');
+
+      // Те же UTC-сутки, но другой локальный день машины (на UTC+6 —
+      // уже 16.10 00:30): повтора нет — локальная дата не продлевает сутки.
+      fixedNow = DateTime.utc(2026, 10, 15, 18, 30);
+      await recalculate();
+      expect(plugin.shown, hasLength(1));
+
+      // Переход суток UTC — показ снова; в локальных сутках машины (UTC+6)
+      // тот же день — локальная дата не режет сутки.
+      fixedNow = DateTime.utc(2026, 10, 16, 0, 1);
+      await recalculate();
+      expect(plugin.shown, hasLength(2));
+      expect(prefs.alertLastShown['budget:${food.id}:2026-10'], '2026-10-16');
+    });
+
+    test('граница месяца UTC: ключ бюджета — новый месяц, показ 1-го не '
+        'залипает, старый ключ не мешает', () async {
+      final Category food = await db.categoriesDao.create(
+        name: 'Еда',
+        kind: CategoryKind.expense,
+      );
+      await db.budgetsDao.create(categoryId: food.id, limitMinor: 10000);
+      await seedExpense(food, 9000); // расход октября
+      final Account account = await seedAccount();
+      await db.transactionsDao.create(
+        type: TransactionType.expense,
+        accountId: account.id,
+        categoryId: food.id,
+        amountMinor: 9000,
+        date: DateTime.utc(2026, 11, 1), // расход ноября
+      );
+
+      fixedNow = DateTime.utc(2026, 10, 30, 12);
+      await recalculate();
+      expect(plugin.shown, hasLength(1));
+      expect(plugin.shown.single, startsWith('budget:${food.id}:2026-10|'));
+      expect(prefs.alertLastShown['budget:${food.id}:2026-10'], '2026-10-30');
+
+      fixedNow = DateTime.utc(2026, 10, 30, 18); // те же сутки октября
+      await recalculate();
+      expect(plugin.shown, hasLength(1));
+
+      fixedNow = DateTime.utc(2026, 11, 1, 0, 30); // новый месяц UTC
+      await recalculate();
+      expect(plugin.shown, hasLength(2));
+      expect(plugin.shown.last, startsWith('budget:${food.id}:2026-11|'));
+      expect(prefs.alertLastShown['budget:${food.id}:2026-11'], '2026-11-01');
+      // Старый ключ остаётся в карте и не блокирует новый.
+      expect(prefs.alertLastShown['budget:${food.id}:2026-10'], '2026-10-30');
+
+      fixedNow = DateTime.utc(2026, 11, 1, 22); // те же сутки ноября
+      await recalculate();
+      expect(plugin.shown, hasLength(2));
+    });
+  });
 }

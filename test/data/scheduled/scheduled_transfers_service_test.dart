@@ -262,4 +262,199 @@ void main() {
     expect((await f.scheduled.getById('sched-dead'))!.executedAt, isNull);
     expect(notified, isEmpty);
   });
+
+  group('краевые дедлайны executeDue (D-126)', () {
+    test(
+      'ровно 00:00 UTC дня execute_at исполняется, секунду раньше — нет',
+      () async {
+        final Account source = await f.seedAccount(name: 'Основной');
+        final Account target = await f.seedAccount(name: 'Копилка');
+        final DateTime executeAt = DateTime.utc(2026, 9, 26);
+        final ScheduledTransfer row = await f.scheduled.create(
+          accountId: source.id,
+          targetAccountId: target.id,
+          amountMinor: 1000,
+          executeAt: executeAt,
+        );
+        final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
+        final ScheduledTransfersService service = buildService(notified);
+
+        // Часы фикстуры — 2026-09-25 12:00: уводим на секунду до дедлайна.
+        f.clock.advance(
+          executeAt
+              .subtract(const Duration(seconds: 1))
+              .difference(f.clock.read()),
+        );
+        await service.executeDue();
+        expect(await f.transactions.getFiltered(), isEmpty);
+        expect(notified, isEmpty);
+
+        f.clock.advance(const Duration(seconds: 1)); // ровно полночь UTC
+        await service.executeDue();
+        final List<Transaction> transactions = await f.transactions
+            .getFiltered();
+        expect(transactions, hasLength(1));
+        expect(transactions.single.date.toUtc(), executeAt);
+        expect((await f.scheduled.getById(row.id))!.executedAt, isNotNull);
+        expect(notified, hasLength(1));
+      },
+    );
+
+    test(
+      'границы месяца и года UTC: до границы — нет, ровно на границе — да',
+      () async {
+        final Account source = await f.seedAccount(name: 'Основной');
+        final Account target = await f.seedAccount(name: 'Копилка');
+        final DateTime monthEdge = DateTime.utc(2026, 10, 1);
+        final DateTime yearEdge = DateTime.utc(2027, 1, 1);
+        final ScheduledTransfer byMonth = await f.scheduled.create(
+          accountId: source.id,
+          targetAccountId: target.id,
+          amountMinor: 1000,
+          executeAt: monthEdge,
+        );
+        final ScheduledTransfer byYear = await f.scheduled.create(
+          accountId: source.id,
+          targetAccountId: target.id,
+          amountMinor: 2000,
+          executeAt: yearEdge,
+        );
+        final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
+        final ScheduledTransfersService service = buildService(notified);
+
+        // Последняя секунда сентября: октябрьская строка ещё не назрела.
+        f.clock.advance(
+          DateTime.utc(2026, 9, 30, 23, 59, 59).difference(f.clock.read()),
+        );
+        await service.executeDue();
+        expect(await f.transactions.getFiltered(), isEmpty);
+
+        f.clock.advance(const Duration(seconds: 1)); // 2026-10-01 00:00:00 UTC
+        await service.executeDue();
+        List<Transaction> transactions = await f.transactions.getFiltered();
+        expect(transactions, hasLength(1));
+        expect(transactions.single.date.toUtc(), monthEdge);
+        expect((await f.scheduled.getById(byMonth.id))!.executedAt, isNotNull);
+        expect((await f.scheduled.getById(byYear.id))!.executedAt, isNull);
+
+        // Последняя секунда года: годовая строка ещё не назрела.
+        f.clock.advance(
+          DateTime.utc(2026, 12, 31, 23, 59, 59).difference(f.clock.read()),
+        );
+        await service.executeDue();
+        expect(await f.transactions.getFiltered(), hasLength(1));
+
+        f.clock.advance(const Duration(seconds: 1)); // 2027-01-01 00:00:00 UTC
+        await service.executeDue();
+        transactions = await f.transactions.getFiltered();
+        expect(transactions, hasLength(2));
+        expect(
+          transactions.map((Transaction t) => t.date.toUtc()).toSet(),
+          <DateTime>{monthEdge, yearEdge},
+        );
+        expect((await f.scheduled.getById(byYear.id))!.executedAt, isNotNull);
+        expect(notified, hasLength(2));
+      },
+    );
+
+    test('пачка в один запуск: даты операций = execute_at у всех, комиссия — '
+        'ровно один расход, повтор без дублей', () async {
+      final Account source = await f.seedAccount(name: 'Основной');
+      final Account target = await f.seedAccount(name: 'Копилка');
+      final Category fees = await f.seedCategory(name: 'Комиссии');
+      final DateTime firstAt = DateTime.utc(2026, 9, 20, 9);
+      final DateTime commissionAt = DateTime.utc(2026, 9, 23, 8, 30);
+      final DateTime thirdAt = DateTime.utc(2026, 9, 24, 23, 59, 59);
+      final ScheduledTransfer first = await f.scheduled.create(
+        accountId: source.id,
+        targetAccountId: target.id,
+        amountMinor: 1000,
+        executeAt: firstAt,
+      );
+      final ScheduledTransfer withCommission = await f.scheduled.create(
+        accountId: source.id,
+        targetAccountId: target.id,
+        amountMinor: 2000,
+        executeAt: commissionAt,
+        commissionMinor: 150,
+        commissionCategoryId: fees.id,
+      );
+      final ScheduledTransfer third = await f.scheduled.create(
+        accountId: source.id,
+        targetAccountId: target.id,
+        amountMinor: 3000,
+        executeAt: thirdAt,
+      );
+      final List<ScheduledTransfer> notified = <ScheduledTransfer>[];
+      final ScheduledTransfersService service = buildService(notified);
+
+      await service.executeDue();
+
+      // 3 перевода + ровно один расход комиссии.
+      final List<Transaction> transactions = await f.transactions.getFiltered();
+      expect(transactions, hasLength(4));
+      expect(
+        transactions
+            .where(
+              (Transaction t) =>
+                  TransactionType.fromDb(t.type) == TransactionType.transfer,
+            )
+            .map((Transaction t) => t.date.toUtc())
+            .toSet(),
+        <DateTime>{firstAt, commissionAt, thirdAt},
+      );
+      final Transaction commission = transactions.singleWhere(
+        (Transaction t) =>
+            TransactionType.fromDb(t.type) == TransactionType.expense,
+      );
+      expect(commission.amountMinor, 150);
+      expect(commission.categoryId, fees.id);
+      expect(commission.date.toUtc(), commissionAt);
+      expect(notified.map((ScheduledTransfer t) => t.id).toList(), <String>[
+        first.id,
+        withCommission.id,
+        third.id,
+      ]);
+
+      // Идемпотентность повтора: дублей операций и показов нет.
+      await service.executeDue();
+      expect(await f.transactions.getFiltered(), hasLength(4));
+      expect(notified, hasLength(3));
+      for (final ScheduledTransfer row in <ScheduledTransfer>[
+        first,
+        withCommission,
+        third,
+      ]) {
+        expect((await f.scheduled.getById(row.id))!.executedAt, isNotNull);
+      }
+    });
+
+    test(
+      'два одновременных прохода executeDue — без дублей операций',
+      () async {
+        final Account source = await f.seedAccount(name: 'Основной');
+        final Account target = await f.seedAccount(name: 'Копилка');
+        for (final int amount in <int>[1000, 2000]) {
+          await f.scheduled.create(
+            accountId: source.id,
+            targetAccountId: target.id,
+            amountMinor: amount,
+            executeAt: DateTime.utc(2026, 9, 22, 12),
+          );
+        }
+        final ScheduledTransfersService service = buildService(
+          <ScheduledTransfer>[],
+        );
+
+        // Binding гоняет проход по каждому событию потока — пересечённые
+        // вызовы обязаны сойтись к одной операции на строку (D-119).
+        await Future.wait(<Future<void>>[
+          service.executeDue(),
+          service.executeDue(),
+        ]);
+
+        expect(await f.transactions.getFiltered(), hasLength(2));
+      },
+    );
+  });
 }
