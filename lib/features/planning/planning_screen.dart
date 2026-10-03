@@ -8,6 +8,7 @@ import 'package:kopilka/core/currency.dart';
 import 'package:kopilka/core/dates.dart';
 import 'package:kopilka/core/money_format.dart';
 import 'package:kopilka/core/money_parse.dart' show defaultCurrencyExponent;
+import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/dao/plans_dao.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
@@ -15,6 +16,11 @@ import 'package:kopilka/data/providers.dart';
 import 'package:kopilka/features/categories/categories_controller.dart';
 import 'package:kopilka/features/planning/plan_form_dialog.dart';
 import 'package:kopilka/features/planning/planning_controller.dart';
+import 'package:kopilka/features/planning/scheduled_transfers_controller.dart';
+import 'package:kopilka/features/transactions/transaction_form_dialog.dart';
+import 'package:kopilka/features/transactions/transactions_controller.dart';
+import 'package:kopilka/features/transactions/transactions_screen.dart'
+    show transferLine;
 import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Экран «Планирование» (спека C §1/§2/§7, D-127): список всех живых
@@ -30,6 +36,18 @@ class PlanningScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AppLocalizations l10n = AppLocalizations.of(context);
     final AsyncValue<List<PlanVsFact>> plans = ref.watch(planningProvider);
+    // Отложенные переводы — свой поток; их состояния — общие состояния
+    // экрана (спека D §4/§6): спиннер и ErrorState с retry, отдельной
+    // секционной ошибки нет.
+    final AsyncValue<List<ScheduledTransfer>> transfers = ref.watch(
+      scheduledTransfersProvider,
+    );
+
+    Widget emptyState() => EmptyState(
+      text: l10n.planningEmpty,
+      ctaLabel: l10n.planningEmptyCta,
+      onCta: () => showPlanFormDialog(context),
+    );
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -45,6 +63,26 @@ class PlanningScreen extends ConsumerWidget {
         error: (Object error, StackTrace stack) =>
             ErrorState(onRetry: () => ref.invalidate(planningProvider)),
         data: (List<PlanVsFact> rows) {
+          final List<ScheduledTransfer>? deferred = transfers.value;
+          if (deferred == null) {
+            // До первой выдачи — спиннер; ошибка без выдачи — ErrorState
+            // с retry потока (общее состояние раздела, спека D §4).
+            return transfers.hasError
+                ? ErrorState(
+                    onRetry: () => ref.invalidate(scheduledTransfersProvider),
+                  )
+                : const Center(child: CircularProgressIndicator());
+          }
+          final List<ScheduledTransfer> pending = <ScheduledTransfer>[
+            for (final ScheduledTransfer row in deferred)
+              if (row.executedAt == null) row,
+          ];
+          final List<ScheduledTransfer> executed = <ScheduledTransfer>[
+            for (final ScheduledTransfer row in deferred)
+              if (row.executedAt != null) row,
+          ];
+          final bool hasTransfers = pending.isNotEmpty || executed.isNotEmpty;
+
           final Map<String, Category> categories = <String, Category>{
             for (final Category category
                 in ref.watch(allCategoriesProvider).value ?? const <Category>[])
@@ -58,10 +96,17 @@ class PlanningScreen extends ConsumerWidget {
               if (categories.containsKey(row.plan.categoryId)) row,
           ];
           if (visible.isEmpty) {
-            return EmptyState(
-              text: l10n.planningEmpty,
-              ctaLabel: l10n.planningEmptyCta,
-              onCta: () => showPlanFormDialog(context),
+            // Пустое состояние раздела остаётся про планы; секция
+            // отложенных при своих строках рисуется рядом (спека D §4).
+            if (!hasTransfers) {
+              return emptyState();
+            }
+            return ListView(
+              padding: const EdgeInsets.only(bottom: 88),
+              children: <Widget>[
+                emptyState(),
+                _TransfersSection(pending: pending, executed: executed),
+              ],
             );
           }
           final List<PlanVsFact> expense = <PlanVsFact>[];
@@ -88,6 +133,8 @@ class PlanningScreen extends ConsumerWidget {
                   rows: income,
                   categories: categories,
                 ),
+              if (hasTransfers)
+                _TransfersSection(pending: pending, executed: executed),
             ],
           );
         },
@@ -268,5 +315,200 @@ class _PlanningTile extends ConsumerWidget {
     // После soft delete строка исчезает из потока; снек не нужен
     // (образец бюджетов, спека C §3).
     await ref.read(planningControllerProvider.notifier).deletePlan(row.plan.id);
+  }
+}
+
+/// Секция «Отложенные переводы» (спека D §4): под секциями планов, две
+/// подсекции по статусам — «Ожидают»/«Исполнены»; пустая подсекция не
+/// рисуется. Строка: суммы «списание → зачисление» (одна сумма у
+/// одно-валютного), имена счетов хелпером `transferLine`, дата
+/// исполнения (medium) и комиссия. Действия только у ожидающих: тап —
+/// форма перевода в режиме правки, долгий тап — подтверждение удаления;
+/// исполненные — без действий (спека D §4).
+class _TransfersSection extends ConsumerWidget {
+  const _TransfersSection({required this.pending, required this.executed});
+
+  final List<ScheduledTransfer> pending;
+  final List<ScheduledTransfer> executed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ThemeData theme = Theme.of(context);
+    final Map<String, Account> accounts = <String, Account>{
+      for (final Account account
+          in ref.watch(accountsProvider).value ?? const <Account>[])
+        account.id: account,
+    };
+    final Map<String, Currency> currencies =
+        ref.watch(currenciesMapProvider).value ?? const <String, Currency>{};
+
+    Widget subsection(
+      String header,
+      List<ScheduledTransfer> rows, {
+      required bool interactive,
+    }) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+          child: Text(
+            header,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        for (final ScheduledTransfer row in rows)
+          _ScheduledTransferTile(
+            row: row,
+            accounts: accounts,
+            currencies: currencies,
+            interactive: interactive,
+          ),
+        const Divider(height: 1),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: Text(
+            l10n.planningTransfersSection,
+            style: theme.textTheme.titleSmall,
+          ),
+        ),
+        if (pending.isNotEmpty)
+          subsection(
+            l10n.planningTransfersPendingSection,
+            pending,
+            interactive: true,
+          ),
+        if (executed.isNotEmpty)
+          subsection(
+            l10n.planningTransfersExecutedSection,
+            executed,
+            interactive: false,
+          ),
+      ],
+    );
+  }
+}
+
+/// Строка отложенного перевода (спека D §4): суммы в валютах счетов
+/// (символы и экспоненты — по справочнику, образец `_symbolOf`), имена
+/// счетов, дата исполнения и комиссия. [interactive] — только у строки,
+/// ожидающей исполнения: тап — правка, долгий тап — удаление.
+class _ScheduledTransferTile extends ConsumerWidget {
+  const _ScheduledTransferTile({
+    required this.row,
+    required this.accounts,
+    required this.currencies,
+    required this.interactive,
+  });
+
+  final ScheduledTransfer row;
+  final Map<String, Account> accounts;
+  final Map<String, Currency> currencies;
+  final bool interactive;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final AppLocalizations l10n = AppLocalizations.of(context);
+    final ThemeData theme = Theme.of(context);
+    final String locale = Localizations.localeOf(context).toString();
+    final Account? from = accounts[row.accountId];
+    final Account? to = accounts[row.targetAccountId];
+    String money(int minor, String? code) => formatMoneyMinor(
+      minor,
+      symbol: currencies[code]?.symbol ?? (code ?? ''),
+      locale: locale,
+      exponent: currencyExponentByCode(code ?? ''),
+    );
+
+    // У мультивалютного — обе суммы со стрелкой, у одно-валютного — одна
+    // (спека D §4). Счёт удалён (исполненная строка) — без символа валюты.
+    final bool multiCurrency =
+        from != null && to != null && from.currencyCode != to.currencyCode;
+    final String amounts = multiCurrency
+        ? '${money(row.amountMinor, from.currencyCode)} → '
+              '${money(row.targetAmountMinor ?? row.amountMinor, to.currencyCode)}'
+        : money(row.amountMinor, from?.currencyCode);
+    final DateTime executeAt = DateTime.parse(row.executeAt).toUtc();
+    final int? commission = row.commissionMinor;
+
+    return InkWell(
+      onTap: interactive
+          ? () => showTransactionFormDialog(
+              context,
+              type: TransactionType.transfer,
+              existing: row,
+            )
+          : null,
+      onLongPress: interactive ? () => _confirmDelete(context, ref, l10n) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              amounts,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              transferLine(
+                from?.name ?? l10n.transactionTileAccountGone,
+                to?.name,
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              MaterialLocalizations.of(context).formatMediumDate(executeAt),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (commission != null)
+              Text(
+                l10n.transferCommissionLine(
+                  money(commission, from?.currencyCode),
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+  ) async {
+    final bool confirmed = await showConfirmDialog(
+      context: context,
+      title: l10n.planningTransfersDeleteTitle,
+      body: l10n.planningTransfersDeleteBody,
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    // Подтверждение — soft delete: строка уходит из потока (D-115.г);
+    // отказ (гонка с исполнением) — снеком по виду (спека D §4).
+    final Result<void> result = await ref
+        .read(scheduledTransfersControllerProvider.notifier)
+        .deleteScheduledTransfer(row.id);
+    if (result.isFailure && context.mounted) {
+      await showDataFailureSnack(context, result.failure);
+    }
   }
 }

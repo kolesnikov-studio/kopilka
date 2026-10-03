@@ -312,15 +312,16 @@ class _QuickEntryFab extends ConsumerWidget {
   }
 }
 
+/// Строка перевода «Счёт А → Счёт Б» (R8; спека D §4 — секция
+/// отложенных в «Планировании» переиспользует хелпер, не l10n-ключ).
+/// Удалённый счёт зачисления — «…».
+String transferLine(String fromName, String? toName) =>
+    '$fromName → ${toName ?? '…'}';
+
 class _TransactionTile extends ConsumerWidget {
   const _TransactionTile({required this.row});
 
   final TransactionView row;
-
-  /// Строка перевода (R8): единое место формирования «Счёт А → Счёт Б» —
-  /// на M3-шаге 4 здесь появятся две суммы и две валюты.
-  static String transferLine(String fromName, String? toName) =>
-      '$fromName → ${toName ?? '…'}';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
