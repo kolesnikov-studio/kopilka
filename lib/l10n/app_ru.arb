@@ -227,6 +227,17 @@
   "transferRateLine": "По курсу 1 {from} = {rate} {to}",
   "transferPrefillNote": "Предзаполнено по текущему курсу — поправьте, если курс обмена отличался",
 
+  "transferDeferLabel": "Отложить",
+  "transferExecuteDateLabel": "Дата исполнения",
+  "transferDeferredFixNote": "Суммы и курс зафиксируются: при исполнении пересчёта не будет.",
+  "transferCommissionToggle": "Комиссия",
+  "transferCommissionAmountLabel": "Сумма комиссии",
+  "transferCommissionCategoryLabel": "Категория комиссии",
+  "transferCommissionCategoryRequired": "Выберите категорию комиссии.",
+  "transferDeferredSnack": "Перевод запланирован",
+  "transferEditTitle": "Изменить отложенный перевод",
+  "transferCommissionLine": "Комиссия: {amount}",
+
   "themeSectionTitle": "Тема",
   "themeModeSystem": "Системная",
   "themeModeLight": "Светлая",
@@ -329,10 +340,16 @@
   "adviceMinBalanceBody": "Деньги на обычном счёте не приносят процентов. Заведите накопительный счёт — напоминание подскажет, когда начислить.",
   "adviceMinBalanceAction": "Создать накопительный счёт",
 
+  "forecastCardTitle": "Прогноз баланса",
+  "forecastNoData": "Данных для прогноза пока нет — линия показывает текущий баланс.",
+  "forecastHint": "Планы категорий и среднее нетто за последние 6 полных месяцев.",
+
   "transactionViewAttachment": "Просмотр вложения",
 
-  "reminderOverBudgetBody": "«{category}»: близко к лимиту — осталось {amount} на {days} дн.",
-  "reminderOverBudgetExceededBody": "«{category}»: лимит превышен на {amount}, до конца периода {days} дн.",
+  "reminderTitle": "Kopilka: напоминание",
+  "reminderOverBudgetBody": "«{category}»: близко к лимиту — осталось {amount} на {days, plural, one{{days} день} few{{days} дня} many{{days} дней} other{{days} дня}}",
+  "reminderOverBudgetExceededBody": "«{category}»: лимит превышен на {amount}, до конца периода {days, plural, one{{days} день} few{{days} дня} many{{days} дней} other{{days} дня}}",
+  "scheduledTransferExecutedBody": "Отложенный перевод исполнен: {amount} на счёт {target}",
 
   "navPlanning": "Планирование",
   "planningEmpty": "Планов пока нет. Запланируйте доход или расход на период.",
@@ -368,5 +385,11 @@
   "planningAutoCreateAction": "Создать план",
   "planningAutoCreatedSnack": "План создан",
   "errorPlanOverlap": "У этой категории уже есть план на пересекающийся период. Измените период или удалите прежний план.",
-  "errorCategoryHasPlans": "На эту категорию ссылается план. Сначала удалите его."
+  "errorCategoryHasPlans": "На эту категорию ссылается план. Сначала удалите его.",
+
+  "planningTransfersSection": "Отложенные переводы",
+  "planningTransfersPendingSection": "Ожидают исполнения",
+  "planningTransfersExecutedSection": "Исполнены",
+  "planningTransfersDeleteTitle": "Удалить отложенный перевод?",
+  "planningTransfersDeleteBody": "Запланированный перевод будет скрыт из списка. Операции не затрагиваются."
 }

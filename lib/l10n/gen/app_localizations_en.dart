@@ -748,6 +748,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'Prefilled with the current rate — correct it if the exchange rate differed';
 
   @override
+  String get transferDeferLabel => 'Defer';
+
+  @override
+  String get transferExecuteDateLabel => 'Execution date';
+
+  @override
+  String get transferDeferredFixNote =>
+      'Amounts and the rate will be fixed: no recalculation at execution.';
+
+  @override
+  String get transferCommissionToggle => 'Fee';
+
+  @override
+  String get transferCommissionAmountLabel => 'Fee amount';
+
+  @override
+  String get transferCommissionCategoryLabel => 'Fee category';
+
+  @override
+  String get transferCommissionCategoryRequired => 'Select a fee category.';
+
+  @override
+  String get transferDeferredSnack => 'Transfer scheduled';
+
+  @override
+  String get transferEditTitle => 'Edit scheduled transfer';
+
+  @override
+  String transferCommissionLine(String amount) {
+    return 'Fee: $amount';
+  }
+
+  @override
   String get themeSectionTitle => 'Theme';
 
   @override
@@ -1069,11 +1102,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get adviceMinBalanceAction => 'Create a savings account';
 
   @override
+  String get forecastCardTitle => 'Balance forecast';
+
+  @override
+  String get forecastNoData =>
+      'Not enough data to forecast yet — the line shows the current balance.';
+
+  @override
+  String get forecastHint =>
+      'Category plans plus the average net of the last 6 full months.';
+
+  @override
   String get transactionViewAttachment => 'View attachment';
 
   @override
+  String get reminderTitle => 'Kopilka: reminder';
+
+  @override
   String reminderOverBudgetBody(String category, String amount, int days) {
-    return '“$category” is close to the limit: $amount left for $days days.';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '$days day',
+    );
+    return '“$category” is close to the limit: $amount left for $_temp0.';
   }
 
   @override
@@ -1082,7 +1135,18 @@ class AppLocalizationsEn extends AppLocalizations {
     String amount,
     int days,
   ) {
-    return '“$category” is over the limit by $amount, $days days to go.';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days',
+      one: '$days day',
+    );
+    return '“$category” is over the limit by $amount, $_temp0 to go.';
+  }
+
+  @override
+  String scheduledTransferExecutedBody(String amount, String target) {
+    return 'Scheduled transfer executed: $amount to $target';
   }
 
   @override
@@ -1218,4 +1282,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get errorCategoryHasPlans =>
       'A plan refers to this category. Delete it first.';
+
+  @override
+  String get planningTransfersSection => 'Scheduled transfers';
+
+  @override
+  String get planningTransfersPendingSection => 'Pending';
+
+  @override
+  String get planningTransfersExecutedSection => 'Executed';
+
+  @override
+  String get planningTransfersDeleteTitle => 'Delete scheduled transfer?';
+
+  @override
+  String get planningTransfersDeleteBody =>
+      'The scheduled transfer will be hidden from the list. Transactions are not affected.';
 }

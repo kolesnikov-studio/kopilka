@@ -808,6 +808,50 @@
     "description": "Helper shown under the prefilled inflow amount of a cross-currency transfer (B4.1)"
   },
 
+  "transferDeferLabel": "Defer",
+  "@transferDeferLabel": {
+    "description": "Checkbox label enabling the defer section of the transfer form; off by default — the form keeps the immediate scenario (D-119, designer spec §3)"
+  },
+  "transferExecuteDateLabel": "Execution date",
+  "@transferExecuteDateLabel": {
+    "description": "Label of the execution-date row inside the defer section; the picker allows today (UTC) through 2100 (designer spec §3)"
+  },
+  "transferDeferredFixNote": "Amounts and the rate will be fixed: no recalculation at execution.",
+  "@transferDeferredFixNote": {
+    "description": "Note under the defer section: scheduled amounts and the rate are frozen at planning time (D-17/D-115.г, designer spec §3)"
+  },
+  "transferCommissionToggle": "Fee",
+  "@transferCommissionToggle": {
+    "description": "Checkbox label enabling the fee subsection of a deferred transfer; the fee pair is both-or-neither by construction (D-115.г, designer spec §3)"
+  },
+  "transferCommissionAmountLabel": "Fee amount",
+  "@transferCommissionAmountLabel": {
+    "description": "Label of the fee amount field, in the currency of the source account; zero is forbidden — the mechanics treat 0 as no fee (D-123, designer spec §3)"
+  },
+  "transferCommissionCategoryLabel": "Fee category",
+  "@transferCommissionCategoryLabel": {
+    "description": "Label of the fee category dropdown listing live expense categories (designer spec §3)"
+  },
+  "transferCommissionCategoryRequired": "Select a fee category.",
+  "@transferCommissionCategoryRequired": {
+    "description": "Validator message of the fee category dropdown when the fee is on but no category is chosen (designer spec §3)"
+  },
+  "transferDeferredSnack": "Transfer scheduled",
+  "@transferDeferredSnack": {
+    "description": "Snack after the form created a scheduled transfer; the dialog closes without the attachment mode — there is no transaction yet (designer spec §3)"
+  },
+  "transferEditTitle": "Edit scheduled transfer",
+  "@transferEditTitle": {
+    "description": "Title of the transfer form in edit mode for a pending scheduled transfer; saving goes through updateScheduledTransfer (designer spec §4)"
+  },
+  "transferCommissionLine": "Fee: {amount}",
+  "@transferCommissionLine": {
+    "description": "Fee line of a scheduled-transfer row in the planning list, formatted in the currency of the source account (designer spec §4)",
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+
   "themeSectionTitle": "Theme",
   "@themeSectionTitle": {
     "description": "Settings section header for themes (D-58)"
@@ -1219,27 +1263,52 @@
     "description": "Action button of the dashboard advice card, opens the account form with the savings switch preset (D-84, designer spec §4)"
   },
 
+  "forecastCardTitle": "Balance forecast",
+  "@forecastCardTitle": {
+    "description": "Title of the balance-forecast card on the reports dashboard, under the balance card (D-117, designer spec §1)"
+  },
+  "forecastNoData": "Not enough data to forecast yet — the line shows the current balance.",
+  "@forecastNoData": {
+    "description": "Caption under a flat forecast line: no history and no plans — a fresh install shows it too (D-117, designer spec §1)"
+  },
+  "forecastHint": "Category plans plus the average net of the last 6 full months.",
+  "@forecastHint": {
+    "description": "Tooltip of the info icon on the forecast card: one-line explanation of the mechanics, day-by-day plan distribution is not retold here (D-117, designer spec §1)"
+  },
+
   "transactionViewAttachment": "View attachment",
   "@transactionViewAttachment": {
     "description": "Context menu item of a transaction tile opening the attached file; shown only when the transaction has an attachment (D-67.в, designer spec §5)"
   },
 
-  "reminderOverBudgetBody": "“{category}” is close to the limit: {amount} left for {days} days.",
+  "reminderTitle": "Kopilka: reminder",
+  "@reminderTitle": {
+    "description": "Single notification title for every reminder: M6 account/debt reminders, M7 overspend alerts and the executed scheduled transfer (D-130, designer spec §2)"
+  },
+  "reminderOverBudgetBody": "“{category}” is close to the limit: {amount} left for {days, plural, one{{days} day} other{{days} days}}.",
   "@reminderOverBudgetBody": {
-    "description": "Draft body of the overspend alert (D-118): category, remaining amount and days left; the designer spec of steps C/D finalizes the wording",
+    "description": "Body of the overspend alert (D-118, final wording by designer spec §2): category, remaining amount with the base-currency symbol and days left with a plural",
     "placeholders": {
       "category": { "type": "String" },
       "amount": { "type": "String" },
       "days": { "type": "int" }
     }
   },
-  "reminderOverBudgetExceededBody": "“{category}” is over the limit by {amount}, {days} days to go.",
+  "reminderOverBudgetExceededBody": "“{category}” is over the limit by {amount}, {days, plural, one{{days} day} other{{days} days}} to go.",
   "@reminderOverBudgetExceededBody": {
-    "description": "Draft body of the overspend alert when the limit is already exceeded (D-118): category, overspent amount, days to the period end; the designer spec of steps C/D finalizes the wording",
+    "description": "Body of the overspend alert when the limit is already exceeded (D-118, final wording by designer spec §2): category, overspent amount with the base-currency symbol and days to the period end with a plural",
     "placeholders": {
       "category": { "type": "String" },
       "amount": { "type": "String" },
       "days": { "type": "int" }
+    }
+  },
+  "scheduledTransferExecutedBody": "Scheduled transfer executed: {amount} to {target}",
+  "@scheduledTransferExecutedBody": {
+    "description": "Body of the executed-scheduled-transfer notification (D-119, final wording by designer spec §2): debited amount in the source-account currency plus the target account name resolved by the binding via AccountsDao",
+    "placeholders": {
+      "amount": { "type": "String" },
+      "target": { "type": "String" }
     }
   },
 
@@ -1418,5 +1487,26 @@
   "errorCategoryHasPlans": "A plan refers to this category. Delete it first.",
   "@errorCategoryHasPlans": {
     "description": "Cannot delete or hide a category referenced by a live plan (D-128, designer spec §6.3)"
+  },
+
+  "planningTransfersSection": "Scheduled transfers",
+  "@planningTransfersSection": {
+    "description": "Header of the scheduled-transfers section on the planning screen, under the plan sections (D-119, designer spec §4)"
+  },
+  "planningTransfersPendingSection": "Pending",
+  "@planningTransfersPendingSection": {
+    "description": "Subsection header for scheduled transfers awaiting execution; empty subsections are not drawn (designer spec §4)"
+  },
+  "planningTransfersExecutedSection": "Executed",
+  "@planningTransfersExecutedSection": {
+    "description": "Subsection header for already executed scheduled transfers; those rows carry no actions (designer spec §4)"
+  },
+  "planningTransfersDeleteTitle": "Delete scheduled transfer?",
+  "@planningTransfersDeleteTitle": {
+    "description": "Title of the long-press delete confirmation for a pending scheduled transfer (designer spec §4)"
+  },
+  "planningTransfersDeleteBody": "The scheduled transfer will be hidden from the list. Transactions are not affected.",
+  "@planningTransfersDeleteBody": {
+    "description": "Body of the delete confirmation: soft delete hides the row, operations are not touched (D-115.г, designer spec §4)"
   }
 }

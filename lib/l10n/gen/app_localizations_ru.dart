@@ -755,6 +755,40 @@ class AppLocalizationsRu extends AppLocalizations {
       'Предзаполнено по текущему курсу — поправьте, если курс обмена отличался';
 
   @override
+  String get transferDeferLabel => 'Отложить';
+
+  @override
+  String get transferExecuteDateLabel => 'Дата исполнения';
+
+  @override
+  String get transferDeferredFixNote =>
+      'Суммы и курс зафиксируются: при исполнении пересчёта не будет.';
+
+  @override
+  String get transferCommissionToggle => 'Комиссия';
+
+  @override
+  String get transferCommissionAmountLabel => 'Сумма комиссии';
+
+  @override
+  String get transferCommissionCategoryLabel => 'Категория комиссии';
+
+  @override
+  String get transferCommissionCategoryRequired =>
+      'Выберите категорию комиссии.';
+
+  @override
+  String get transferDeferredSnack => 'Перевод запланирован';
+
+  @override
+  String get transferEditTitle => 'Изменить отложенный перевод';
+
+  @override
+  String transferCommissionLine(String amount) {
+    return 'Комиссия: $amount';
+  }
+
+  @override
   String get themeSectionTitle => 'Тема';
 
   @override
@@ -1081,11 +1115,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get adviceMinBalanceAction => 'Создать накопительный счёт';
 
   @override
+  String get forecastCardTitle => 'Прогноз баланса';
+
+  @override
+  String get forecastNoData =>
+      'Данных для прогноза пока нет — линия показывает текущий баланс.';
+
+  @override
+  String get forecastHint =>
+      'Планы категорий и среднее нетто за последние 6 полных месяцев.';
+
+  @override
   String get transactionViewAttachment => 'Просмотр вложения';
 
   @override
+  String get reminderTitle => 'Kopilka: напоминание';
+
+  @override
   String reminderOverBudgetBody(String category, String amount, int days) {
-    return '«$category»: близко к лимиту — осталось $amount на $days дн.';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days дня',
+      many: '$days дней',
+      few: '$days дня',
+      one: '$days день',
+    );
+    return '«$category»: близко к лимиту — осталось $amount на $_temp0';
   }
 
   @override
@@ -1094,7 +1150,20 @@ class AppLocalizationsRu extends AppLocalizations {
     String amount,
     int days,
   ) {
-    return '«$category»: лимит превышен на $amount, до конца периода $days дн.';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days дня',
+      many: '$days дней',
+      few: '$days дня',
+      one: '$days день',
+    );
+    return '«$category»: лимит превышен на $amount, до конца периода $_temp0';
+  }
+
+  @override
+  String scheduledTransferExecutedBody(String amount, String target) {
+    return 'Отложенный перевод исполнен: $amount на счёт $target';
   }
 
   @override
@@ -1230,4 +1299,20 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get errorCategoryHasPlans =>
       'На эту категорию ссылается план. Сначала удалите его.';
+
+  @override
+  String get planningTransfersSection => 'Отложенные переводы';
+
+  @override
+  String get planningTransfersPendingSection => 'Ожидают исполнения';
+
+  @override
+  String get planningTransfersExecutedSection => 'Исполнены';
+
+  @override
+  String get planningTransfersDeleteTitle => 'Удалить отложенный перевод?';
+
+  @override
+  String get planningTransfersDeleteBody =>
+      'Запланированный перевод будет скрыт из списка. Операции не затрагиваются.';
 }

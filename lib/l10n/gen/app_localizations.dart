@@ -1358,6 +1358,66 @@ abstract class AppLocalizations {
   /// **'Prefilled with the current rate — correct it if the exchange rate differed'**
   String get transferPrefillNote;
 
+  /// Checkbox label enabling the defer section of the transfer form; off by default — the form keeps the immediate scenario (D-119, designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Defer'**
+  String get transferDeferLabel;
+
+  /// Label of the execution-date row inside the defer section; the picker allows today (UTC) through 2100 (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Execution date'**
+  String get transferExecuteDateLabel;
+
+  /// Note under the defer section: scheduled amounts and the rate are frozen at planning time (D-17/D-115.г, designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Amounts and the rate will be fixed: no recalculation at execution.'**
+  String get transferDeferredFixNote;
+
+  /// Checkbox label enabling the fee subsection of a deferred transfer; the fee pair is both-or-neither by construction (D-115.г, designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Fee'**
+  String get transferCommissionToggle;
+
+  /// Label of the fee amount field, in the currency of the source account; zero is forbidden — the mechanics treat 0 as no fee (D-123, designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Fee amount'**
+  String get transferCommissionAmountLabel;
+
+  /// Label of the fee category dropdown listing live expense categories (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Fee category'**
+  String get transferCommissionCategoryLabel;
+
+  /// Validator message of the fee category dropdown when the fee is on but no category is chosen (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Select a fee category.'**
+  String get transferCommissionCategoryRequired;
+
+  /// Snack after the form created a scheduled transfer; the dialog closes without the attachment mode — there is no transaction yet (designer spec §3)
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer scheduled'**
+  String get transferDeferredSnack;
+
+  /// Title of the transfer form in edit mode for a pending scheduled transfer; saving goes through updateScheduledTransfer (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Edit scheduled transfer'**
+  String get transferEditTitle;
+
+  /// Fee line of a scheduled-transfer row in the planning list, formatted in the currency of the source account (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Fee: {amount}'**
+  String transferCommissionLine(String amount);
+
   /// Settings section header for themes (D-58)
   ///
   /// In en, this message translates to:
@@ -1928,27 +1988,57 @@ abstract class AppLocalizations {
   /// **'Create a savings account'**
   String get adviceMinBalanceAction;
 
+  /// Title of the balance-forecast card on the reports dashboard, under the balance card (D-117, designer spec §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Balance forecast'**
+  String get forecastCardTitle;
+
+  /// Caption under a flat forecast line: no history and no plans — a fresh install shows it too (D-117, designer spec §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough data to forecast yet — the line shows the current balance.'**
+  String get forecastNoData;
+
+  /// Tooltip of the info icon on the forecast card: one-line explanation of the mechanics, day-by-day plan distribution is not retold here (D-117, designer spec §1)
+  ///
+  /// In en, this message translates to:
+  /// **'Category plans plus the average net of the last 6 full months.'**
+  String get forecastHint;
+
   /// Context menu item of a transaction tile opening the attached file; shown only when the transaction has an attachment (D-67.в, designer spec §5)
   ///
   /// In en, this message translates to:
   /// **'View attachment'**
   String get transactionViewAttachment;
 
-  /// Draft body of the overspend alert (D-118): category, remaining amount and days left; the designer spec of steps C/D finalizes the wording
+  /// Single notification title for every reminder: M6 account/debt reminders, M7 overspend alerts and the executed scheduled transfer (D-130, designer spec §2)
   ///
   /// In en, this message translates to:
-  /// **'“{category}” is close to the limit: {amount} left for {days} days.'**
+  /// **'Kopilka: reminder'**
+  String get reminderTitle;
+
+  /// Body of the overspend alert (D-118, final wording by designer spec §2): category, remaining amount with the base-currency symbol and days left with a plural
+  ///
+  /// In en, this message translates to:
+  /// **'“{category}” is close to the limit: {amount} left for {days, plural, one{{days} day} other{{days} days}}.'**
   String reminderOverBudgetBody(String category, String amount, int days);
 
-  /// Draft body of the overspend alert when the limit is already exceeded (D-118): category, overspent amount, days to the period end; the designer spec of steps C/D finalizes the wording
+  /// Body of the overspend alert when the limit is already exceeded (D-118, final wording by designer spec §2): category, overspent amount with the base-currency symbol and days to the period end with a plural
   ///
   /// In en, this message translates to:
-  /// **'“{category}” is over the limit by {amount}, {days} days to go.'**
+  /// **'“{category}” is over the limit by {amount}, {days, plural, one{{days} day} other{{days} days}} to go.'**
   String reminderOverBudgetExceededBody(
     String category,
     String amount,
     int days,
   );
+
+  /// Body of the executed-scheduled-transfer notification (D-119, final wording by designer spec §2): debited amount in the source-account currency plus the target account name resolved by the binding via AccountsDao
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled transfer executed: {amount} to {target}'**
+  String scheduledTransferExecutedBody(String amount, String target);
 
   /// Navigation label and screen title for the planning section, seventh navigation branch (M7, designer spec §1, D-127)
   ///
@@ -2159,6 +2249,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A plan refers to this category. Delete it first.'**
   String get errorCategoryHasPlans;
+
+  /// Header of the scheduled-transfers section on the planning screen, under the plan sections (D-119, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled transfers'**
+  String get planningTransfersSection;
+
+  /// Subsection header for scheduled transfers awaiting execution; empty subsections are not drawn (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get planningTransfersPendingSection;
+
+  /// Subsection header for already executed scheduled transfers; those rows carry no actions (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Executed'**
+  String get planningTransfersExecutedSection;
+
+  /// Title of the long-press delete confirmation for a pending scheduled transfer (designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete scheduled transfer?'**
+  String get planningTransfersDeleteTitle;
+
+  /// Body of the delete confirmation: soft delete hides the row, operations are not touched (D-115.г, designer spec §4)
+  ///
+  /// In en, this message translates to:
+  /// **'The scheduled transfer will be hidden from the list. Transactions are not affected.'**
+  String get planningTransfersDeleteBody;
 }
 
 class _AppLocalizationsDelegate
