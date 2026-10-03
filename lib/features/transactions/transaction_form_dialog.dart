@@ -15,6 +15,7 @@ import 'package:kopilka/core/result.dart';
 import 'package:kopilka/data/db/database.dart';
 import 'package:kopilka/data/db/enums.dart';
 import 'package:kopilka/features/categories/categories_controller.dart';
+import 'package:kopilka/features/planning/scheduled_transfers_controller.dart';
 import 'package:kopilka/features/transactions/attachment_section.dart';
 import 'package:kopilka/features/transactions/transactions_controller.dart';
 import 'package:kopilka/data/providers.dart';
@@ -22,20 +23,32 @@ import 'package:kopilka/l10n/gen/app_localizations.dart';
 
 /// Форма быстрого ввода: тип задаётся кнопкой на списке операций
 /// (расход/доход/перевод). Счёт по умолчанию — первый живой.
+///
+/// [existing] — режим правки отложенного перевода (спека D §4): форма
+/// предзаполнена строкой списка «Планирование», секция «Отложить»
+/// показана раскрытой без чекбокса, сохранение идёт через
+/// `updateScheduledTransfer`; успех — закрытие без режима вложения.
 Future<void> showTransactionFormDialog(
   BuildContext context, {
   required TransactionType type,
+  ScheduledTransfer? existing,
 }) {
   return showDialog<void>(
     context: context,
-    builder: (BuildContext dialogContext) => _TransactionFormDialog(type: type),
+    builder: (BuildContext dialogContext) => _TransactionFormDialog(
+      type: type,
+      existing: existing,
+    ),
   );
 }
 
 class _TransactionFormDialog extends ConsumerStatefulWidget {
-  const _TransactionFormDialog({required this.type});
+  const _TransactionFormDialog({required this.type, this.existing});
 
   final TransactionType type;
+
+  /// Правимый отложенный перевод; null — обычная форма ввода.
+  final ScheduledTransfer? existing;
 
   @override
   ConsumerState<_TransactionFormDialog> createState() =>
@@ -47,6 +60,7 @@ class _TransactionFormDialogState
   final TextEditingController _amount = TextEditingController();
   final TextEditingController _targetAmount = TextEditingController();
   final TextEditingController _note = TextEditingController();
+  final TextEditingController _commissionAmount = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   String? _accountId;
   String? _targetAccountId;
@@ -63,12 +77,50 @@ class _TransactionFormDialogState
   // B4.1: вторая сумма была предзаполнена оценкой по текущему курсу —
   // до первой правки поля под ним видна подсказка transferPrefillNote.
   bool _targetPrefilled = false;
+  // M7-шаг D (спека D §3): секция «Отложить» — только у перевода.
+  // Галочка переводит форму в сценарий отложенного: дата формы становится
+  // датой исполнения (execute_at, полночь UTC), заметка скрывается (в
+  // scheduled_transfers её нет), раскрывается секция комиссии.
+  bool _deferred = false;
+
+  // Дата исполнения: по умолчанию — сегодняшний календарный день UTC
+  // (минимум пикера — сегодня, спека D §3).
+  DateTime _executeDate = calendarDayUtc(formClock());
+
+  // Секция «Комиссия» (спека D §3): пара «обе или ни одной» — выключенное
+  // состояние пишет NULL/NULL (D-115.г), включённое требует суммы > 0
+  // и категории (валидаторы полей ниже).
+  bool _commission = false;
+  String? _commissionCategoryId;
+
+  // Правка отложенного (спека D §4): суммы и комиссия проставляются в
+  // build, когда подгрузились счета (нужен экспонент валюты счёта
+  // списания, D-27) — до этого предзаполнение не начинается.
+  bool _storePrefilled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final ScheduledTransfer? existing = widget.existing;
+    if (existing != null) {
+      // Правка отложенного (спека D §4): форма всегда в режиме отложения
+      // (снять отложение = удалить строку — отдельного перевода «в
+      // мгновенный» в механике нет), поэтому галочка не показывается.
+      _deferred = true;
+      _accountId = existing.accountId;
+      _targetAccountId = existing.targetAccountId;
+      _executeDate = DateTime.parse(existing.executeAt).toUtc();
+      _commission = existing.commissionMinor != null;
+      _commissionCategoryId = existing.commissionCategoryId;
+    }
+  }
 
   @override
   void dispose() {
     _amount.dispose();
     _targetAmount.dispose();
     _note.dispose();
+    _commissionAmount.dispose();
     super.dispose();
   }
 
@@ -84,8 +136,27 @@ class _TransactionFormDialogState
     }
   }
 
-  String _formatDate(AppLocalizations l10n) =>
-      MaterialLocalizations.of(context).formatMediumDate(_date);
+  /// Пикер даты исполнения (спека D §3): минимум — сегодня UTC (прошлое
+  /// в отложенных не откладываем; при правке нижняя граница — сохранённая
+  /// дата, чтобы initialDate не оказался раньше firstDate), максимум — 2100.
+  Future<void> _pickExecuteDate() async {
+    final DateTime today = calendarDayUtc(formClock());
+    final DateTime first = _executeDate.isBefore(today)
+        ? _executeDate
+        : today;
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _executeDate,
+      firstDate: first,
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (picked != null) {
+      setState(() => _executeDate = picked);
+    }
+  }
+
+  String _formatDate(DateTime date) =>
+      MaterialLocalizations.of(context).formatMediumDate(date);
 
   /// Умолчания при первом построении: первый живой счёт, без категории.
   String? _ensureDefaults(List<Account> accounts) {
@@ -154,6 +225,9 @@ class _TransactionFormDialogState
     final TransactionsController controller = ref.read(
       transactionsControllerProvider.notifier,
     );
+    final ScheduledTransfersController deferredController = ref.read(
+      scheduledTransfersControllerProvider.notifier,
+    );
     // Деньги парсятся только общим парсером (§3, «Грабли»): «25000» — это
     // 25 000,00, а не 250,00 — int.parse без множителя ×100 давал занижение.
     // Дробность — по экспоненту валюты счёта (B3/D-27), той же, по которой
@@ -168,49 +242,112 @@ class _TransactionFormDialogState
       exponent: currencyExponentByCode(account?.currencyCode ?? ''),
     )!;
     final Result<dynamic> result;
-    switch (widget.type) {
-      case TransactionType.expense || TransactionType.income:
-        result = await controller.createIncomeOrExpense(
-          type: widget.type,
-          accountId: _accountId!,
-          amountMinor: amountMinor,
-          categoryId: _categoryId,
-          note: _note.text,
-          date: _date,
-        );
-      case TransactionType.transfer:
-        // B4.1/D-17: у мультивалютного перевода обе суммы обязательны
-        // (валидация полей выше), у одно-валютного второй суммы нет —
-        // DAO отвергнет значение при совпадающих валютах (D-17).
-        final Account? target = _accountOf(accounts, _targetAccountId);
-        final bool multiCurrency =
-            target != null && target.currencyCode != account?.currencyCode;
-        final int? targetAmountMinor = multiCurrency
-            ? parseAmountToMinor(
-                _targetAmount.text,
-                exponent: currencyExponentByCode(target.currencyCode),
-              )
-            : null;
-        result = await controller.createTransfer(
-          accountId: _accountId!,
-          targetAccountId: _targetAccountId!,
-          amountMinor: amountMinor,
-          targetAmountMinor: targetAmountMinor,
-          note: _note.text,
-          date: _date,
-        );
+    // Суммы перевода (B4.1/D-17): у мультивалютного обе суммы обязательны
+    // (валидация полей выше), у одно-валютного второй суммы нет —
+    // DAO отвергнет значение при совпадающих валютах (D-17).
+    final Account? target = _accountOf(accounts, _targetAccountId);
+    final bool multiCurrency =
+        target != null && target.currencyCode != account?.currencyCode;
+    final int? targetAmountMinor = multiCurrency
+        ? parseAmountToMinor(
+            _targetAmount.text,
+            exponent: currencyExponentByCode(target.currencyCode),
+          )
+        : null;
+    if (widget.existing != null) {
+      // Правка отложенного (спека D §4): сохранение через
+      // updateScheduledTransfer; исполненная/удалённая строка — отказ
+      // invalidInput/notFound снеком.
+      final (int?, String?) commission = _commissionPair(account);
+      result = await deferredController.updateScheduledTransfer(
+        id: widget.existing!.id,
+        accountId: _accountId!,
+        targetAccountId: _targetAccountId!,
+        amountMinor: amountMinor,
+        targetAmountMinor: targetAmountMinor,
+        executeAtUtc: calendarDayUtc(_executeDate),
+        commissionMinor: commission.$1,
+        commissionCategoryId: commission.$2,
+      );
+    } else if (_deferred) {
+      // Отложенный перевод (спека D §3): execute_at — полночь UTC
+      // выбранного дня (операция встанет в эту дату при исполнении,
+      // D-119), заметка не сохраняется — в схеме её нет (D-115).
+      final (int?, String?) commission = _commissionPair(account);
+      result = await deferredController.createScheduledTransfer(
+        accountId: _accountId!,
+        targetAccountId: _targetAccountId!,
+        amountMinor: amountMinor,
+        targetAmountMinor: targetAmountMinor,
+        executeAtUtc: calendarDayUtc(_executeDate),
+        commissionMinor: commission.$1,
+        commissionCategoryId: commission.$2,
+      );
+    } else {
+      switch (widget.type) {
+        case TransactionType.expense || TransactionType.income:
+          result = await controller.createIncomeOrExpense(
+            type: widget.type,
+            accountId: _accountId!,
+            amountMinor: amountMinor,
+            categoryId: _categoryId,
+            note: _note.text,
+            date: _date,
+          );
+        case TransactionType.transfer:
+          result = await controller.createTransfer(
+            accountId: _accountId!,
+            targetAccountId: _targetAccountId!,
+            amountMinor: amountMinor,
+            targetAmountMinor: targetAmountMinor,
+            note: _note.text,
+            date: _date,
+          );
+      }
     }
     if (!mounted) {
       return;
     }
     setState(() => _busy = false);
     if (result.isSuccess) {
-      // M5-шаг 6в: остаёмся в диалоге в режиме вложения — файл крепится
-      // к живой операции, у только что созданной уже есть id.
-      setState(() => _savedTransactionId = result.value.id);
+      if (widget.existing != null) {
+        // Правка: строка обновлена, диалог закрывается (образец формы
+        // плана) — вложения не было и не появляется.
+        Navigator.of(context).pop();
+      } else if (_deferred) {
+        // Успех отложения (спека D §3): закрытие без режима вложения
+        // (операции ещё нет — крепить не к чему) + снек.
+        Navigator.of(context).pop();
+        await showSnack(
+          context,
+          AppLocalizations.of(context).transferDeferredSnack,
+        );
+      } else {
+        // M5-шаг 6в: остаёмся в диалоге в режиме вложения — файл крепится
+        // к живой операции, у только что созданной уже есть id.
+        setState(() => _savedTransactionId = result.value.id);
+      }
     } else {
+      // Отказы DAO (invalidInput/notFound) — снеком по виду (спека D §3).
       await showDataFailureSnack(context, result.failure);
     }
+  }
+
+  /// Пара комиссии «обе или ни одной» (D-115.г, спека D §3): выключенное
+  /// состояние пишет NULL/NULL; включённое — сумма > 0 и категория уже
+  /// проверены валидаторами полей (порядок: существующие поля формы,
+  /// затем комиссия). Сумма — в валюте счёта списания (D-27).
+  (int?, String?) _commissionPair(Account? account) {
+    if (!_commission) {
+      return (null, null);
+    }
+    return (
+      parseAmountToMinor(
+        _commissionAmount.text,
+        exponent: currencyExponentByCode(account?.currencyCode ?? ''),
+      )!,
+      _commissionCategoryId,
+    );
   }
 
   @override
@@ -233,6 +370,48 @@ class _TransactionFormDialogState
 
     // Умолчания при первом построении: первый живой счёт, без категории.
     _ensureDefaults(accounts);
+
+    // Живые расходные категории — секция комиссии (спека D §3): у
+    // перевода свой список, не фильтр типа операции.
+    final List<Category> expenseCategories =
+        ref.watch(categoriesByKindProvider(CategoryKind.expense)).value ??
+        const <Category>[];
+    if (_commissionCategoryId != null &&
+        expenseCategories.isNotEmpty &&
+        expenseCategories.every(
+          (Category category) => category.id != _commissionCategoryId,
+        )) {
+      // Выбранная категория комиссии исчезла — выбор сбрасывается,
+      // валидатор dropdown подсветит обязательность.
+      _commissionCategoryId = null;
+    }
+
+    // Правка отложенного (спека D §4): предзаполнение сумм и комиссии —
+    // когда счета подгрузились (экспонент валюты счёта списания, D-27).
+    if (widget.existing != null && !_storePrefilled && accounts.isNotEmpty) {
+      final ScheduledTransfer existing = widget.existing!;
+      final Account? from = _accountOf(accounts, _accountId);
+      final Account? to = _accountOf(accounts, _targetAccountId);
+      _amount.text = minorToMajorString(
+        existing.amountMinor,
+        exponent: currencyExponentByCode(from?.currencyCode ?? ''),
+      );
+      final int? targetMinor = existing.targetAmountMinor;
+      if (targetMinor != null) {
+        _targetAmount.text = minorToMajorString(
+          targetMinor,
+          exponent: currencyExponentByCode(to?.currencyCode ?? ''),
+        );
+      }
+      final int? commissionMinor = existing.commissionMinor;
+      if (commissionMinor != null) {
+        _commissionAmount.text = minorToMajorString(
+          commissionMinor,
+          exponent: currencyExponentByCode(from?.currencyCode ?? ''),
+        );
+      }
+      _storePrefilled = true;
+    }
     // B3: валюта выбранного счёта задаёт дробность и суффикс поля суммы;
     // код вне справочника — fallback на сам код.
     final Account? selected = _accountOf(accounts, _accountId);
@@ -274,11 +453,13 @@ class _TransactionFormDialogState
           )
         : null;
 
-    final String title = switch (widget.type) {
-      TransactionType.expense => l10n.newExpenseTitle,
-      TransactionType.income => l10n.newIncomeTitle,
-      TransactionType.transfer => l10n.newTransferTitle,
-    };
+    final String title = widget.existing != null
+        ? l10n.transferEditTitle
+        : switch (widget.type) {
+            TransactionType.expense => l10n.newExpenseTitle,
+            TransactionType.income => l10n.newIncomeTitle,
+            TransactionType.transfer => l10n.newTransferTitle,
+          };
 
     // M5-шаг 6в: после сохранения показываем только секцию вложения
     // (сумму/счёт/категорию операции править нельзя — они уже записаны).
@@ -470,22 +651,120 @@ class _TransactionFormDialogState
                 ),
               ],
               const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text('${l10n.dateLabel}: ${_formatDate(l10n)}'),
+              // Секция «Отложить» (спека D §3): чекбокс только у перевода
+              // и только при создании — в правке форма всегда отложенная.
+              if (widget.type == TransactionType.transfer &&
+                  widget.existing == null)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(l10n.transferDeferLabel),
+                  value: _deferred,
+                  onChanged: (bool? value) =>
+                      setState(() => _deferred = value ?? false),
+                ),
+              if (_deferred) ...<Widget>[
+                // Дата исполнения заменяет дату операции: операция
+                // создастся при исполнении с датой = execute_at (D-119),
+                // поэтому обычный ряд даты ниже скрыт.
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '${l10n.transferExecuteDateLabel}: '
+                        '${_formatDate(_executeDate)}',
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: l10n.transferExecuteDateLabel,
+                      onPressed: _pickExecuteDate,
+                      icon: const Icon(Icons.calendar_month_outlined),
+                    ),
+                  ],
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    l10n.transferDeferredFixNote,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                  IconButton(
-                    tooltip: l10n.dateLabel,
-                    onPressed: _pickDate,
-                    icon: const Icon(Icons.calendar_month_outlined),
+                ),
+                const SizedBox(height: 8),
+                // Секция «Комиссия» (спека D §3): без живых расходных
+                // категорий — чекбокс disabled и подсказка (переиспользование
+                // planningNoCategoriesHint).
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: Text(l10n.transferCommissionToggle),
+                  value: _commission,
+                  onChanged: expenseCategories.isEmpty
+                      ? null
+                      : (bool? value) =>
+                            setState(() => _commission = value ?? false),
+                ),
+                if (expenseCategories.isEmpty)
+                  Text(
+                    l10n.planningNoCategoriesHint,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                if (_commission) ...<Widget>[
+                  AmountField(
+                    controller: _commissionAmount,
+                    labelText: l10n.transferCommissionAmountLabel,
+                    exponent: exponent,
+                    suffixText: amountSuffix,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _commissionCategoryId,
+                    isExpanded: true,
+                    decoration: InputDecoration(
+                      labelText: l10n.transferCommissionCategoryLabel,
+                    ),
+                    items: <DropdownMenuItem<String>>[
+                      for (final Category category in expenseCategories)
+                        DropdownMenuItem<String>(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                    ],
+                    // Порядок валидации (спека D §3): существующие поля
+                    // формы, затем комиссия — сумма (валидатор AmountField,
+                    // > 0) и эта категория.
+                    validator: (String? value) => value == null
+                        ? l10n.transferCommissionCategoryRequired
+                        : null,
+                    onChanged: (String? value) =>
+                        setState(() => _commissionCategoryId = value),
                   ),
                 ],
-              ),
-              TextFormField(
-                controller: _note,
-                decoration: InputDecoration(labelText: l10n.noteLabel),
-              ),
+              ],
+              if (!_deferred) ...<Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text('${l10n.dateLabel}: ${_formatDate(_date)}'),
+                    ),
+                    IconButton(
+                      tooltip: l10n.dateLabel,
+                      onPressed: _pickDate,
+                      icon: const Icon(Icons.calendar_month_outlined),
+                    ),
+                  ],
+                ),
+                // Заметка — только мгновенной операции: в схеме
+                // scheduled_transfers заметки нет (D-115), отложенный
+                // перевод её не хранит (спека D §3).
+                TextFormField(
+                  controller: _note,
+                  decoration: InputDecoration(labelText: l10n.noteLabel),
+                ),
+              ],
             ],
           ),
         ),
