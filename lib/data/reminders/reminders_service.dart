@@ -574,17 +574,27 @@ class RemindersService {
       if (_shownOverdue.contains(entry.payload)) {
         continue;
       }
-      _shownOverdue.add(entry.payload);
+      // Порядок как в [_showOverBudgetAlerts] (D-134): отметка дедупа —
+      // только после успешного показа; отказ канала (Error-иерархия
+      // включительно) не помечает payload показанным — повтор состоится
+      // при следующем пересчёте этого запуска.
       try {
-        await plugin.show(
+        final RemindersChannelError? error = await plugin.show(
           reminderNotificationId(entry.payload),
           title: title(),
           body: entry.body,
           payload: entry.payload,
         );
+        if (error != null) {
+          continue; // канал недоступен — показ не отмечаем
+        }
       } on Exception {
-        // «Напоминания недоступны»: не критично.
+        continue; // «Напоминания недоступны»: не критично.
+      } catch (_) {
+        // Error-иерархия (Linux): см. док-класс [FlNRemindersPlugin].
+        continue;
       }
+      _shownOverdue.add(entry.payload);
     }
   }
 }

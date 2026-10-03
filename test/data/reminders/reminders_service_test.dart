@@ -38,6 +38,14 @@ class _FakePlugin implements RemindersPlugin {
   int initializeCalls = 0;
   RemindersChannelError? nextError;
 
+  /// Отказ показа независимо от initialize/replaceAll (D-134): init может
+  /// пройти, а прямой show() — отказать (канал упал после старта).
+  RemindersChannelError? nextShowError;
+
+  /// Бросок из show() (D-134): Linux-плагин кидает UnimplementedError —
+  /// Error, не Exception (см. док-класс [FlNRemindersPlugin]).
+  Object? throwOnShow;
+
   @override
   Future<RemindersChannelError?> initialize() async {
     initializeCalls++;
@@ -62,8 +70,18 @@ class _FakePlugin implements RemindersPlugin {
     required String body,
     required String payload,
   }) async {
+    final Object? thrown = throwOnShow;
+    if (thrown != null) {
+      throw thrown;
+    }
+    // «shown» — успешные показы: отказ канала (машиночитаемый) попыткой
+    // показа не считается (D-134: показ не состоялся).
+    final RemindersChannelError? error = nextShowError ?? nextError;
+    if (error != null) {
+      return error;
+    }
     shown.add(payload);
-    return nextError;
+    return null;
   }
 
   void reset() {
@@ -72,6 +90,8 @@ class _FakePlugin implements RemindersPlugin {
     replaceAllCalls = 0;
     initializeCalls = 0;
     nextError = null;
+    nextShowError = null;
+    throwOnShow = null;
   }
 }
 
@@ -320,6 +340,49 @@ void main() {
       await service.recalculate(db.accountsDao, db.debtsDao);
 
       expect(plugin.shown, isEmpty);
+    });
+
+    test('D-134: отказ показа не помечает просроченное показанным — '
+        'повтор не пропускается', () async {
+      final Account account = await db.accountsDao.create(
+        name: 'Просроченный',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
+        interestReminderDate: DateTime.utc(2026, 9, 1, 0, 0),
+      );
+      prefs.enabled = true;
+      plugin.nextShowError = const RemindersChannelError('show');
+
+      // Канал show отказал: не бросает, payload не отмечен показанным.
+      await service.recalculate(db.accountsDao, db.debtsDao);
+      expect(plugin.shown, isEmpty);
+
+      // Канал ожил — тот же payload показывается следующим пересчётом:
+      // асимметрии с _showOverBudgetAlerts больше нет (D-134).
+      plugin.nextShowError = null;
+      await service.recalculate(db.accountsDao, db.debtsDao);
+      expect(plugin.shown, <String>['account:${account.id}']);
+    });
+
+    test('D-134: Error-иерархия из show (Linux UnimplementedError) не роняет '
+        'проход и не помечает показанным', () async {
+      final Account account = await db.accountsDao.create(
+        name: 'Просроченный',
+        kind: AccountKind.card,
+        currencyCode: 'RUB',
+        interestReminderDate: DateTime.utc(2026, 9, 1, 0, 0),
+      );
+      prefs.enabled = true;
+      plugin.throwOnShow = UnimplementedError('zonedSchedule');
+
+      // Error из show раньше прерывал recalculate до оповещений D-118 —
+      // теперь проход глушится как Exception (D-134).
+      await service.recalculate(db.accountsDao, db.debtsDao);
+      expect(plugin.shown, isEmpty);
+
+      plugin.throwOnShow = null;
+      await service.recalculate(db.accountsDao, db.debtsDao);
+      expect(plugin.shown, <String>['account:${account.id}']);
     });
   });
 
