@@ -70,6 +70,10 @@ dev_dependencies:
   # зависимостей импорт в тесте ловит depend_on_referenced_packages.
   cross_file: ^0.3.5
   file_picker_platform_interface: ^4.0.0
+  # Тип Override для тест-швов харнесса (DoD M7): в Riverpod 3.x он
+  # экспортируется только из package:riverpod/misc.dart, сам flutter_riverpod
+  # его не отдаёт — без явной зависимости импорт ловит depend_on_referenced_packages.
+  riverpod: ^3.4.3
   flutter_lints: ^6.0.0
   drift_dev: ^2.35.0
   build_runner: ^2.16.1

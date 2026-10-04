@@ -24,6 +24,7 @@ import 'package:kopilka/features/settings/update_preferences.dart';
 import 'package:kopilka/features/transactions/attachments_controller.dart';
 import 'package:kopilka/data/reminders/reminders_preferences.dart';
 import 'package:kopilka/l10n/gen/app_localizations.dart';
+import 'package:riverpod/misc.dart' show Override;
 
 import '../file_picker_shim.dart' show FakeAttachmentsIo;
 
@@ -49,11 +50,15 @@ class AppHarness {
 /// [AttachmentsService] над хранилищем во временном каталоге.
 /// [attachmentsIoProvider] подменён по умолчанию на фейк из шима пикера:
 /// реальное чтение/проверка файла в fake_async-зоне не завершается (§7).
+/// [overrides] — тест-швы вызывающего теста (DoD M7: подмена шва
+/// RemindersPlugin D-83 и запроса разрешения D-88.1); добавляются в конец
+/// списка — чужих переопределений харнесса харнесс не дублирует.
 Future<AppHarness> pumpDialogApp(
   WidgetTester tester, {
   Size size = const Size(400, 800),
   String tempDirPrefix = 'kopilka_dialog_test',
   AttachmentsService? attachmentsService,
+  List<Override> overrides = const <Override>[],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -107,6 +112,7 @@ Future<AppHarness> pumpDialogApp(
       if (attachmentsService != null)
         attachmentsServiceProvider.overrideWithValue(attachmentsService),
       attachmentsIoProvider.overrideWithValue(const FakeAttachmentsIo()),
+      ...overrides,
     ],
   );
   addTearDown(container.dispose);
